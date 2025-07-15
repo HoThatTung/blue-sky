@@ -1,0 +1,296 @@
+/* === VÙNG CHÍNH === */
+.box {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 0px 20px 30px 20px;
+  margin: 15px auto 20px auto;
+  font-family: "Inter", sans-serif;
+  overflow-x: hidden;
+}
+
+/* === TIÊU ĐỀ === */
+.box h1 {
+  text-align: center;
+  font-size: 28px;
+  color: #222;
+  margin-bottom: 20px;
+  font-weight: 700;
+}
+
+/* === CHỌN ẢNH VÀ TẢI ẢNH LÊN === */
+.controls-row {
+  margin-top: 35px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.select-area,
+.upload-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.select-area {
+  justify-content: flex-start;
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.upload-area {
+  justify-content: flex-end;
+}
+
+.upload-label {
+  background: #1976d2;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+}
+
+.upload-label:hover {
+  background: #125aa0;
+}
+
+select {
+  padding: 8px 12px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  font-family: "Inter", sans-serif;
+  color: #000;
+  font-style: normal;
+  background-color: #f2faff;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* Placeholder cho select */
+select.placeholder {
+  color: rgba(0,0,0,0.5);
+  font-style: italic;
+}
+select:focus option#placeholderOption {
+  display: none;
+}
+
+/* === CÔNG CỤ VẼ === */
+.tool-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+
+.mode-btn {
+  background: #f0f0f0;
+  padding: 5px 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: "Inter", sans-serif;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mode-btn.active {
+  background: #1976d2;
+  color: white;
+  border-color: #125aa0;
+}
+
+.mode-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.brush-size-select {
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  font-family: "Inter", sans-serif;
+}
+
+/* === BẢNG MÀU === */
+.palette {
+  display: grid;
+  grid-template-columns: repeat(10, 28px);
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0 20px;
+}
+
+.color {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.color:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 4px rgba(0,0,0,0.2);
+}
+
+.color.selected {
+  border: 2px solid black;
+  box-shadow: 0 0 4px rgba(0,0,0,0.4);
+}
+
+.color[data-color="#FFFFFF"] {
+  background: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%),
+              linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 4px 4px;
+  position: relative;
+}
+.color[data-color="#FFFFFF"]::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: white;
+  border: 1px solid #999;
+  box-sizing: border-box;
+}
+
+/* === CANVAS === */
+.canvas-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-left: 0;
+  padding-right: 0;
+  box-sizing: border-box;
+}
+
+.canvas-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 0;
+  position: relative;
+}
+
+canvas {
+  border: 1px solid #888;
+  background: white;
+  width: 100%;
+  height: auto;
+  box-sizing: border-box;
+  display: block;
+}
+
+/* === UNDO / REDO / LƯU === */
+.action-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+  gap: 10px;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.action-left,
+.action-right {
+  display: flex;
+  gap: 10px;
+}
+
+.action-right {
+  margin-left: auto;
+}
+
+.action-left button,
+.action-right button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #28a745;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  font-family: "Inter", sans-serif;
+  margin: 0;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.action-left button:hover,
+.action-right button:hover {
+  background: #218838;
+  transform: scale(1.03);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* === GHI CHÚ === */
+.note {
+  font-size: 14px;
+  color: #555;
+  background: #fdf6e3;
+  padding: 10px;
+  border-left: 4px solid #ffcc00;
+  border-radius: 4px;
+  margin-top: 10px;
+  font-family: "Inter", sans-serif;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 1024px) {
+  .canvas-container {
+    flex-direction: column;
+    align-items: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .canvas-wrapper {
+    width: 100%;
+    padding: 0;
+  }
+
+  canvas {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .action-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .action-left {
+    justify-content: flex-start;
+  }
+}
+
+/* === ẨN LABEL VÙNG CHỌN === */
+.select-area label {
+  display: none;
+}

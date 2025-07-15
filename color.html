@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tô màu cho diều</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/color.css" />
+  <script defer src="js/color.js"></script>
+</head>
+<body>
+
+  <header class="header">
+    <div class="container header-inner">
+      <img src="images/logo.png" alt="Logo Blue Sky" class="logo" />
+      <button class="menu-toggle" id="menuToggle" aria-label="Mở menu">☰</button>
+      <nav class="nav" id="mainNav">
+        <a href="home.html">Trang chủ</a>
+        <a href="about.html">Giới thiệu</a>
+        <a href="shop.html">Sản phẩm</a>
+        <a href="color.html" class="active">Tô màu</a>
+        <a href="events.html">Sự kiện</a>
+        <a href="contact.html">Liên hệ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="container box">
+      <h1>TÔ MÀU CHO DIỀU</h1>
+
+      <div class="controls-row">
+        <div class="select-area">
+          <select id="imageSelect" required class="placeholder">
+            <option id="placeholderOption" value="" disabled selected hidden>Diều Blue Sky...</option>
+            <option value="images/color/color/pilot.jpg">Pilot</option>
+            <option value="images/color/color/mau1.png">Bọ hung 21m</option>
+          </select>
+        </div>
+        <div class="upload-area">
+          <label for="uploadInput" class="upload-label">⬆️ Tải ảnh lên</label>
+          <input type="file" id="uploadInput" accept="image/*" hidden>
+        </div>
+      </div>
+
+      <div class="tool-row">
+        <button id="fillModeBtn" class="mode-btn active">🖌️ Tô vùng</button>
+        <button id="brushModeBtn" class="mode-btn">✍️ Cọ vẽ</button>
+        <button id="eraserModeBtn" class="mode-btn">🧽 Cọ xóa</button>
+        <select id="brushSizeSelect" class="brush-size-select" style="display: none;">
+          <option value="1.5">Cỡ cọ 1x</option>
+          <option value="3">Cỡ cọ 2x</option>
+          <option value="4.5">Cỡ cọ 3x</option>
+          <option value="6">Cỡ cọ 4x</option>
+          <option value="7.5" selected>Cỡ cọ 5x</option>
+          <option value="9">Cỡ cọ 6x</option>
+          <option value="10.5">Cỡ cọ 7x</option>
+          <option value="12">Cỡ cọ 8x</option>
+          <option value="13.5">Cỡ cọ 9x</option>
+          <option value="15">Cỡ cọ 10x</option>
+        </select>
+      </div>
+
+      <div id="colorPalette" class="palette"></div>
+
+      <div class="canvas-container">
+        <div class="canvas-wrapper">
+          <canvas id="canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <div class="action-left">
+          <button id="undoBtn">↩️ Undo</button>
+          <button id="redoBtn">↪️ Redo</button>
+        </div>
+        <div class="action-right">
+          <button id="downloadBtn">💾 Lưu ảnh</button>
+        </div>
+      </div>
+
+      <p class="note">
+        📌 <strong>Ghi chú:</strong> Ảnh upload cần có viền ranh giới rõ ràng, không bị mờ hoặc chồng màu để tô hiệu quả.
+      </p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p>
+        📞 Zalo: <a href="tel:+84903082089">+84 903 082 089</a> |
+        🌐 <a href="https://www.facebook.com/profile.php?id=100010250733315" target="_blank">Facebook: Tung Ho</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

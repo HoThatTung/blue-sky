@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="vi">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lazysizes/5.3.2/lazysizes.min.js" async></script>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sản phẩm - Blue Sky</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/shop.css" />
+  <script defer src="js/shop.js"></script>
+</head>
+<body>
+  <header class="header">
+    <div class="container header-inner">
+      <img src="images/logo.png" alt="Logo Blue Sky" class="logo" />
+      <button class="menu-toggle" id="menuToggle">☰</button>
+      <nav class="nav" id="mainNav">
+        <a href="home.html">Trang chủ</a>
+        <a href="about.html">Giới thiệu</a>
+        <a href="shop.html" class="active">Sản phẩm</a>
+        <a href="color.html">Tô màu</a>
+        <a href="events.html">Sự kiện</a>
+        <a href="contact.html">Liên hệ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shop-container">
+    <div class="shop-wrapper">
+      <h2 style="text-align:center; margin-top:30px;">SẢN PHẨM</h2>
+           <div id="product-groups"></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p>
+        📞 Zalo: <a href="tel:+84903082089">+84 903 082 089</a> |
+        🌐 <a href="https://www.facebook.com/profile.php?id=100010250733315" target="_blank">Facebook: Tung Ho</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Toggle menu script -->
+  <script>
+    const menuToggle = document.getElementById("menuToggle");
+    const navMenu = document.getElementById("mainNav");
+    menuToggle.addEventListener("click", e => {
+      e.stopPropagation();
+      navMenu.classList.toggle("show");
+    });
+    document.addEventListener("click", e => {
+      if (!navMenu.contains(e.target) && !menuToggle.contains(e.target)) {
+        navMenu.classList.remove("show");
+      }
+    });
+  </script>
+</body>
+</html>

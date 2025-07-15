@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trang chủ - Blue Sky</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/home.css" />
+  <script defer src="js/zoom.js"></script>
+</head>
+<body>
+  <header class="header">
+    <div class="container header-inner">
+      <img src="images/logo.png" alt="Logo Blue Sky" class="logo" />
+      <button class="menu-toggle" id="menuToggle" aria-label="Mở menu">☰</button>
+      <nav class="nav" id="mainNav">
+        <a href="home.html" class="active">Trang chủ</a>
+        <a href="about.html">Giới thiệu</a>
+        <a href="shop.html">Sản phẩm</a>
+        <a href="color.html">Tô màu</a>
+        <a href="events.html">Sự kiện</a>
+        <a href="contact.html">Liên hệ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero container box">
+      <h1>Khám phá thế giới diều nghệ thuật cùng Blue Sky</h1>
+      <p>Chúng tôi mang đến trải nghiệm sáng tạo với diều nghệ thuật độc đáo – từ thiết kế, trải nghiệm làm diều đến sự kiện thả diều sôi động. Tùy chỉnh chiếc diều của riêng bạn và để ước mơ bay cao!</p>
+    </section>
+
+    <section class="features container box">
+      <div class="feature-card">
+        <h3>🎨 Tô màu diều</h3>
+        <p>Thỏa sức sáng tạo với công cụ tô màu trực tuyến. Tùy chỉnh thiết kế của bạn trên những mẫu diều đẹp mắt chỉ bằng vài cú nhấp chuột.</p>
+        <a href="color.html" class="btn">Bắt đầu tô màu</a>
+      </div>
+      <div class="feature-card">
+        <h3>🪁 Mua sắm diều</h3>
+        <p>Khám phá bộ sưu tập diều nghệ thuật đa dạng với nhiều kích cỡ và phong cách. Chọn mẫu diều yêu thích và đặt hàng nhanh chóng.</p>
+        <a href="shop.html" class="btn">Xem sản phẩm</a>
+      </div>
+      <div class="feature-card">
+        <h3>🎉 Sự kiện</h3>
+        <p>Cập nhật các sự kiện thả diều, hội thi sáng tạo và hoạt động cộng đồng đầy cảm hứng cùng Blue Sky.</p>
+        <a href="events.html" class="btn">Xem sự kiện</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p>
+        📞 Zalo: <a href="tel:+84903082089">+84 903 082 089</a> |
+        🌐 <a href="https://www.facebook.com/profile.php?id=100010250733315" target="_blank">Facebook: Tung Ho</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    const menuToggle = document.getElementById("menuToggle");
+    const navMenu = document.getElementById("mainNav");
+
+    menuToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navMenu.classList.toggle("show");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!navMenu.contains(e.target) && !menuToggle.contains(e.target)) {
+        navMenu.classList.remove("show");
+      }
+    });
+  </script>
+</body>
+</html>

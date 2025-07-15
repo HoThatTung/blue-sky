@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Liên hệ - Blue Sky</title>
+
+  <!-- Font và CSS -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/contact.css" />
+  <script defer src="js/zoom.js"></script>
+ </head>
+<body>
+  <!-- Header đồng bộ -->
+  <header class="header">
+    <div class="container header-inner">
+      <img src="images/logo.png" alt="Logo Blue Sky" class="logo" />
+      <button class="menu-toggle" id="menuToggle" aria-label="Mở menu">☰</button>
+      <nav class="nav" id="mainNav">
+        <a href="home.html">Trang chủ</a>
+        <a href="about.html">Giới thiệu</a>
+        <a href="shop.html">Sản phẩm</a>
+        <a href="color.html">Tô màu</a>
+        <a href="events.html">Sự kiện</a>
+        <a href="contact.html" class="active">Liên hệ</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Nội dung chính -->
+  <main>
+    <section class="contact-section container box">
+      <h1>Liên hệ với Blue Sky 📨</h1>
+      <p>Nếu bạn có thắc mắc, ý tưởng hoặc muốn hợp tác – đừng ngần ngại gửi tin nhắn cho chúng tôi!</p>
+
+      <form class="contact-form">
+        <div class="form-group">
+          <label for="name">Họ và tên</label>
+          <input type="text" id="name" name="name" required placeholder="Nhập họ tên của bạn" />
+        </div>
+        <div class="form-group">
+          <label for="email">Email hoặc Số điện thoại</label>
+          <input type="text" id="email" name="email" required placeholder="Email hoặc số điện thoại" />
+        </div>
+        <div class="form-group">
+          <label for="message">Nội dung</label>
+          <textarea id="message" name="message" rows="5" required placeholder="Viết tin nhắn của bạn..."></textarea>
+        </div>
+        <button type="submit" class="btn-submit">Gửi liên hệ</button>
+      </form>
+
+      <div class="contact-info">
+        <h2>📞 Thông tin liên hệ</h2>
+        <p><strong>Zalo:</strong> <a href="tel:+84903082089">+84 903 082 089</a></p>
+        <p><strong>Facebook:</strong> <a href="https://www.facebook.com/profile.php?id=100010250733315" target="_blank">Tung Ho</a></p>
+        <p><strong>Email:</strong> <a href="mailto:thattung.ho@gmail.com">thattung.ho@gmail.com</a></p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer đồng bộ -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p>
+        📞 Zalo: <a href="tel:+84903082089">+84 903 082 089</a> |
+        🌐 <a href="https://www.facebook.com/profile.php?id=100010250733315" target="_blank">Facebook: Tung Ho</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Script menu cho mobile -->
+  <script>
+    const menuToggle = document.getElementById("menuToggle");
+    const navMenu = document.getElementById("mainNav");
+
+    menuToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navMenu.classList.toggle("show");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!navMenu.contains(e.target) && !menuToggle.contains(e.target)) {
+        navMenu.classList.remove("show");
+      }
+    });
+  </script>
+  <script defer src="js/contact.js"></script>
+</body>
+</html>

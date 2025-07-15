@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giới thiệu - Blue Sky</title>
+
+  <!-- Font & CSS -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/about.css" />
+  <script defer src="js/zoom.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container header-inner">
+      <img src="images/logo.png" alt="Logo Blue Sky" class="logo" />
+      <button class="menu-toggle" id="menuToggle" aria-label="Mở menu">☰</button>
+      <nav class="nav" id="mainNav">
+        <a href="home.html">Trang chủ</a>
+        <a href="about.html" class="active">Giới thiệu</a>
+        <a href="shop.html">Sản phẩm</a>
+        <a href="color.html">Tô màu</a>
+        <a href="events.html">Sự kiện</a>
+        <a href="contact.html">Liên hệ</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Nội dung -->
+  <main>
+    <section class="container box about-section">
+      <h1>Về Blue Sky 🪁</h1>
+      <p><strong>Blue Sky</strong> là nơi khởi nguồn cho những giấc mơ được thả bay cùng gió. Chúng tôi là một nhóm đam mê diều nghệ thuật, luôn nỗ lực sáng tạo ra những chiếc diều mang đậm dấu ấn văn hóa và cá nhân hóa.</p>
+
+      <p>Từ những cánh đồng tuổi thơ đến những lễ hội lớn, mỗi chiếc diều mà Blue Sky tạo ra đều mang trong mình câu chuyện riêng. Chúng tôi kết hợp giữa kỹ thuật thủ công truyền thống và thiết kế hiện đại để mang đến những sản phẩm chất lượng, đẹp và độc đáo.</p>
+
+      <p>Blue Sky không chỉ là ngôi nhà sáng tạo  – mà còn là nơi bạn có thể tự tay thiết kế, tô màu và cá nhân hóa chiếc diều theo cách riêng của mình. Hãy cùng chúng tôi vẽ nên bầu trời đầy màu sắc!</p>
+
+      <div class="gallery">
+        <img src="images/about/img1.jpg" alt="Thả diều nghệ thuật" />
+        <img src="images/about/img2.jpg" alt="Thiết kế diều sáng tạo" />
+        <img src="images/about/img3.jpg" alt="Sự kiện cộng đồng" />
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p>
+        📞 Zalo: <a href="tel:+84903082089">+84 903 082 089</a> |
+        🌐 <a href="https://www.facebook.com/profile.php?id=100010250733315" target="_blank">Facebook: Tung Ho</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Dropdown menu JS -->
+  <script>
+    const menuToggle = document.getElementById("menuToggle");
+    const navMenu = document.getElementById("mainNav");
+
+    menuToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navMenu.classList.toggle("show");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!navMenu.contains(e.target) && !menuToggle.contains(e.target)) {
+        navMenu.classList.remove("show");
+      }
+    });
+  </script>
+</body>
+</html>

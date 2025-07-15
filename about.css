@@ -1,0 +1,56 @@
+/* === Section Giới thiệu === */
+.about-section {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.about-section h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a73e8;
+  margin-bottom: 24px;
+}
+
+.about-section p {
+  font-size: 1.05rem;
+  color: #444;
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+
+/* === Gallery ảnh === */
+.gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+.gallery img {
+  width: 100%;
+  max-width: 320px;
+  flex: 1 1 100%;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.gallery img:hover {
+  transform: scale(1.02);
+}
+
+/* === Responsive cho tablet === */
+@media (min-width: 768px) {
+  .gallery img {
+    flex: 1 1 45%;
+  }
+}
+
+/* === Responsive cho desktop === */
+@media (min-width: 1024px) {
+  .gallery img {
+    flex: 1 1 30%;
+  }
+}
