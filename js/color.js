@@ -239,6 +239,9 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 });
 
 // Lưu ảnh
+// ... giữ nguyên toàn bộ code phía trên
+
+// Lưu ảnh
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const logo = new Image();
   logo.src = "images/logo.png";
@@ -268,21 +271,38 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-    // Sử dụng toBlob thay vì toDataURL
+    // iOS check
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
     tempCanvas.toBlob((blob) => {
-      if (blob) {
+      if (!blob) {
+        alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
+        return;
+      }
+
+      if (isIOS) {
+        // Mở ảnh trong tab mới để người dùng nhấn giữ và lưu
+        const reader = new FileReader();
+        reader.onloadend = function () {
+          const imgWindow = window.open();
+          if (imgWindow) {
+            imgWindow.document.write('<img src="' + reader.result + '" style="width:100%">');
+            alert("👉 Ảnh đã mở. Nhấn giữ ảnh và chọn 'Lưu hình ảnh' để tải về.");
+          } else {
+            alert("Vui lòng bật cửa sổ popup để lưu ảnh.");
+          }
+        };
+        reader.readAsDataURL(blob);
+      } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = originalImageName || "to_mau.png";
 
-        // Với mobile, bạn nên thêm phần tử vào DOM trước khi click
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      } else {
-        alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
       }
     }, "image/png");
   };
@@ -291,6 +311,9 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
+// ... giữ nguyên toàn bộ code phía dưới
+
 
 
 // Upload ảnh người dùng
