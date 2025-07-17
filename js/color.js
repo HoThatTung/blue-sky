@@ -238,8 +238,11 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// Lưu ảnh (đã sửa xử lý iOS popup)
+// Lưu ảnh (fix iOS popup block)
 document.getElementById("downloadBtn").addEventListener("click", () => {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const imgWindow = isIOS ? window.open("", "_blank") : null;
+
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
@@ -263,9 +266,6 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const x = canvas.width - logoWidth - 10;
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
-
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const imgWindow = isIOS ? window.open("", "_blank") : null;
 
     tempCanvas.toBlob((blob) => {
       if (!blob) {
