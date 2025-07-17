@@ -239,7 +239,7 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 });
 
 // Lưu ảnh
-// ... giữ nguyên toàn bộ code phía trên
+// --- Tất cả phần code cũ: khởi tạo, chế độ vẽ, undo/redo... giữ nguyên như bạn gửi ---
 
 // Lưu ảnh
 document.getElementById("downloadBtn").addEventListener("click", () => {
@@ -271,9 +271,10 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
+    // Check thiết bị iOS
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
-    // Tạo trước popup khi người dùng click (rất quan trọng)
+    // Tạo trước popup nếu là iOS để tránh bị chặn
     const imgWindow = isIOS ? window.open("", "_blank") : null;
 
     tempCanvas.toBlob((blob) => {
@@ -307,6 +308,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
 
 
 // ... giữ nguyên toàn bộ code phía dưới
