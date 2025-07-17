@@ -271,8 +271,10 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-    // iOS check
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    // Tạo trước popup khi người dùng click (rất quan trọng)
+    const imgWindow = isIOS ? window.open("", "_blank") : null;
 
     tempCanvas.toBlob((blob) => {
       if (!blob) {
@@ -280,17 +282,11 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
         return;
       }
 
-      if (isIOS) {
-        // Mở ảnh trong tab mới để người dùng nhấn giữ và lưu
+      if (isIOS && imgWindow) {
         const reader = new FileReader();
         reader.onloadend = function () {
-          const imgWindow = window.open();
-          if (imgWindow) {
-            imgWindow.document.write('<img src="' + reader.result + '" style="width:100%">');
-            alert("👉 Ảnh đã mở. Nhấn giữ ảnh và chọn 'Lưu hình ảnh' để tải về.");
-          } else {
-            alert("Vui lòng bật cửa sổ popup để lưu ảnh.");
-          }
+          imgWindow.document.write(`<img src="${reader.result}" style="width:100%">`);
+          alert("👉 Ảnh đã mở. Nhấn giữ ảnh và chọn 'Lưu hình ảnh' để tải về.");
         };
         reader.readAsDataURL(blob);
       } else {
@@ -311,6 +307,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
 
 // ... giữ nguyên toàn bộ code phía dưới
 
