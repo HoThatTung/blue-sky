@@ -167,7 +167,6 @@ canvas.addEventListener("click", (e) => {
   }
 });
 
-// Flood fill
 function hexToRgba(hex) {
   const bigint = parseInt(hex.slice(1), 16);
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
@@ -238,11 +237,8 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// Lưu ảnh (fix iOS popup block)
+// Lưu ảnh (fix hoạt động cho mobile)
 document.getElementById("downloadBtn").addEventListener("click", () => {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const imgWindow = isMobile ? window.open("", "_blank") : null;
-
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
@@ -267,17 +263,24 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
     tempCanvas.toBlob((blob) => {
       if (!blob) {
         alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
         return;
       }
 
-      if (isMobile && imgWindow) {
+      if (isIOS) {
         const reader = new FileReader();
-        reader.onloadend = function () {
-          imgWindow.document.body.innerHTML = `<img src="${reader.result}" style="width:100%;height:auto;">`;
-          imgWindow.document.title = "Nhấn giữ ảnh để lưu";
+        reader.onloadend = () => {
+          const newTab = window.open();
+          if (newTab) {
+            newTab.document.write(`<img src="${reader.result}" style="width:100%">`);
+            alert("👉 Ảnh đã mở. Nhấn giữ ảnh và chọn 'Lưu hình ảnh' để tải về.");
+          } else {
+            alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
+          }
         };
         reader.readAsDataURL(blob);
       } else {
@@ -297,7 +300,6 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
-
 
 // Upload ảnh người dùng
 document.getElementById("uploadInput").addEventListener("change", function () {
@@ -367,7 +369,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
   img.src = imagePath;
   originalImageName = imagePath.split('/').pop();
-
   updateSelectStyle();
 });
 
