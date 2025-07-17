@@ -14,10 +14,10 @@ let redoStack = [];
 let originalImageName = "";
 
 const colors = [
-  "#CD0000", "#EE4000", "#FF6347", "#FF00FF", "#FFD700",
+  "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
   "#FFFF00", "#000000", "#808080", "#C0C0C0", "#FFFFFF",
   "#0000FF", "#9370DB", "#00CCFF", "#00FFFF", "#006241",
-  "#008000", "#00FF00", "#CCFFCC", "#800080", "#8B5F65"
+  "#008000", "#00FF00", "#99FF66", "#800080", "#8B5F65"
 ];
 
 // Tạo bảng màu
