@@ -242,19 +242,25 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const logo = new Image();
   logo.src = "images/logo.png";
+  logo.crossOrigin = "anonymous";
 
   logo.onload = () => {
     const tempCanvas = document.createElement("canvas");
     const tempCtx = tempCanvas.getContext("2d");
+
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
 
+    // Vẽ hình chính
     tempCtx.drawImage(canvas, 0, 0);
+
+    // Ghi tên ảnh
     tempCtx.font = "16px Arial";
     tempCtx.fillStyle = "black";
     tempCtx.textBaseline = "top";
     tempCtx.fillText(originalImageName, 10, 10);
 
+    // Vẽ logo
     const logoHeight = 40;
     const scale = logoHeight / logo.height;
     const logoWidth = logo.width * scale;
@@ -262,16 +268,30 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-    const link = document.createElement("a");
-    link.download = originalImageName || "to_mau.png";
-    link.href = tempCanvas.toDataURL("image/png");
-    link.click();
+    // Sử dụng toBlob thay vì toDataURL
+    tempCanvas.toBlob((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = originalImageName || "to_mau.png";
+
+        // Với mobile, bạn nên thêm phần tử vào DOM trước khi click
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
+      }
+    }, "image/png");
   };
 
   logo.onerror = () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
 
 // Upload ảnh người dùng
 document.getElementById("uploadInput").addEventListener("change", function () {
