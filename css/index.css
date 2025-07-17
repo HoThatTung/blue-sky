@@ -90,3 +90,11 @@
     font-size: 1.1rem;
   }
 }
+.features {
+  align-items: center;
+}
+.feature-card {
+  width: 100%;
+  max-width: 400px;
+}
+
