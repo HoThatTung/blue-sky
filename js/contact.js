@@ -2,6 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector(".contact-form");
   if (!form) return;
 
+  const successMsg = form.querySelector(".success-message");
+  const errorMsg = form.querySelector(".error-message");
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -10,12 +13,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const message = form.querySelector("#message").value.trim();
 
     if (!name || !email || !message) {
-      alert("Vui lòng điền đầy đủ thông tin.");
+      errorMsg.textContent = "⚠️ Vui lòng điền đầy đủ thông tin.";
+      errorMsg.style.display = "block";
+      successMsg.style.display = "none";
       return;
     }
 
     const data = {
-      type: "contact", // ✅ quan trọng để xử lý đúng ở doPost
+      type: "contact",
       name,
       email,
       message
@@ -32,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
     submitBtn.textContent = "Đang gửi...";
 
     try {
-      const res = await fetch("https://script.google.com/macros/s/AKfycbxdmJg_8-z8lLEWcF1dQLCau10arTkFpg2TjrIntAm7P8SjkGD49CBwyXO6IZC7bpLt/exec", {
+      const res = await fetch("https://script.google.com/macros/s/AKfycbychBZSym3iXVsFBNc0pl3kYFuraRnb_YoIh7NfJ7gPk81t-iZJIPSTf7g6hRpvFBbv/exec", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded"
@@ -42,26 +47,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const text = await res.text();
       let result;
-
       try {
         result = JSON.parse(text);
       } catch (err) {
         console.warn("Phản hồi không phải JSON:", text);
-        alert("✔️ Gửi thành công (chưa phân tích được phản hồi).");
+        successMsg.style.display = "block";
+        errorMsg.style.display = "none";
         form.reset();
         return;
       }
 
-      if (result.status === "success") {
-        alert("✅ Gửi liên hệ thành công!");
+      if (result.result === "success") {
+        successMsg.style.display = "block";
+        errorMsg.style.display = "none";
         form.reset();
       } else {
-        alert("❌ Gửi thất bại: " + result.message);
+        errorMsg.textContent = "❌ Gửi thất bại: " + (result.message || "Không rõ lý do.");
+        errorMsg.style.display = "block";
+        successMsg.style.display = "none";
       }
 
     } catch (err) {
       console.error("Lỗi gửi:", err);
-      alert("⚠️ Lỗi khi gửi liên hệ. Vui lòng thử lại sau.");
+      errorMsg.textContent = "⚠️ Lỗi khi gửi liên hệ. Vui lòng thử lại sau.";
+      errorMsg.style.display = "block";
+      successMsg.style.display = "none";
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = originalText;
