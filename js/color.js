@@ -240,8 +240,8 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 
 // Lưu ảnh (fix iOS popup block)
 document.getElementById("downloadBtn").addEventListener("click", () => {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  const imgWindow = isIOS ? window.open("", "_blank") : null;
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const imgWindow = isMobile ? window.open("", "_blank") : null;
 
   const logo = new Image();
   logo.src = "images/logo.png";
@@ -273,11 +273,11 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
         return;
       }
 
-      if (isIOS && imgWindow) {
+      if (isMobile && imgWindow) {
         const reader = new FileReader();
         reader.onloadend = function () {
-          imgWindow.document.write(`<img src="${reader.result}" style="width:100%">`);
-          alert("👉 Ảnh đã mở. Nhấn giữ ảnh và chọn 'Lưu hình ảnh' để tải về.");
+          imgWindow.document.body.innerHTML = `<img src="${reader.result}" style="width:100%;height:auto;">`;
+          imgWindow.document.title = "Nhấn giữ ảnh để lưu";
         };
         reader.readAsDataURL(blob);
       } else {
@@ -285,7 +285,6 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
         const a = document.createElement("a");
         a.href = url;
         a.download = originalImageName || "to_mau.png";
-
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -298,6 +297,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
 
 // Upload ảnh người dùng
 document.getElementById("uploadInput").addEventListener("change", function () {
