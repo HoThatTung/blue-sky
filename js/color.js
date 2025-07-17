@@ -117,7 +117,7 @@ function drawAt(e) {
   ctx.fill();
 }
 
-// Vẽ desktop
+// Desktop vẽ
 canvas.addEventListener("mousedown", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
@@ -137,7 +137,7 @@ canvas.addEventListener("mouseleave", () => {
   isDrawing = false;
 });
 
-// Vẽ mobile
+// Mobile vẽ
 canvas.addEventListener("touchstart", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
@@ -238,11 +238,15 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// Lưu ảnh (đã sửa tách desktop / mobile)
+// Lưu ảnh (fix iOS popup block)
+
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
+
+  // Mở sẵn tab mới ở đây
+  const newTab = window.open("about:blank", "_blank");
 
   logo.onload = () => {
     const tempCanvas = document.createElement("canvas");
@@ -252,7 +256,6 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCanvas.height = canvas.height;
 
     tempCtx.drawImage(canvas, 0, 0);
-
     tempCtx.font = "16px Arial";
     tempCtx.fillStyle = "black";
     tempCtx.textBaseline = "top";
@@ -265,23 +268,23 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
     tempCanvas.toBlob((blob) => {
       if (!blob) {
         alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
         return;
       }
 
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-      if (isMobile) {
+      if (isIOS || /Android/.test(navigator.userAgent)) {
         const reader = new FileReader();
         reader.onloadend = () => {
-          const newTab = window.open();
           if (newTab) {
-            newTab.document.write(`<img src="${reader.result}" style="width:100%">`);
+            newTab.document.body.style.margin = "0";
+            newTab.document.body.innerHTML = `<img src="${reader.result}" style="width:100%">`;
             alert("👉 Ảnh đã mở. Nhấn giữ ảnh và chọn 'Lưu hình ảnh' để tải về.");
           } else {
-            alert("Vui lòng bật cửa sổ popup để lưu ảnh.");
+            alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
           }
         };
         reader.readAsDataURL(blob);
@@ -302,6 +305,8 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
+
 
 // Upload ảnh người dùng
 document.getElementById("uploadInput").addEventListener("change", function () {
@@ -364,9 +369,11 @@ window.addEventListener("DOMContentLoaded", () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
   };
+
   img.onerror = () => {
     alert("Không thể tải ảnh tô màu từ URL: " + imagePath);
   };
+
   img.src = imagePath;
   originalImageName = imagePath.split('/').pop();
 
