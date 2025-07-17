@@ -167,6 +167,7 @@ canvas.addEventListener("click", (e) => {
   }
 });
 
+// Flood fill
 function hexToRgba(hex) {
   const bigint = parseInt(hex.slice(1), 16);
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
@@ -237,11 +238,15 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// Lưu ảnh (fix hoạt động cho mobile)
+// Lưu ảnh (fix iOS popup block)
+
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
+
+  // Mở sẵn tab mới ở đây
+  const newTab = window.open("about:blank", "_blank");
 
   logo.onload = () => {
     const tempCanvas = document.createElement("canvas");
@@ -271,12 +276,12 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
         return;
       }
 
-      if (isIOS) {
+      if (isIOS || /Android/.test(navigator.userAgent)) {
         const reader = new FileReader();
         reader.onloadend = () => {
-          const newTab = window.open();
           if (newTab) {
-            newTab.document.write(`<img src="${reader.result}" style="width:100%">`);
+            newTab.document.body.style.margin = "0";
+            newTab.document.body.innerHTML = `<img src="${reader.result}" style="width:100%">`;
             alert("👉 Ảnh đã mở. Nhấn giữ ảnh và chọn 'Lưu hình ảnh' để tải về.");
           } else {
             alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
@@ -300,6 +305,8 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
+
 
 // Upload ảnh người dùng
 document.getElementById("uploadInput").addEventListener("change", function () {
@@ -369,6 +376,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   img.src = imagePath;
   originalImageName = imagePath.split('/').pop();
+
   updateSelectStyle();
 });
 
