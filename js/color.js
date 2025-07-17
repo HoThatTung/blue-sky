@@ -238,10 +238,7 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// Lưu ảnh
-// --- Tất cả phần code cũ: khởi tạo, chế độ vẽ, undo/redo... giữ nguyên như bạn gửi ---
-
-// Lưu ảnh
+// Lưu ảnh (đã sửa xử lý iOS popup)
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const logo = new Image();
   logo.src = "images/logo.png";
@@ -254,16 +251,12 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
 
-    // Vẽ hình chính
     tempCtx.drawImage(canvas, 0, 0);
-
-    // Ghi tên ảnh
     tempCtx.font = "16px Arial";
     tempCtx.fillStyle = "black";
     tempCtx.textBaseline = "top";
     tempCtx.fillText(originalImageName, 10, 10);
 
-    // Vẽ logo
     const logoHeight = 40;
     const scale = logoHeight / logo.height;
     const logoWidth = logo.width * scale;
@@ -271,10 +264,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-    // Check thiết bị iOS
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-    // Tạo trước popup nếu là iOS để tránh bị chặn
     const imgWindow = isIOS ? window.open("", "_blank") : null;
 
     tempCanvas.toBlob((blob) => {
@@ -308,12 +298,6 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
-
-
-
-// ... giữ nguyên toàn bộ code phía dưới
-
-
 
 // Upload ảnh người dùng
 document.getElementById("uploadInput").addEventListener("change", function () {
@@ -369,7 +353,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const imagePath = imgParam || defaultImage;
 
   img = new Image();
-  img.crossOrigin = "anonymous"; // <-- thêm dòng này
+  img.crossOrigin = "anonymous";
   img.onload = () => {
     canvas.width = img.width;
     canvas.height = img.height;
