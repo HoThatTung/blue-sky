@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const heading = document.querySelector("h2");
     const loadingSpan = document.createElement("span");
     loadingSpan.textContent = " ...loading";
-    loadingSpan.style.fontSize = "10px";
+    loadingSpan.style.fontSize = "14px";
     heading.appendChild(loadingSpan);
 
     const res = await fetch(API_URL);
