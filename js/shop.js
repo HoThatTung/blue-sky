@@ -132,21 +132,55 @@ async function renderGroup(groupName) {
       const priceOriginal = priceRow.querySelector(".price-original");
       const priceSale = priceRow.querySelector(".price-sale");
 
-      function updateDetails() {
-        const selected = sizeSelect.selectedOptions[0];
-        const price = selected.dataset.price;
-        const sale = selected.dataset.sale;
-        const newImg = selected.dataset.img;
+ function updateDetails() {
+  const selected = sizeSelect.selectedOptions[0];
+  const price = selected.dataset.price;
+  const sale = selected.dataset.sale;
+  const newImg = selected.dataset.img;
 
-        priceOriginal.textContent = `Giá: ${formatPrice(price)}đ`;
-        priceSale.textContent = `Khuyến mãi: ${formatPrice(sale)}đ`;
-        priceRow.classList.remove("hidden");
+  const hasPrice = price && parseFloat(price) > 0;
+  const hasSale = sale && parseFloat(sale) > 0;
 
-        if (newImg) {
-          img.setAttribute("data-src", newImg);
-          img.classList.add("lazyload");
-        }
-      }
+  if (!hasPrice && !hasSale) {
+    priceRow.innerHTML = `
+      <div class="contact-row">
+        <span class="contact-info">
+          <a href="tel:0903082089" title="Gọi ngay">📞Liên hệ trực tiếp</a>
+        
+        </span>
+      </div>
+    `;
+    priceRow.classList.remove("hidden");
+    return;
+  }
+
+  if (hasPrice && hasSale) {
+    priceRow.innerHTML = `
+      <span class="price-original"><s>Giá: ${formatPrice(price)}đ</s></span>
+      <span class="price-sale">Khuyến mãi: ${formatPrice(sale)}đ</span>
+    `;
+    priceRow.classList.remove("hidden");
+    return;
+  }
+
+  if (hasPrice) {
+    priceRow.innerHTML = `
+      <span class="price-original">Giá: ${formatPrice(price)}đ</span>
+    `;
+    priceRow.classList.remove("hidden");
+    return;
+  }
+
+  priceRow.classList.add("hidden");
+
+  if (newImg) {
+    img.setAttribute("data-src", newImg);
+    img.classList.add("lazyload");
+  }
+}
+
+
+
 
       sizeSelect.addEventListener("change", updateDetails);
       updateDetails();
@@ -159,60 +193,49 @@ async function renderGroup(groupName) {
         div.querySelector(".order-form").classList.add("hidden");
       });
 
-      // ✅ Đã tích hợp fetch() tại đây
-      // Bên trong shop.js - phần xác nhận đơn hàng:
-div.querySelector(".confirm-order").addEventListener("click", () => {
-  const customer = div.querySelector(".order-customer").value.trim();
-  const phone = div.querySelector(".order-phone").value.trim();
-  const address = div.querySelector(".order-address").value.trim();
-  const note = div.querySelector(".order-note").value.trim();
-  const productName = div.querySelector(".order-name").value;
-  const size = div.querySelector(".order-size").value;
+      div.querySelector(".confirm-order").addEventListener("click", () => {
+        const customer = div.querySelector(".order-customer").value.trim();
+        const phone = div.querySelector(".order-phone").value.trim();
+        const address = div.querySelector(".order-address").value.trim();
+        const note = div.querySelector(".order-note").value.trim();
+        const productName = div.querySelector(".order-name").value;
+        const size = div.querySelector(".order-size").value;
 
-  if (!customer || !phone) {
-    alert("⚠️ Vui lòng nhập đầy đủ họ tên và số điện thoại.");
-    return;
-  }
+        if (!customer || !phone) {
+          alert("⚠️ Vui lòng nhập đầy đủ họ tên và số điện thoại.");
+          return;
+        }
 
-  const payload = {
-    productName,
-    size,
-    customer,
-    phone,
-    address,
-    note
-  };
+        const payload = { productName, size, customer, phone, address, note };
 
-  // CHỈNH Ở ĐÂY: dùng x-www-form-urlencoded
-  const formData = new URLSearchParams();
-  for (const key in payload) {
-    formData.append(key, payload[key]);
-  }
+        const formData = new URLSearchParams();
+        for (const key in payload) {
+          formData.append(key, payload[key]);
+        }
 
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxw3zd3miC7Sp1iIJcjVdlYzrwDjxcMJJvECB3hyK8bOkbo5b0aFSNieshY0R7P35w1/exec";
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxw3zd3miC7Sp1iIJcjVdlYzrwDjxcMJJvECB3hyK8bOkbo5b0aFSNieshY0R7P35w1/exec";
 
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: formData
-  })
-    .then(res => res.json())
-    .then(response => {
-      if (response.success || response.result === "success") {
-        alert("✅ Đơn hàng đã được gửi thành công!");
-        div.querySelector(".order-form").classList.add("hidden");
-      } else {
-        alert("❌ Gửi đơn hàng thất bại: " + (response.message || "Không rõ nguyên nhân."));
-      }
-    })
-    .catch(err => {
-      console.error("Lỗi gửi đơn:", err);
-      alert("❌ Có lỗi xảy ra khi gửi đơn hàng.");
-    });
-});
-
+        fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: formData
+        })
+          .then(res => res.json())
+          .then(response => {
+            if (response.success || response.result === "success") {
+              alert("✅ Đơn hàng đã được gửi thành công!");
+              div.querySelector(".order-form").classList.add("hidden");
+            } else {
+              alert("❌ Gửi đơn hàng thất bại: " + (response.message || "Không rõ nguyên nhân."));
+            }
+          })
+          .catch(err => {
+            console.error("Lỗi gửi đơn:", err);
+            alert("❌ Có lỗi xảy ra khi gửi đơn hàng.");
+          });
+      });
 
       div.querySelector(".color-btn").addEventListener("click", () => {
         const selectedOption = sizeSelect.selectedOptions[0];
