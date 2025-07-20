@@ -241,37 +241,80 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 // Lưu ảnh (fix iOS popup block)
 
 document.getElementById("downloadBtn").addEventListener("click", () => {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-  if (isMobile) {
-    // ✅ Tạo dataURL ngay
-    const dataURL = canvas.toDataURL("image/png");
+  if (isIOS) {
+    // Mở popup trước khi xử lý
+    const win = window.open("about:blank", "_blank");
+    if (!win) {
+      alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
+      return;
+    }
 
-    // ✅ Mở tab ngay trong sự kiện
-    const htmlContent = `
+    // Hiển thị trước nội dung đang chờ
+    win.document.write(`
       <!DOCTYPE html>
       <html>
-        <head><title>Ảnh đã tô màu</title></head>
-        <body style="margin:0;text-align:center;background:#fff;">
-          <img src="${dataURL}" style="max-width:100%;height:auto;" />
-          <p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p>
+        <head><title>Đang xử lý...</title></head>
+        <body style="text-align:center;font-family:sans-serif;">
+          <p>⏳ Đang tạo ảnh...</p>
         </body>
       </html>
-    `;
+    `);
+    win.document.close();
 
-    const win = window.open();
-    if (win) {
-      // ✅ Ghi nội dung vào ngay
-      win.document.write(htmlContent);
+    // Tạo canvas phụ
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCtx.drawImage(canvas, 0, 0);
+
+    const logo = new Image();
+    logo.src = "images/logo.png";
+    logo.crossOrigin = "anonymous";
+
+    logo.onload = () => {
+      // Vẽ logo
+      const logoHeight = 40;
+      const scale = logoHeight / logo.height;
+      const logoWidth = logo.width * scale;
+      const x = canvas.width - logoWidth - 10;
+      const y = canvas.height - logoHeight - 10;
+      tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
+
+      // Vẽ tên ảnh
+      tempCtx.font = "16px Arial";
+      tempCtx.fillStyle = "black";
+      tempCtx.textBaseline = "top";
+      tempCtx.fillText(originalImageName, 10, 10);
+
+      // Lấy dataURL
+      const dataURL = tempCanvas.toDataURL("image/png");
+
+      // Ghi đè nội dung tab đã mở
+      win.document.open();
+      win.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head><title>Ảnh đã tô màu</title></head>
+          <body style="margin:0;text-align:center;background:#fff;">
+            <img src="${dataURL}" style="max-width:100%;height:auto;" />
+            <p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p>
+          </body>
+        </html>
+      `);
       win.document.close();
-    } else {
-      alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
-    }
+    };
+
+    logo.onerror = () => {
+      alert("Không thể tải logo từ images/logo.png");
+    };
 
     return;
   }
 
-  // ----- PHẦN DÀNH CHO DESKTOP (KHÔNG THAY ĐỔI) -----
+  // ----- PHẦN DESKTOP GIỮ NGUYÊN -----
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
@@ -317,6 +360,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
 
 
 
