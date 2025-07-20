@@ -244,22 +244,26 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   if (isMobile) {
+    // ✅ Tạo dataURL ngay
     const dataURL = canvas.toDataURL("image/png");
 
-    const newTab = window.open();
-    if (newTab) {
-      newTab.document.open();
-      newTab.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head><title>Ảnh đã tô màu</title></head>
-          <body style="margin:0;text-align:center;background:#fff;">
-            <img src="${dataURL}" style="max-width:100%;height:auto;" />
-            <p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p>
-          </body>
-        </html>
-      `);
-      newTab.document.close();
+    // ✅ Mở tab ngay trong sự kiện
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Ảnh đã tô màu</title></head>
+        <body style="margin:0;text-align:center;background:#fff;">
+          <img src="${dataURL}" style="max-width:100%;height:auto;" />
+          <p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p>
+        </body>
+      </html>
+    `;
+
+    const win = window.open();
+    if (win) {
+      // ✅ Ghi nội dung vào ngay
+      win.document.write(htmlContent);
+      win.document.close();
     } else {
       alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
     }
@@ -267,7 +271,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     return;
   }
 
-  // --- Desktop logic: tải ảnh với logo ---
+  // ----- PHẦN DÀNH CHO DESKTOP (KHÔNG THAY ĐỔI) -----
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
@@ -297,6 +301,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
         alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
         return;
       }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
