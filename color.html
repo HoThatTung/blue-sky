@@ -101,83 +101,87 @@
 
   <!-- ✅ Script xử lý cảnh báo in-app browser -->
   <script>
-  function isInAppBrowser() {
-    const ua = navigator.userAgent || navigator.vendor || window.opera;
-    if (/FBAN|FBAV/i.test(ua)) return "Facebook";
-    if (/Instagram/i.test(ua)) return "Instagram";
-    if (/Zalo/i.test(ua)) return "Zalo";
-    if (/Line/i.test(ua)) return "Line";
-    if (/TikTok/i.test(ua)) return "TikTok";
-    if (ua.includes("wv") && ua.includes("Android")) return "App Android";
-    return null;
-  }
-
-  function initMenu() {
-    const menuBtn = document.getElementById("menuToggle");
-    const nav = document.getElementById("mainNav");
-    if (menuBtn && nav && !menuBtn.dataset.bound) {
-      menuBtn.addEventListener("click", () => {
-        nav.classList.toggle("open");
-      });
-      menuBtn.dataset.bound = "true"; // tránh gán lại nhiều lần
+    function isInAppBrowser() {
+      const ua = navigator.userAgent || navigator.vendor || window.opera;
+      if (/FBAN|FBAV/i.test(ua)) return "Facebook";
+      if (/Instagram/i.test(ua)) return "Instagram";
+      if (/Zalo/i.test(ua)) return "Zalo";
+      if (/Line/i.test(ua)) return "Line";
+      if (/TikTok/i.test(ua)) return "TikTok";
+      if (ua.includes("wv") && ua.includes("Android")) return "App Android";
+      return null;
     }
-  }
 
-  window.addEventListener("DOMContentLoaded", () => {
-    initMenu(); // 🟢 Gán sự kiện menu bình thường khi DOM sẵn sàng
+    function initMenuButton() {
+      const menuBtn = document.getElementById("menuToggle");
+      const nav = document.getElementById("mainNav");
+      if (menuBtn && nav && !menuBtn.dataset.bound) {
+        menuBtn.addEventListener("click", () => {
+          nav.classList.toggle("open");
+        });
+        menuBtn.dataset.bound = "true"; // Đánh dấu đã gán sự kiện
+      }
+    }
 
-    const appName = isInAppBrowser();
-    if (appName) {
-      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const browserName = isIOS ? "Safari" : "Chrome";
-      const currentUrl = window.location.href;
+    window.addEventListener("DOMContentLoaded", () => {
+      initMenuButton(); // Luôn gán menu sau khi DOM sẵn sàng
 
-      const overlay = document.createElement("div");
-      overlay.id = "inAppOverlay";
-      overlay.style.cssText = `
-        position:fixed;top:0;left:0;width:100%;height:100%;
-        background:rgba(0,0,0,0.8);z-index:9999;display:flex;
-        align-items:center;justify-content:center;
-        font-family:sans-serif;
-      `;
+      const appName = isInAppBrowser();
+      if (appName) {
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const browserName = isIOS ? "Safari" : "Chrome";
+        const currentUrl = window.location.href;
 
-      overlay.innerHTML = `
-        <div style="background:#fff;padding:20px;max-width:90%;border-radius:10px;text-align:center;color:#000;">
-          <h2>⚠️ Đang mở từ ${appName}</h2>
-          <p>Trình duyệt trong ứng dụng <b>${appName}</b> có thể không hỗ trợ lưu ảnh.</p>
-          <p>Vui lòng mở bằng <b>${browserName}</b> để sử dụng đầy đủ tính năng.</p>
-          <div style="margin-top:15px;">
-            <button id="stayBtn" style="padding:10px 15px;margin-right:10px;">Ở lại trang</button>
-            <button id="openBrowserBtn" style="padding:10px 15px;">Mở bằng ${browserName}</button>
+        const overlay = document.createElement("div");
+        overlay.id = "inAppOverlay";
+        overlay.style.cssText = `
+          position:fixed;top:0;left:0;width:100%;height:100%;
+          background:rgba(0,0,0,0.8);z-index:9999;display:flex;
+          align-items:center;justify-content:center;
+          font-family:sans-serif;
+        `;
+
+        overlay.innerHTML = `
+          <div style="background:#fff;padding:20px;max-width:90%;border-radius:10px;text-align:center;color:#000;">
+            <h2>⚠️ Đang mở từ ${appName}</h2>
+            <p>Trình duyệt trong ứng dụng <b>${appName}</b> có thể không hỗ trợ lưu ảnh.</p>
+            <p>Vui lòng mở bằng <b>${browserName}</b> để sử dụng đầy đủ tính năng.</p>
+            <div style="margin-top:15px;">
+              <button id="stayBtn" style="padding:10px 15px;margin-right:10px;">Ở lại trang</button>
+              <button id="openBrowserBtn" style="padding:10px 15px;">Mở bằng ${browserName}</button>
+            </div>
           </div>
-        </div>
-      `;
-      document.body.appendChild(overlay);
+        `;
+        document.body.appendChild(overlay);
 
-      // Nút ở lại trang
-      document.getElementById("stayBtn").addEventListener("click", () => {
-        overlay.remove();
-        setTimeout(() => {
-          initMenu(); // 🟢 Gán lại sự kiện menu sau khi overlay gỡ
-        }, 50);
-      });
-
-      // Nút mở bằng Safari/Chrome
-      document.getElementById("openBrowserBtn").addEventListener("click", () => {
-        const isAndroid = /Android/i.test(navigator.userAgent);
-        if (isAndroid) {
-          window.location.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
-        } else {
-          // 🟢 Mở bằng Safari – dùng setTimeout để tránh bị block
+        // ✅ Ở lại trang → gỡ overlay & gán lại menu
+        document.getElementById("stayBtn").addEventListener("click", () => {
+          overlay.remove();
           setTimeout(() => {
-            window.location.href = currentUrl;
+            initMenuButton();
           }, 100);
-        }
-      });
-    }
-  });
-</script>
+        });
 
+        // ✅ Mở bằng Safari/Chrome
+        document.getElementById("openBrowserBtn").addEventListener("click", () => {
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          if (isAndroid) {
+            window.location.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
+          } else {
+            const link = document.createElement("a");
+            link.href = currentUrl;
+            link.target = "_blank";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        });
+      }
+    });
+
+    // Xuất ra để file JS ngoài có thể gọi lại (nếu cần)
+    window.initMenuButton = initMenuButton;
+  </script>
 
 </body>
 </html>
