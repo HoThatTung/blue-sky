@@ -226,10 +226,3 @@ document.getElementById("redoBtn").addEventListener("click", () => {
     ctx.putImageData(next, 0, 0);
   }
 });
-
-// Phần isInAppBrowser sẽ được gọi từ HTML và xử lý cảnh báo popup ở đó
-
-// Phần lưu ảnh, upload, chọn ảnh và menu giữ nguyên như cũ...
-// (giữ đúng theo đoạn mã bạn đã gửi ở trước, không thay đổi)
-
-// ... (nếu bạn muốn mình dán tiếp phần phía sau nữa thì nói nhé)
