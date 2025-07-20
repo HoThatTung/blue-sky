@@ -294,3 +294,15 @@ canvas {
 .select-area label {
   display: none;
 }
+@media (max-width: 768px) {
+  .nav {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .nav.open {
+    display: flex !important;
+  }
+}
