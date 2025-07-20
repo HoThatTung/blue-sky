@@ -269,3 +269,17 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 window.initMenuButton = initMenuButton; // Cho file HTML gọi lại sau khi overlay gỡ
+document.getElementById("downloadBtn").addEventListener("click", () => {
+  // ✅ Tạo ảnh từ canvas ngay trong sự kiện click
+  const dataUrl = canvas.toDataURL("image/png");
+
+  // ✅ Mở ảnh trong tab mới (hoạt động cả trên iOS nếu đặt trực tiếp trong click)
+  const newTab = window.open();
+  if (newTab) {
+    newTab.document.write(`<img src="${dataUrl}" alt="Ảnh đã tô" style="max-width:100%;">`);
+    newTab.document.title = "Ảnh đã tô";
+  } else {
+    alert("Trình duyệt của bạn chặn cửa sổ mới. Vui lòng bật pop-up.");
+  }
+});
+
