@@ -99,18 +99,6 @@
     </div>
   </footer>
   <script>
-function isInAppBrowser() {
-  const ua = navigator.userAgent || navigator.vendor || window.opera;
-  if (/FBAN|FBAV/i.test(ua)) return "Facebook";
-  if (/Instagram/i.test(ua)) return "Instagram";
-  if (/Zalo/i.test(ua)) return "Zalo";
-  if (/Line/i.test(ua)) return "Line";
-  if (/TikTok/i.test(ua)) return "TikTok";
-  if (ua.includes("wv") && ua.includes("Android")) return "App Android";
-  return null;
-}
-
-<script>
 <script>
 function isInAppBrowser() {
   const ua = navigator.userAgent || navigator.vendor || window.opera;
@@ -123,48 +111,55 @@ function isInAppBrowser() {
   return null;
 }
 
-window.onload = () => {
+window.addEventListener("DOMContentLoaded", () => {
   const appName = isInAppBrowser();
   if (appName) {
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const browserName = isIOS ? "Safari" : "Chrome";
+    const currentUrl = window.location.href;
 
     const overlay = document.createElement("div");
-    overlay.id = "inAppWarning";
+    overlay.id = "inAppOverlay";
     overlay.style.cssText = `
       position:fixed;top:0;left:0;width:100%;height:100%;
       background:rgba(0,0,0,0.8);z-index:9999;display:flex;
       align-items:center;justify-content:center;
-      font-family:sans-serif;color:#000;
+      font-family:sans-serif;
     `;
 
     overlay.innerHTML = `
-      <div style="background:#fff;padding:20px;max-width:90%;border-radius:10px;text-align:center">
+      <div style="background:#fff;padding:20px;max-width:90%;border-radius:10px;text-align:center;color:#000;">
         <h2>⚠️ Đang mở từ ${appName}</h2>
         <p>Trình duyệt trong ứng dụng <b>${appName}</b> có thể không hỗ trợ lưu ảnh.</p>
         <p>Vui lòng mở bằng <b>${browserName}</b> để sử dụng đầy đủ tính năng.</p>
         <div style="margin-top:15px;">
           <button id="stayBtn" style="padding:10px 15px;margin-right:10px;">Ở lại trang</button>
-          <button id="openExternalBtn" style="padding:10px 15px;">Mở bằng ${browserName}</button>
+          <button id="openBrowserBtn" style="padding:10px 15px;">Mở bằng ${browserName}</button>
         </div>
       </div>
     `;
     document.body.appendChild(overlay);
 
-    // Nút "Ở lại trang"
+    // Nút "Ở lại trang" — đóng overlay
     document.getElementById("stayBtn").addEventListener("click", () => {
-      document.body.removeChild(document.getElementById("inAppWarning"));
+      const overlayEl = document.getElementById("inAppOverlay");
+      if (overlayEl) overlayEl.remove();
     });
 
-    // Nút "Mở bằng Safari/Chrome"
-    document.getElementById("openExternalBtn").addEventListener("click", () => {
-      const currentUrl = window.location.href;
-      window.open(currentUrl, "_blank");
+    // Nút "Mở bằng trình duyệt hệ thống"
+    document.getElementById("openBrowserBtn").addEventListener("click", () => {
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        // Mở lại bằng Chrome
+        window.location.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
+      } else {
+        // iOS – mở bằng Safari (gián tiếp bằng cách mở tab mới)
+        window.open(currentUrl, "_blank");
+      }
     });
   }
-};
+});
 </script>
-
 
 
 </body>
