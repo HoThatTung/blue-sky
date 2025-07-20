@@ -241,6 +241,11 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 // Lưu ảnh (fix iOS popup block)
 
 document.getElementById("downloadBtn").addEventListener("click", () => {
+  const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+
+  // Mở tab NGAY LẬP TỨC để tránh bị chặn
+  const newTab = isMobile ? window.open("about:blank", "_blank") : null;
+
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
@@ -252,13 +257,16 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
 
-    // Vẽ ảnh gốc và chèn tên + logo
+    // Vẽ canvas gốc
     tempCtx.drawImage(canvas, 0, 0);
+
+    // Vẽ tên ảnh
     tempCtx.font = "16px Arial";
     tempCtx.fillStyle = "black";
     tempCtx.textBaseline = "top";
     tempCtx.fillText(originalImageName, 10, 10);
 
+    // Vẽ logo
     const logoHeight = 40;
     const scale = logoHeight / logo.height;
     const logoWidth = logo.width * scale;
@@ -266,12 +274,9 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-    const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
-
     if (isMobile) {
-      // Mobile: hiển thị ảnh trong tab mới bằng dataURL
+      // Mobile: render ảnh vào tab đã mở
       const dataUrl = tempCanvas.toDataURL("image/png");
-      const newTab = window.open();
       if (newTab) {
         newTab.document.body.style.margin = "0";
         newTab.document.body.innerHTML = `<img src="${dataUrl}" style="width:100%">`;
@@ -280,7 +285,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
         alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
       }
     } else {
-      // Desktop: cho phép tải file trực tiếp
+      // Desktop: tải ảnh trực tiếp
       tempCanvas.toBlob((blob) => {
         if (!blob) {
           alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
@@ -302,6 +307,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
 
 
 
