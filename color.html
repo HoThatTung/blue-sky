@@ -111,6 +111,7 @@ function isInAppBrowser() {
 }
 
 <script>
+<script>
 function isInAppBrowser() {
   const ua = navigator.userAgent || navigator.vendor || window.opera;
   if (/FBAN|FBAV/i.test(ua)) return "Facebook";
@@ -129,6 +130,7 @@ window.onload = () => {
     const browserName = isIOS ? "Safari" : "Chrome";
 
     const overlay = document.createElement("div");
+    overlay.id = "inAppWarning";
     overlay.style.cssText = `
       position:fixed;top:0;left:0;width:100%;height:100%;
       background:rgba(0,0,0,0.8);z-index:9999;display:flex;
@@ -142,15 +144,27 @@ window.onload = () => {
         <p>Trình duyệt trong ứng dụng <b>${appName}</b> có thể không hỗ trợ lưu ảnh.</p>
         <p>Vui lòng mở bằng <b>${browserName}</b> để sử dụng đầy đủ tính năng.</p>
         <div style="margin-top:15px;">
-          <button onclick="document.body.removeChild(this.closest('div').parentElement)" style="padding:10px 15px;margin-right:10px;">Ở lại trang</button>
-          <button onclick="window.location.href = window.location.href" style="padding:10px 15px;">Mở bằng ${browserName}</button>
+          <button id="stayBtn" style="padding:10px 15px;margin-right:10px;">Ở lại trang</button>
+          <button id="openExternalBtn" style="padding:10px 15px;">Mở bằng ${browserName}</button>
         </div>
       </div>
     `;
     document.body.appendChild(overlay);
+
+    // Nút "Ở lại trang"
+    document.getElementById("stayBtn").addEventListener("click", () => {
+      document.body.removeChild(document.getElementById("inAppWarning"));
+    });
+
+    // Nút "Mở bằng Safari/Chrome"
+    document.getElementById("openExternalBtn").addEventListener("click", () => {
+      const currentUrl = window.location.href;
+      window.open(currentUrl, "_blank");
+    });
   }
 };
 </script>
+
 
 
 </body>
