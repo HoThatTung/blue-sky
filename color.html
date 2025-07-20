@@ -141,13 +141,24 @@
       `;
       document.body.appendChild(overlay);
 
-      // 🟢 Nút "Ở lại trang": Gỡ overlay khỏi DOM hoàn toàn để không chặn sự kiện
+      // Nút ở lại trang
       document.getElementById("stayBtn").addEventListener("click", () => {
-        const overlayEl = document.getElementById("inAppOverlay");
-        if (overlayEl && overlayEl.parentNode) overlayEl.parentNode.removeChild(overlayEl);
+        overlay.remove();
+
+        // 🟡 Delay 1 chút để đảm bảo DOM đã sẵn sàng và các overlay khác đã mất
+        setTimeout(() => {
+          const menuBtn = document.getElementById("menuToggle");
+          const nav = document.getElementById("mainNav");
+
+          if (menuBtn && nav) {
+            menuBtn.addEventListener("click", () => {
+              nav.classList.toggle("open");
+            });
+          }
+        }, 100);
       });
 
-      // 🔵 Nút "Mở bằng Safari/Chrome"
+      // Nút mở bằng Safari/Chrome
       document.getElementById("openBrowserBtn").addEventListener("click", () => {
         const isAndroid = /Android/i.test(navigator.userAgent);
         if (isAndroid) {
@@ -159,6 +170,7 @@
     }
   });
 </script>
+
 
 </body>
 </html>
