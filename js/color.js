@@ -244,73 +244,34 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   if (isMobile) {
-    const newTab = window.open("about:blank", "_blank");
-    if (!newTab) {
-      alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
-      return;
-    }
+    // ✅ Tạo dataURL ngay
+    const dataURL = canvas.toDataURL("image/png");
 
-    // BƯỚC 1: Viết HTML placeholder ngay lập tức
-    newTab.document.write(`
+    // ✅ Mở tab ngay trong sự kiện
+    const htmlContent = `
       <!DOCTYPE html>
       <html>
-        <head><title>Đang xử lý ảnh...</title></head>
+        <head><title>Ảnh đã tô màu</title></head>
         <body style="margin:0;text-align:center;background:#fff;">
-          <p style="font-family:sans-serif;margin-top:50px;">⏳ Đang xử lý ảnh...</p>
+          <img src="${dataURL}" style="max-width:100%;height:auto;" />
+          <p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p>
         </body>
       </html>
-    `);
-    newTab.document.close();
+    `;
 
-    // BƯỚC 2: Chuẩn bị canvas phụ
-    const tempCanvas = document.createElement("canvas");
-    const tempCtx = tempCanvas.getContext("2d");
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    tempCtx.drawImage(canvas, 0, 0);
-
-    const logo = new Image();
-    logo.src = "images/logo.png";
-    logo.crossOrigin = "anonymous";
-
-    logo.onload = () => {
-      const logoHeight = 40;
-      const scale = logoHeight / logo.height;
-      const logoWidth = logo.width * scale;
-      const x = canvas.width - logoWidth - 10;
-      const y = canvas.height - logoHeight - 10;
-
-      tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
-      tempCtx.font = "16px Arial";
-      tempCtx.fillStyle = "black";
-      tempCtx.textBaseline = "top";
-      tempCtx.fillText(originalImageName, 10, 10);
-
-      const dataURL = tempCanvas.toDataURL("image/png");
-
-      // BƯỚC 3: Thay nội dung tab sau khi ảnh đã sẵn sàng
-      newTab.document.open();
-      newTab.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head><title>Ảnh đã tô màu</title></head>
-          <body style="margin:0;text-align:center;background:#fff;">
-            <img src="${dataURL}" style="max-width:100%;height:auto;" />
-            <p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p>
-          </body>
-        </html>
-      `);
-      newTab.document.close();
-    };
-
-    logo.onerror = () => {
-      alert("Không thể tải logo từ images/logo.png");
-    };
+    const win = window.open();
+    if (win) {
+      // ✅ Ghi nội dung vào ngay
+      win.document.write(htmlContent);
+      win.document.close();
+    } else {
+      alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
+    }
 
     return;
   }
 
-  // ----- PHẦN DESKTOP GIỮ NGUYÊN -----
+  // ----- PHẦN DÀNH CHO DESKTOP (KHÔNG THAY ĐỔI) -----
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
@@ -356,6 +317,8 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
+
 
 
 // Upload ảnh người dùng
