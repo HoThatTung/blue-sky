@@ -112,19 +112,19 @@
       return null;
     }
 
-    function initMenuButton() {
+    function initMenu() {
       const menuBtn = document.getElementById("menuToggle");
       const nav = document.getElementById("mainNav");
       if (menuBtn && nav && !menuBtn.dataset.bound) {
         menuBtn.addEventListener("click", () => {
           nav.classList.toggle("open");
         });
-        menuBtn.dataset.bound = "true"; // Đánh dấu đã gán sự kiện
+        menuBtn.dataset.bound = "true";
       }
     }
 
     window.addEventListener("DOMContentLoaded", () => {
-      initMenuButton(); // Luôn gán menu sau khi DOM sẵn sàng
+      initMenu();
 
       const appName = isInAppBrowser();
       if (appName) {
@@ -154,34 +154,21 @@
         `;
         document.body.appendChild(overlay);
 
-        // ✅ Ở lại trang → gỡ overlay & gán lại menu
         document.getElementById("stayBtn").addEventListener("click", () => {
           overlay.remove();
-          setTimeout(() => {
-            initMenuButton();
-          }, 100);
+          setTimeout(() => initMenu(), 50);
         });
 
-        // ✅ Mở bằng Safari/Chrome
         document.getElementById("openBrowserBtn").addEventListener("click", () => {
           const isAndroid = /Android/i.test(navigator.userAgent);
           if (isAndroid) {
             window.location.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
           } else {
-            const link = document.createElement("a");
-            link.href = currentUrl;
-            link.target = "_blank";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            alert("👉 Trên iPhone:\n1. Nhấn nút chia sẻ (hình vuông có mũi tên lên).\n2. Chọn 'Mở trong Safari'.\n3. Trang sẽ hoạt động đầy đủ khi mở trong Safari.");
           }
         });
       }
     });
-
-    // Xuất ra để file JS ngoài có thể gọi lại (nếu cần)
-    window.initMenuButton = initMenuButton;
   </script>
-
 </body>
 </html>
