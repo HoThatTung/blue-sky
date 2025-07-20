@@ -112,7 +112,20 @@
     return null;
   }
 
+  function initMenu() {
+    const menuBtn = document.getElementById("menuToggle");
+    const nav = document.getElementById("mainNav");
+    if (menuBtn && nav && !menuBtn.dataset.bound) {
+      menuBtn.addEventListener("click", () => {
+        nav.classList.toggle("open");
+      });
+      menuBtn.dataset.bound = "true"; // tránh gán lại nhiều lần
+    }
+  }
+
   window.addEventListener("DOMContentLoaded", () => {
+    initMenu(); // 🟢 Gán sự kiện menu bình thường khi DOM sẵn sàng
+
     const appName = isInAppBrowser();
     if (appName) {
       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -144,36 +157,27 @@
       // Nút ở lại trang
       document.getElementById("stayBtn").addEventListener("click", () => {
         overlay.remove();
-
         setTimeout(() => {
-          const menuBtn = document.getElementById("menuToggle");
-          const nav = document.getElementById("mainNav");
-          if (menuBtn && nav) {
-            menuBtn.addEventListener("click", () => {
-              nav.classList.toggle("open");
-            });
-          }
-        }, 100);
+          initMenu(); // 🟢 Gán lại sự kiện menu sau khi overlay gỡ
+        }, 50);
       });
 
-      // Nút mở bằng Safari / Chrome
+      // Nút mở bằng Safari/Chrome
       document.getElementById("openBrowserBtn").addEventListener("click", () => {
         const isAndroid = /Android/i.test(navigator.userAgent);
         if (isAndroid) {
           window.location.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
         } else {
-          const link = document.createElement("a");
-          link.href = currentUrl;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          // 🟢 Mở bằng Safari – dùng setTimeout để tránh bị block
+          setTimeout(() => {
+            window.location.href = currentUrl;
+          }, 100);
         }
       });
     }
   });
-  </script>
+</script>
+
 
 </body>
 </html>
