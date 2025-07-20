@@ -1,3 +1,19 @@
+function isInAppBrowser() {
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+
+  return (
+    /FBAN|FBAV|Instagram/.test(ua) ||  // Facebook & Instagram
+    /Zalo/.test(ua) ||                 // Zalo
+    /Line/.test(ua) ||                 // Line
+    /TikTok/.test(ua) ||               // TikTok
+    (ua.includes("wv") && ua.includes("Android")) // WebView trên Android
+  );
+}
+
+if (isInAppBrowser()) {
+  alert("⚠️ Trình duyệt trong ứng dụng có thể không hỗ trợ lưu ảnh. Vui lòng mở trang này bằng Safari hoặc Chrome để sử dụng đầy đủ chức năng.");
+}
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
