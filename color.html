@@ -35,11 +35,11 @@
             <option id="placeholderOption" value="" disabled selected hidden>Diều Blue Sky...</option>
             <option value="images/color/color/pilot.jpg">Pilot</option>
             <option value="images/color/color/pilotlung.jpg">Pilot mặt lưng</option>
-            <option value="images/color/color/cavang.jpg">Cá vàng</option>
-            <option value="images/color/color/cathulu.jpg">Cá thù lù</option>
-            <option value="images/color/color/cabuom.jpg">Cá buồm</option>
-            <option value="images/color/color/canemo.jpg">Cá nemo</option>
-            <option value="images/color/color/bohung.jpg">Bọ hung</option>
+            <option value="images/color/color/cavang.jpg">cá vàng</option>
+            <option value="images/color/color/cathulu.jpg">cá thù lù</option>
+            <option value="images/color/color/cabuom.jpg">cá buồm</option>
+            <option value="images/color/color/canemo.jpg">cá nemo</option>
+            <option value="images/color/color/bohung.jpg">bọ hung</option>
           </select>
         </div>
         <div class="upload-area">
@@ -51,7 +51,7 @@
       <div class="tool-row">
         <button id="fillModeBtn" class="mode-btn active">🖌️ Tô vùng</button>
         <button id="brushModeBtn" class="mode-btn">✍️ Cọ vẽ</button>
-        <button id="eraserModeBtn" class="mode-btn">🧽 Cọ xóa</button>
+        <button id="eraserModeBtn" class="mode-btn">🪝 Cọ xóa</button>
         <select id="brushSizeSelect" class="brush-size-select" style="display: none;">
           <option value="1">Cỡ cọ 1x</option>
           <option value="2">Cỡ cọ 2x</option>
@@ -99,105 +99,71 @@
     </div>
   </footer>
 
-  <!-- ✅ Script cảnh báo in-app browser và xử lý menu -->
-
-  
- <script>
-function isInAppBrowser() {
-  const ua = navigator.userAgent || navigator.vendor || window.opera;
-  if (/FBAN|FBAV/i.test(ua)) return "Facebook";
-  if (/Instagram/i.test(ua)) return "Instagram";
-  if (/Zalo/i.test(ua)) return "Zalo";
-  if (/Line/i.test(ua)) return "Line";
-  if (/TikTok/i.test(ua)) return "TikTok";
-  if (ua.includes("wv") && ua.includes("Android")) return "App Android";
-  return null;
-}
-
-function initMenu() {
-  const menuBtn = document.getElementById("menuToggle");
-  const nav = document.getElementById("mainNav");
-  if (menuBtn && nav && !menuBtn.dataset.bound) {
-    menuBtn.addEventListener("click", () => {
-      nav.classList.toggle("open");
-    });
-    menuBtn.dataset.bound = "true";
-  }
-}
-
-window.addEventListener("DOMContentLoaded", () => {
-  initMenu();
-
-  const appName = isInAppBrowser();
-  if (appName) {
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const currentUrl = window.location.href;
-
-    const overlay = document.createElement("div");
-    overlay.id = "inAppOverlay";
-    overlay.style.cssText = `
-      position:fixed;top:0;left:0;width:100%;height:100%;
-      background:rgba(0,0,0,0.8);z-index:9999;display:flex;
-      align-items:center;justify-content:center;
-      font-family: 'Inter', sans-serif;
-    `;
-
-    let html = `
-      <div style="background:#fff;padding:25px 20px;max-width:90%;border-radius:16px;text-align:center;color:#000;box-shadow:0 0 20px rgba(0,0,0,0.3);">
-        <h2 style="font-size:20px;margin-bottom:10px;">⚠️ Đang mở từ ${appName}</h2>
-        <p style="font-size:16px;margin-bottom:10px;">Trình duyệt trong ứng dụng <strong>${appName}</strong> có thể không hỗ trợ <strong>Lưu ảnh</strong>.</p>
-        <p style="font-size:16px;margin-bottom:20px;">Vui lòng mở bằng <strong>${isIOS ? "Safari" : "Chrome"}</strong> để sử dụng trọn vẹn.</p>
-        <div style="display:flex;justify-content:center;gap:15px;flex-wrap:wrap;">`;
-
-    html += `<button id="stayBtn" style="
-      padding:12px 20px;
-      font-size:16px;
-      border:none;
-      border-radius:8px;
-      background-color:#ccc;
-      color:#000;
-      cursor:pointer;
-      min-width:130px;
-    ">Ở lại trang</button>`;
-
-    if (isAndroid) {
-      html += `<button id="openBrowserBtn" style="
-        padding:12px 20px;
-        font-size:16px;
-        border:none;
-        border-radius:8px;
-        background-color:#007bff;
-        color:#fff;
-        cursor:pointer;
-        min-width:130px;
-      ">Mở bằng Chrome</button>`;
+  <!-- ⚡️ Cảnh báo khi mở từ app -->
+  <script>
+    function isInAppBrowser() {
+      const ua = navigator.userAgent || navigator.vendor || window.opera;
+      if (/FBAN|FBAV/i.test(ua)) return "Facebook";
+      if (/Instagram/i.test(ua)) return "Instagram";
+      if (/Zalo/i.test(ua)) return "Zalo";
+      if (/Line/i.test(ua)) return "Line";
+      if (/TikTok/i.test(ua)) return "TikTok";
+      if (ua.includes("wv") && ua.includes("Android")) return "App Android";
+      return null;
     }
 
-    html += `
+    function showInAppWarning() {
+      const appName = isInAppBrowser();
+      if (!appName) return;
+
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      const browserName = isIOS ? "Safari" : "Chrome";
+      const currentUrl = window.location.href;
+
+      const overlay = document.createElement("div");
+      overlay.id = "inAppOverlay";
+      overlay.style.cssText = `
+        position:fixed;top:0;left:0;width:100%;height:100%;
+        background:rgba(0,0,0,0.85);z-index:9999;display:flex;
+        align-items:center;justify-content:center;
+        font-family:sans-serif;
+      `;
+
+      let buttonHTML = `<button id="stayBtn" style="padding:15px 20px;font-size:16px;background:#ccc;border:none;border-radius:8px;">Ở lại trang</button>`;
+
+      if (isAndroid) {
+        buttonHTML += `<button id="openBrowserBtn" style="padding:15px 20px;font-size:16px;margin-left:15px;background:#4CAF50;color:#fff;border:none;border-radius:8px;">Mở bằng Chrome</button>`;
+      }
+
+      overlay.innerHTML = `
+        <div style="background:#fff;padding:30px;max-width:90%;border-radius:12px;text-align:center;color:#000;">
+          <h2>⚠️ Đang mở từ ${appName}</h2>
+          <p>Trình duyệt trong ứng dụng <b>${appName}</b> có thể không hỗ trợ lưu ảnh hoặc một số tính năng.</p>
+          ${isIOS ? '<p>Vui lòng nhấn nút <b>Chia sẻ</b> ở trình duyệt và chọn <b>Mở bằng Safari</b>.</p>' : ''}
+          <div style="margin-top:20px;display:flex;justify-content:center;flex-wrap:wrap;gap:10px;">
+            ${buttonHTML}
+          </div>
         </div>
-      </div>
-    `;
-    overlay.innerHTML = html;
-    document.body.appendChild(overlay);
+      `;
+      document.body.appendChild(overlay);
 
-    document.getElementById("stayBtn").addEventListener("click", () => {
-      overlay.remove();
-      setTimeout(() => {
-        initMenu();
-      }, 50);
-    });
-
-    if (isAndroid) {
-      document.getElementById("openBrowserBtn").addEventListener("click", () => {
-        window.location.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
+      document.getElementById("stayBtn").addEventListener("click", () => {
+        overlay.remove();
+        setTimeout(() => {
+          if (window.initMenuButton) window.initMenuButton();
+        }, 50);
       });
+
+      if (isAndroid && document.getElementById("openBrowserBtn")) {
+        document.getElementById("openBrowserBtn").addEventListener("click", () => {
+          window.location.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
+        });
+      }
     }
-  }
-});
-</script>
 
-
+    window.addEventListener("DOMContentLoaded", showInAppWarning);
+  </script>
 
 </body>
 </html>
