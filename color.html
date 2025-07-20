@@ -9,6 +9,84 @@
   <link rel="stylesheet" href="css/color.css" />
   <script defer src="js/color.js"></script>
 </head>
+  <!-- ⚠️ Cảnh báo trình duyệt in-app bị giới hạn (Zalo, Facebook, Instagram...) -->
+<div id="inAppWarning" style="display:none;">
+  <style>
+    #inAppWarning .inapp-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 9998;
+    }
+
+    #inAppWarning .inapp-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      padding: 20px 25px;
+      border-radius: 12px;
+      z-index: 9999;
+      max-width: 90%;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      font-family: sans-serif;
+    }
+
+    #inAppWarning .inapp-modal h3 {
+      margin-top: 0;
+      font-size: 18px;
+      color: #d9534f;
+    }
+
+    #inAppWarning .inapp-modal p {
+      margin: 10px 0;
+      font-size: 15px;
+      color: #333;
+    }
+
+    #inAppWarning .inapp-modal button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+
+  <div class="inapp-backdrop"></div>
+  <div class="inapp-modal">
+    <h3>⚠️ Trình duyệt bị giới hạn</h3>
+    <p>Trang web đang được mở trong ứng dụng như Zalo, Facebook hoặc Instagram.<br>
+    Một số tính năng như <strong>lưu ảnh</strong> có thể không hoạt động bình thường.</p>
+    <p>👉 Vui lòng mở trang này bằng <strong>Safari</strong> hoặc <strong>Chrome</strong> để sử dụng đầy đủ chức năng.</p>
+    <button onclick="document.getElementById('inAppWarning').style.display='none'">Đã hiểu</button>
+  </div>
+
+  <script>
+    function isInAppBrowser() {
+      const ua = navigator.userAgent || navigator.vendor || window.opera;
+      return (
+        /FBAN|FBAV|Instagram/.test(ua) ||     // Facebook & Instagram
+        /Zalo/.test(ua) ||                    // Zalo
+        /Line/.test(ua) ||                    // Line
+        /TikTok/.test(ua) ||                  // TikTok
+        (ua.includes("wv") && ua.includes("Android"))  // Android WebView
+      );
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      if (isInAppBrowser()) {
+        document.getElementById("inAppWarning").style.display = "block";
+      }
+    });
+  </script>
+</div>
+
 <body>
 
   <header class="header">
