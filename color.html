@@ -110,7 +110,19 @@ function isInAppBrowser() {
   return null;
 }
 
-window.addEventListener("DOMContentLoaded", () => { 
+<script>
+function isInAppBrowser() {
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+  if (/FBAN|FBAV/i.test(ua)) return "Facebook";
+  if (/Instagram/i.test(ua)) return "Instagram";
+  if (/Zalo/i.test(ua)) return "Zalo";
+  if (/Line/i.test(ua)) return "Line";
+  if (/TikTok/i.test(ua)) return "TikTok";
+  if (ua.includes("wv") && ua.includes("Android")) return "App Android";
+  return null;
+}
+
+window.onload = () => {
   const appName = isInAppBrowser();
   if (appName) {
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -137,8 +149,9 @@ window.addEventListener("DOMContentLoaded", () => {
     `;
     document.body.appendChild(overlay);
   }
-});
+};
 </script>
+
 
 </body>
 </html>
