@@ -243,7 +243,7 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
 
-  // Mở tab NGAY LẬP TỨC để tránh bị chặn
+  // Mở tab NGAY để không bị chặn
   const newTab = isMobile ? window.open("about:blank", "_blank") : null;
 
   const logo = new Image();
@@ -257,7 +257,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
 
-    // Vẽ canvas gốc
+    // Vẽ ảnh gốc
     tempCtx.drawImage(canvas, 0, 0);
 
     // Vẽ tên ảnh
@@ -275,17 +275,15 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
     if (isMobile) {
-      // Mobile: render ảnh vào tab đã mở
-      const dataUrl = tempCanvas.toDataURL("image/png");
+      const dataURL = tempCanvas.toDataURL("image/png");
       if (newTab) {
         newTab.document.body.style.margin = "0";
-        newTab.document.body.innerHTML = `<img src="${dataUrl}" style="width:100%">`;
+        newTab.document.body.innerHTML = `<img src="${dataURL}" style="width:100%">`;
         alert("👉 Ảnh đã mở. Nhấn giữ ảnh và chọn 'Lưu hình ảnh' để tải về.");
       } else {
         alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
       }
     } else {
-      // Desktop: tải ảnh trực tiếp
       tempCanvas.toBlob((blob) => {
         if (!blob) {
           alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
@@ -307,9 +305,6 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
-
-
-
 
 
 
