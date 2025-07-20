@@ -244,37 +244,30 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   if (isMobile) {
-    const dataURL = canvas.toDataURL("image/png"); // 👉 Tạo ngay tại đây!
-    
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head><title>Ảnh đã tô màu</title></head>
-        <body style="margin:0;text-align:center;background:#fff;">
-          <img src="${dataURL}" style="max-width:100%;height:auto;" />
-          <p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p>
-        </body>
-      </html>
-    `;
+    const dataURL = canvas.toDataURL("image/png");
 
-    const newTab = window.open("about:blank", "_blank");
-    if (!newTab) {
+    const newTab = window.open();
+    if (newTab) {
+      newTab.document.open();
+      newTab.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head><title>Ảnh đã tô màu</title></head>
+          <body style="margin:0;text-align:center;background:#fff;">
+            <img src="${dataURL}" style="max-width:100%;height:auto;" />
+            <p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p>
+          </body>
+        </html>
+      `);
+      newTab.document.close();
+    } else {
       alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
-      return;
     }
-
-    newTab.document.open();
-    newTab.document.write(html);
-    newTab.document.close();
 
     return;
   }
 
-  // (phần Desktop giữ nguyên như bạn đã viết)
-});
-
-
-  // ----- PHẦN DÀNH CHO DESKTOP -----
+  // --- Desktop logic: tải ảnh với logo ---
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
@@ -304,7 +297,6 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
         alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
         return;
       }
-
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -320,7 +312,6 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
-
 
 
 
