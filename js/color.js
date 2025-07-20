@@ -241,11 +241,37 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 // Lưu ảnh (fix iOS popup block)
 
 document.getElementById("downloadBtn").addEventListener("click", () => {
-  const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-  // Mở tab NGAY để không bị chặn
-  const newTab = isMobile ? window.open("about:blank", "_blank") : null;
+  if (isMobile) {
+    const newTab = window.open("about:blank"); // Mở ngay lập tức
+    if (!newTab) {
+      alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
+      return;
+    }
 
+    // Tránh toDataURL quá nặng khi canvas lớn
+    setTimeout(() => {
+      const dataURL = canvas.toDataURL("image/png");
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Ảnh đã tô màu</title></head>
+          <body style="margin:0;text-align:center;background:#fff;">
+            <img src="${dataURL}" style="max-width:100%;height:auto;" />
+            <p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p>
+          </body>
+        </html>
+      `;
+      newTab.document.open();
+      newTab.document.write(html);
+      newTab.document.close();
+    }, 100); // delay 1 chút cho tab mới ổn định
+
+    return;
+  }
+
+  // ----- PHẦN DÀNH CHO DESKTOP -----
   const logo = new Image();
   logo.src = "images/logo.png";
   logo.crossOrigin = "anonymous";
@@ -257,16 +283,12 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
 
-    // Vẽ ảnh gốc
     tempCtx.drawImage(canvas, 0, 0);
-
-    // Vẽ tên ảnh
     tempCtx.font = "16px Arial";
     tempCtx.fillStyle = "black";
     tempCtx.textBaseline = "top";
     tempCtx.fillText(originalImageName, 10, 10);
 
-    // Vẽ logo
     const logoHeight = 40;
     const scale = logoHeight / logo.height;
     const logoWidth = logo.width * scale;
@@ -274,37 +296,28 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-    if (isMobile) {
-      const dataURL = tempCanvas.toDataURL("image/png");
-      if (newTab) {
-        newTab.document.body.style.margin = "0";
-        newTab.document.body.innerHTML = `<img src="${dataURL}" style="width:100%">`;
-        alert("👉 Ảnh đã mở. Nhấn giữ ảnh và chọn 'Lưu hình ảnh' để tải về.");
-      } else {
-        alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
+    tempCanvas.toBlob((blob) => {
+      if (!blob) {
+        alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
+        return;
       }
-    } else {
-      tempCanvas.toBlob((blob) => {
-        if (!blob) {
-          alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
-          return;
-        }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = originalImageName || "to_mau.png";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, "image/png");
-    }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = originalImageName || "to_mau.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, "image/png");
   };
 
   logo.onerror = () => {
     alert("Không thể tải logo từ images/logo.png");
   };
 });
+
 
 
 
