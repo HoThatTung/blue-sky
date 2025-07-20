@@ -8,87 +8,65 @@
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/color.css" />
   <script defer src="js/color.js"></script>
-</head>
-  <!-- ⚠️ Cảnh báo trình duyệt in-app bị giới hạn (Zalo, Facebook, Instagram...) -->
-<div id="inAppWarning" style="display:none;">
-  <style>
-    #inAppWarning .inapp-backdrop {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.6);
-      z-index: 9998;
-    }
 
-    #inAppWarning .inapp-modal {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #fff;
-      padding: 20px 25px;
-      border-radius: 12px;
-      z-index: 9999;
-      max-width: 90%;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      text-align: center;
-      font-family: sans-serif;
-    }
-
-    #inAppWarning .inapp-modal h3 {
-      margin-top: 0;
-      font-size: 18px;
-      color: #d9534f;
-    }
-
-    #inAppWarning .inapp-modal p {
-      margin: 10px 0;
-      font-size: 15px;
-      color: #333;
-    }
-
-    #inAppWarning .inapp-modal button {
-      margin-top: 10px;
-      padding: 8px 16px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-  </style>
-
-  <div class="inapp-backdrop"></div>
-  <div class="inapp-modal">
-    <h3>⚠️ Trình duyệt bị giới hạn</h3>
-    <p>Trang web đang được mở trong ứng dụng như Zalo, Facebook hoặc Instagram.<br>
-    Một số tính năng như <strong>lưu ảnh</strong> có thể không hoạt động bình thường.</p>
-    <p>👉 Vui lòng mở trang này bằng <strong>Safari</strong> hoặc <strong>Chrome</strong> để sử dụng đầy đủ chức năng.</p>
-    <button onclick="document.getElementById('inAppWarning').style.display='none'">Đã hiểu</button>
-  </div>
-
+  <!-- ⚠️ Cảnh báo trình duyệt in-app bị giới hạn -->
   <script>
-    function isInAppBrowser() {
+    function detectInAppBrowser() {
       const ua = navigator.userAgent || navigator.vendor || window.opera;
-      return (
-        /FBAN|FBAV|Instagram/.test(ua) ||     // Facebook & Instagram
-        /Zalo/.test(ua) ||                    // Zalo
-        /Line/.test(ua) ||                    // Line
-        /TikTok/.test(ua) ||                  // TikTok
-        (ua.includes("wv") && ua.includes("Android"))  // Android WebView
-      );
+      if (/Zalo/i.test(ua)) return "Zalo";
+      if (/FBAN|FBAV/i.test(ua)) return "Facebook";
+      if (/Instagram/i.test(ua)) return "Instagram";
+      if (/Line/i.test(ua)) return "Line";
+      if (/TikTok/i.test(ua)) return "TikTok";
+      if (ua.includes("wv") && ua.includes("Android")) return "Ứng dụng";
+      return null;
     }
 
-    window.addEventListener("DOMContentLoaded", () => {
-      if (isInAppBrowser()) {
-        document.getElementById("inAppWarning").style.display = "block";
+    function openInDefaultBrowser() {
+      const url = window.location.href;
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
+
+      if (isIOS) {
+        window.location = `x-web-search://?url=${encodeURIComponent(url)}`;
+      } else if (isAndroid) {
+        window.location = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
       }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const app = detectInAppBrowser();
+      if (!app) return;
+
+      const modal = document.createElement("div");
+      modal.innerHTML = `
+        <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9998;"></div>
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:24px;border-radius:12px;max-width:90%;text-align:center;z-index:9999;font-family:sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+          <h3 style="margin-top:0;font-size:18px;color:#d9534f;">⚠️ Đang mở từ ${app}</h3>
+          <p style="font-size:15px;color:#333;">Bạn đang mở trang từ <strong>${app}</strong>.<br>Một số chức năng như <strong>lưu ảnh</strong> có thể không hoạt động.</p>
+          <p style="font-size:15px;">👉 Bạn có muốn mở trang bằng trình duyệt hệ thống?</p>
+          <div style="margin-top:15px;display:flex;justify-content:space-between;gap:10px;">
+            <button id="stayBtn" style="flex:1;padding:10px 0;background:#6c757d;color:#fff;border:none;border-radius:6px;font-size:14px;">Ở lại trang</button>
+            <button id="openBrowserBtn" style="flex:1;padding:10px 0;background:#007bff;color:#fff;border:none;border-radius:6px;font-size:14px;">
+              Mở bằng ${/iPhone|iPad|iPod/i.test(navigator.userAgent) ? "Safari" : "Chrome"}
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      document.getElementById("stayBtn").onclick = () => {
+        modal.remove();
+      };
+
+      document.getElementById("openBrowserBtn").onclick = () => {
+        openInDefaultBrowser();
+      };
     });
   </script>
-</div>
+</head>
 
 <body>
-
   <header class="header">
     <div class="container header-inner">
       <img src="images/logo.webp" alt="Logo Blue Sky" class="logo" />
