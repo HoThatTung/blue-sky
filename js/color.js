@@ -1,4 +1,4 @@
-// color.js - Phiên bản đã sửa đúng cách để lưu ảnh trên iPhone/Safari
+// color.js - Đã sửa hoàn thiện (gồm cả xử lý lưu ảnh chuẩn iOS và initMenuButton)
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -61,7 +61,6 @@ function updateModeButtons() {
   document.getElementById("fillModeBtn").classList.toggle("active", mode === "fill");
   document.getElementById("brushModeBtn").classList.toggle("active", mode === "brush");
   document.getElementById("eraserModeBtn").classList.toggle("active", mode === "eraser");
-
   document.getElementById("brushSizeSelect").style.display =
     mode === "brush" || mode === "eraser" ? "inline-block" : "none";
 }
@@ -80,7 +79,6 @@ document.getElementById("imageSelect").addEventListener("change", function () {
     ctx.drawImage(img, 0, 0);
   };
   img.src = selectedImage;
-
   document.getElementById("uploadInput").value = "";
   undoStack = [];
   redoStack = [];
@@ -129,7 +127,6 @@ canvas.addEventListener("mousemove", (e) => {
 });
 canvas.addEventListener("mouseup", () => isDrawing = false);
 canvas.addEventListener("mouseleave", () => isDrawing = false);
-
 canvas.addEventListener("touchstart", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
@@ -138,7 +135,6 @@ canvas.addEventListener("touchstart", (e) => {
     e.preventDefault();
   }
 }, { passive: false });
-
 canvas.addEventListener("touchmove", (e) => {
   if (isDrawing && (mode === "brush" || mode === "eraser")) {
     drawAt(e);
@@ -146,7 +142,6 @@ canvas.addEventListener("touchmove", (e) => {
   }
 }, { passive: false });
 canvas.addEventListener("touchend", () => isDrawing = false);
-
 canvas.addEventListener("click", (e) => {
   if (mode === "fill") {
     const { x, y } = getCanvasCoords(e);
@@ -192,7 +187,6 @@ function floodFill(x, y, fillColor) {
 
     if (visited[visitedIdx]) continue;
     visited[visitedIdx] = 1;
-
     if (!matchColor(idx)) continue;
     colorPixel(idx);
 
@@ -201,7 +195,6 @@ function floodFill(x, y, fillColor) {
     if (cy > 0) stack.push([cx, cy - 1]);
     if (cy < height - 1) stack.push([cx, cy + 1]);
   }
-
   ctx.putImageData(imageData, 0, 0);
 }
 
@@ -217,7 +210,6 @@ document.getElementById("undoBtn").addEventListener("click", () => {
     ctx.putImageData(prev, 0, 0);
   }
 });
-
 document.getElementById("redoBtn").addEventListener("click", () => {
   if (redoStack.length > 0) {
     undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
@@ -226,19 +218,100 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// ✅ Lưu ảnh: gọi window.open trực tiếp từ sự kiện click để tránh bị Safari chặn
-const downloadBtn = document.getElementById("downloadBtn");
-downloadBtn.addEventListener("click", function () {
-  const dataUrl = canvas.toDataURL("image/png");
-  const win = window.open();
-  if (win) {
-    win.document.write(`<iframe src="${dataUrl}" frameborder="0" style="border:none;width:100%;height:100%;"></iframe>`);
-  } else {
-    alert("⚠️ Trình duyệt đang chặn cửa sổ mới. Vui lòng bật pop-up để lưu ảnh.");
+document.getElementById("downloadBtn").addEventListener("click", () => {
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if (isIOS) {
+    const win = window.open("about:blank", "_blank");
+    if (!win) {
+      alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
+      return;
+    }
+
+    win.document.write(`<!DOCTYPE html><html><head><title>Đang xử lý...</title></head><body style="text-align:center;font-family:sans-serif;"><p>⏳ Đang tạo ảnh...</p></body></html>`);
+    win.document.close();
+
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCtx.drawImage(canvas, 0, 0);
+
+    const logo = new Image();
+    logo.src = "images/logo.png";
+    logo.crossOrigin = "anonymous";
+
+    logo.onload = () => {
+      const logoHeight = 40;
+      const scale = logoHeight / logo.height;
+      const logoWidth = logo.width * scale;
+      const x = canvas.width - logoWidth - 10;
+      const y = canvas.height - logoHeight - 10;
+      tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
+
+      tempCtx.font = "16px Arial";
+      tempCtx.fillStyle = "black";
+      tempCtx.textBaseline = "top";
+      tempCtx.fillText(originalImageName, 10, 10);
+
+      const dataURL = tempCanvas.toDataURL("image/png");
+
+      win.document.open();
+      win.document.write(`<!DOCTYPE html><html><head><title>Ảnh đã tô màu</title></head><body style="margin:0;text-align:center;background:#fff;"><img src="${dataURL}" style="max-width:100%;height:auto;" /><p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p></body></html>`);
+      win.document.close();
+    };
+
+    logo.onerror = () => {
+      alert("Không thể tải logo từ images/logo.png");
+    };
+    return;
   }
+
+  const logo = new Image();
+  logo.src = "images/logo.png";
+  logo.crossOrigin = "anonymous";
+
+  logo.onload = () => {
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCtx.drawImage(canvas, 0, 0);
+    tempCtx.font = "16px Arial";
+    tempCtx.fillStyle = "black";
+    tempCtx.textBaseline = "top";
+    tempCtx.fillText(originalImageName, 10, 10);
+
+    const logoHeight = 40;
+    const scale = logoHeight / logo.height;
+    const logoWidth = logo.width * scale;
+    const x = canvas.width - logoWidth - 10;
+    const y = canvas.height - logoHeight - 10;
+    tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
+
+    tempCanvas.toBlob((blob) => {
+      if (!blob) {
+        alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = originalImageName || "to_mau.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  };
+
+  logo.onerror = () => {
+    alert("Không thể tải logo từ images/logo.png");
+  };
 });
 
-// 🔁 Hàm gán lại sự kiện menu
 function initMenuButton() {
   const menuBtn = document.getElementById("menuToggle");
   const nav = document.getElementById("mainNav");
