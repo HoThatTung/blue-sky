@@ -100,6 +100,8 @@
   </footer>
 
   <!-- ✅ Script cảnh báo in-app browser và xử lý menu -->
+
+  
  <script>
 function isInAppBrowser() {
   const ua = navigator.userAgent || navigator.vendor || window.opera;
@@ -138,23 +140,44 @@ window.addEventListener("DOMContentLoaded", () => {
       position:fixed;top:0;left:0;width:100%;height:100%;
       background:rgba(0,0,0,0.8);z-index:9999;display:flex;
       align-items:center;justify-content:center;
-      font-family:sans-serif;
+      font-family: 'Inter', sans-serif;
     `;
 
     let html = `
-      <div style="background:#fff;padding:20px;max-width:90%;border-radius:10px;text-align:center;color:#000;">
-        <h2>⚠️ Đang mở từ ${appName}</h2>
-        <p>Trình duyệt trong ứng dụng <b>${appName}</b> có thể không hỗ trợ đầy đủ chức năng.</p>
-        <p>Vui lòng mở bằng <b>${isIOS ? "Safari" : "Chrome"}</b> để sử dụng trọn vẹn.</p>
-        <div style="margin-top:15px;">`;
+      <div style="background:#fff;padding:25px 20px;max-width:90%;border-radius:16px;text-align:center;color:#000;box-shadow:0 0 20px rgba(0,0,0,0.3);">
+        <h2 style="font-size:20px;margin-bottom:10px;">⚠️ Đang mở từ ${appName}</h2>
+        <p style="font-size:16px;margin-bottom:10px;">Trình duyệt trong ứng dụng <strong>${appName}</strong> có thể không hỗ trợ đầy đủ chức năng.</p>
+        <p style="font-size:16px;margin-bottom:20px;">Vui lòng mở bằng <strong>${isIOS ? "Safari" : "Chrome"}</strong> để sử dụng trọn vẹn.</p>
+        <div style="display:flex;justify-content:center;gap:15px;flex-wrap:wrap;">`;
 
-    html += `<button id="stayBtn" style="padding:10px 15px;margin-right:10px;">Ở lại trang</button>`;
+    html += `<button id="stayBtn" style="
+      padding:12px 20px;
+      font-size:16px;
+      border:none;
+      border-radius:8px;
+      background-color:#ccc;
+      color:#000;
+      cursor:pointer;
+      min-width:130px;
+    ">Ở lại trang</button>`;
 
     if (isAndroid) {
-      html += `<button id="openBrowserBtn" style="padding:10px 15px;">Mở bằng Chrome</button>`;
+      html += `<button id="openBrowserBtn" style="
+        padding:12px 20px;
+        font-size:16px;
+        border:none;
+        border-radius:8px;
+        background-color:#007bff;
+        color:#fff;
+        cursor:pointer;
+        min-width:130px;
+      ">Mở bằng Chrome</button>`;
     }
 
-    html += `</div></div>`;
+    html += `
+        </div>
+      </div>
+    `;
     overlay.innerHTML = html;
     document.body.appendChild(overlay);
 
@@ -173,6 +196,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 });
 </script>
+
 
 
 </body>
