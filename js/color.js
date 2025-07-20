@@ -226,3 +226,7 @@ document.getElementById("redoBtn").addEventListener("click", () => {
     ctx.putImageData(next, 0, 0);
   }
 });
+// Xử lý mở menu khi click nút ☰
+document.getElementById("menuToggle").addEventListener("click", () => {
+  document.getElementById("mainNav").classList.toggle("open");
+});
