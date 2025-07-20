@@ -1,5 +1,3 @@
-// color.js - Đã sửa hoàn thiện (với initMenuButton dùng lại được)
-
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -242,5 +240,32 @@ function initMenuButton() {
 }
 
 // Gọi khi DOM sẵn sàng
-window.addEventListener("DOMContentLoaded", initMenuButton);
-window.initMenuButton = initMenuButton; // Cho file HTML gọi lại sau khi overlay bị gỡ
+window.addEventListener("DOMContentLoaded", () => {
+  initMenuButton();
+
+  // ✅ Xử lý LƯU ẢNH tại sự kiện click để tránh iOS block
+  const downloadBtn = document.getElementById("downloadBtn");
+  if (downloadBtn) {
+    downloadBtn.addEventListener("click", () => {
+      try {
+        const imageDataURL = canvas.toDataURL("image/png");
+
+        const link = document.createElement("a");
+        link.href = imageDataURL;
+        link.download = originalImageName ? `to-mau-${originalImageName}` : "to-mau.png";
+
+        const newTab = window.open();
+        if (newTab) {
+          newTab.document.body.innerHTML = `<img src="${imageDataURL}" style="width:100%;height:auto;" />`;
+        } else {
+          link.click(); // fallback nếu không mở được tab
+        }
+      } catch (err) {
+        alert("Không thể lưu ảnh. Trình duyệt có thể không hỗ trợ.");
+        console.error(err);
+      }
+    });
+  }
+});
+
+window.initMenuButton = initMenuButton; // Cho file HTML gọi lại sau khi overlay gỡ
