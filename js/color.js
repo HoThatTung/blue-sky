@@ -1,4 +1,4 @@
-// color.js - Đã sửa hoàn thiện (với initMenuButton và xử lý lưu ảnh tương thích iOS)
+// color.js - Phiên bản đã sửa đúng cách để lưu ảnh trên iPhone/Safari
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -22,7 +22,6 @@ const colors = [
   "#008000", "#00FF00", "#99FF66", "#800080", "#8B5F65"
 ];
 
-// Tạo bảng màu
 const palette = document.getElementById("colorPalette");
 colors.forEach((color, i) => {
   const div = document.createElement("div");
@@ -44,12 +43,17 @@ document.querySelectorAll(".color").forEach(el => {
   });
 });
 
-// Chế độ tô
-["fill", "brush", "eraser"].forEach(modeName => {
-  document.getElementById(`${modeName}ModeBtn`).addEventListener("click", () => {
-    mode = modeName;
-    updateModeButtons();
-  });
+document.getElementById("fillModeBtn").addEventListener("click", () => {
+  mode = "fill";
+  updateModeButtons();
+});
+document.getElementById("brushModeBtn").addEventListener("click", () => {
+  mode = "brush";
+  updateModeButtons();
+});
+document.getElementById("eraserModeBtn").addEventListener("click", () => {
+  mode = "eraser";
+  updateModeButtons();
 });
 
 function updateModeButtons() {
@@ -57,6 +61,7 @@ function updateModeButtons() {
   document.getElementById("fillModeBtn").classList.toggle("active", mode === "fill");
   document.getElementById("brushModeBtn").classList.toggle("active", mode === "brush");
   document.getElementById("eraserModeBtn").classList.toggle("active", mode === "eraser");
+
   document.getElementById("brushSizeSelect").style.display =
     mode === "brush" || mode === "eraser" ? "inline-block" : "none";
 }
@@ -65,7 +70,6 @@ document.getElementById("brushSizeSelect").addEventListener("change", function (
   brushSize = parseFloat(this.value);
 });
 
-// Tải ảnh mẫu
 document.getElementById("imageSelect").addEventListener("change", function () {
   const selectedImage = this.value;
   img = new Image();
@@ -111,28 +115,36 @@ function drawAt(e) {
   ctx.fill();
 }
 
-["mousedown", "touchstart"].forEach(evt => {
-  canvas.addEventListener(evt, (e) => {
-    if (mode === "brush" || mode === "eraser") {
-      isDrawing = true;
-      saveState();
-      drawAt(e);
-      if (e.cancelable) e.preventDefault();
-    }
-  }, { passive: false });
+canvas.addEventListener("mousedown", (e) => {
+  if (mode === "brush" || mode === "eraser") {
+    isDrawing = true;
+    saveState();
+    drawAt(e);
+  }
 });
-
-["mousemove", "touchmove"].forEach(evt => {
-  canvas.addEventListener(evt, (e) => {
-    if (isDrawing && (mode === "brush" || mode === "eraser")) {
-      drawAt(e);
-      if (e.cancelable) e.preventDefault();
-    }
-  }, { passive: false });
+canvas.addEventListener("mousemove", (e) => {
+  if (isDrawing && (mode === "brush" || mode === "eraser")) {
+    drawAt(e);
+  }
 });
-
 canvas.addEventListener("mouseup", () => isDrawing = false);
 canvas.addEventListener("mouseleave", () => isDrawing = false);
+
+canvas.addEventListener("touchstart", (e) => {
+  if (mode === "brush" || mode === "eraser") {
+    isDrawing = true;
+    saveState();
+    drawAt(e);
+    e.preventDefault();
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchmove", (e) => {
+  if (isDrawing && (mode === "brush" || mode === "eraser")) {
+    drawAt(e);
+    e.preventDefault();
+  }
+}, { passive: false });
 canvas.addEventListener("touchend", () => isDrawing = false);
 
 canvas.addEventListener("click", (e) => {
@@ -214,23 +226,19 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// Nút lưu ảnh
+// ✅ Lưu ảnh: gọi window.open trực tiếp từ sự kiện click để tránh bị Safari chặn
 const downloadBtn = document.getElementById("downloadBtn");
-downloadBtn.addEventListener("click", () => {
-  try {
-    const dataUrl = canvas.toDataURL("image/png");
-    const newTab = window.open("", "_blank");
-    if (newTab) {
-      newTab.document.write(`<html><head><title>Ảnh đã tô</title></head><body style="margin:0;text-align:center;background:#f0f0f0;"><h2 style="font-family:sans-serif;padding:10px;">Ảnh đã tô màu</h2><img src="${dataUrl}" style="max-width:100%;height:auto;" /></body></html>`);
-    } else {
-      alert("⚠️ Trình duyệt đang chặn cửa sổ mới. Vui lòng bật pop-up hoặc thử lại bằng Safari/Chrome.");
-    }
-  } catch (e) {
-    alert("❌ Không thể tạo ảnh. Vui lòng thử lại hoặc sử dụng trình duyệt hệ thống.");
+downloadBtn.addEventListener("click", function () {
+  const dataUrl = canvas.toDataURL("image/png");
+  const win = window.open();
+  if (win) {
+    win.document.write(`<iframe src="${dataUrl}" frameborder="0" style="border:none;width:100%;height:100%;"></iframe>`);
+  } else {
+    alert("⚠️ Trình duyệt đang chặn cửa sổ mới. Vui lòng bật pop-up để lưu ảnh.");
   }
 });
 
-// Hàm gán lại sự kiện menu
+// 🔁 Hàm gán lại sự kiện menu
 function initMenuButton() {
   const menuBtn = document.getElementById("menuToggle");
   const nav = document.getElementById("mainNav");
