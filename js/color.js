@@ -1,3 +1,5 @@
+// color.js - Đã sửa hoàn thiện (với initMenuButton dùng lại được)
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -227,14 +229,18 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// Đảm bảo menu hoạt động đúng sau khi DOM đã sẵn sàng
-document.addEventListener("DOMContentLoaded", () => {
+// 🔁 Hàm gán lại sự kiện menu, để dùng cả bên ngoài
+function initMenuButton() {
   const menuBtn = document.getElementById("menuToggle");
   const nav = document.getElementById("mainNav");
-
-  if (menuBtn && nav) {
+  if (menuBtn && nav && !menuBtn.dataset.bound) {
     menuBtn.addEventListener("click", () => {
       nav.classList.toggle("open");
     });
+    menuBtn.dataset.bound = "true";
   }
-});
+}
+
+// Gọi khi DOM sẵn sàng
+window.addEventListener("DOMContentLoaded", initMenuButton);
+window.initMenuButton = initMenuButton; // Cho file HTML gọi lại sau khi overlay bị gỡ
