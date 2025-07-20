@@ -89,12 +89,6 @@ document.getElementById("imageSelect").addEventListener("change", function () {
   updateSelectStyle();
 });
 
-function updateSelectStyle() {
-  const select = document.getElementById("imageSelect");
-  select.classList.remove("placeholder");
-}
-
-// Toạ độ canvas
 function getCanvasCoords(e) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
@@ -114,7 +108,6 @@ function getCanvasCoords(e) {
   return { x, y };
 }
 
-// Vẽ cọ hoặc xóa
 function drawAt(e) {
   const { x, y } = getCanvasCoords(e);
   ctx.fillStyle = mode === "eraser" ? "#ffffff" : currentColor;
@@ -123,7 +116,6 @@ function drawAt(e) {
   ctx.fill();
 }
 
-// Sự kiện chuột
 canvas.addEventListener("mousedown", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
@@ -139,7 +131,6 @@ canvas.addEventListener("mousemove", (e) => {
 canvas.addEventListener("mouseup", () => isDrawing = false);
 canvas.addEventListener("mouseleave", () => isDrawing = false);
 
-// Sự kiện cảm ứng
 canvas.addEventListener("touchstart", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
@@ -155,10 +146,8 @@ canvas.addEventListener("touchmove", (e) => {
     e.preventDefault();
   }
 }, { passive: false });
-
 canvas.addEventListener("touchend", () => isDrawing = false);
 
-// Tô vùng
 canvas.addEventListener("click", (e) => {
   if (mode === "fill") {
     const { x, y } = getCanvasCoords(e);
@@ -167,13 +156,11 @@ canvas.addEventListener("click", (e) => {
   }
 });
 
-// Chuyển đổi mã màu hex sang rgba
 function hexToRgba(hex) {
   const bigint = parseInt(hex.slice(1), 16);
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
 
-// Hàm flood fill
 function floodFill(x, y, fillColor) {
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
@@ -219,11 +206,11 @@ function floodFill(x, y, fillColor) {
   ctx.putImageData(imageData, 0, 0);
 }
 
-// Undo/Redo
 function saveState() {
   undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
   redoStack = [];
 }
+
 document.getElementById("undoBtn").addEventListener("click", () => {
   if (undoStack.length > 0) {
     redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
@@ -231,6 +218,7 @@ document.getElementById("undoBtn").addEventListener("click", () => {
     ctx.putImageData(prev, 0, 0);
   }
 });
+
 document.getElementById("redoBtn").addEventListener("click", () => {
   if (redoStack.length > 0) {
     undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
@@ -239,7 +227,14 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// Mở menu ☰
-document.getElementById("menuToggle").addEventListener("click", () => {
-  document.getElementById("mainNav").classList.toggle("open");
+// Đảm bảo menu hoạt động đúng sau khi DOM đã sẵn sàng
+document.addEventListener("DOMContentLoaded", () => {
+  const menuBtn = document.getElementById("menuToggle");
+  const nav = document.getElementById("mainNav");
+
+  if (menuBtn && nav) {
+    menuBtn.addEventListener("click", () => {
+      nav.classList.toggle("open");
+    });
+  }
 });
