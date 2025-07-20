@@ -110,7 +110,7 @@ function isInAppBrowser() {
   return null;
 }
 
-window.onload = () => {
+window.addEventListener("DOMContentLoaded", () => { {
   const appName = isInAppBrowser();
   if (appName) {
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
