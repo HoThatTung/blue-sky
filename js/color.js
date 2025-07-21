@@ -242,7 +242,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     logo.crossOrigin = "anonymous";
 
     logo.onload = () => {
-      const logoHeight = 40;
+      const logoHeight = 30;
       const scale = logoHeight / logo.height;
       const logoWidth = logo.width * scale;
       const x = canvas.width - logoWidth - 10;
