@@ -1,296 +1,352 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbxE5c-0KmEuSGeSJulcfSvRmoVWFOE0UzxECVMBey7KNXk7CgSVNfpLUEiypzq24QbV/exec?all=true";
-const MAX_VISIBLE = 3;
+// color.js - Đã sửa hoàn thiện (gồm cả xử lý lưu ảnh chuẩn iOS và initMenuButton)
 
-let allProducts = {};
-let groupNames = [];
-let groupRendered = {};
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
-function formatPrice(val) {
-  return (+val).toLocaleString("vi-VN");
+let currentColor = "#000000";
+let img = new Image();
+let isDrawing = false;
+
+let mode = "fill"; // fill | brush | eraser
+let brushSize = 7.5;
+
+let undoStack = [];
+let redoStack = [];
+
+let originalImageName = "";
+
+const colors = [
+  "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
+  "#FFFF00", "#000000", "#808080", "#C0C0C0", "#FFFFFF",
+  "#0000FF", "#9370DB", "#00CCFF", "#00FFFF", "#006241",
+  "#008000", "#00FF00", "#99FF66", "#800080", "#8B5F65"
+];
+
+const palette = document.getElementById("colorPalette");
+colors.forEach((color, i) => {
+  const div = document.createElement("div");
+  div.className = "color";
+  div.style.background = color;
+  div.dataset.color = color;
+  if (i === 0) {
+    div.classList.add("selected");
+    currentColor = color;
+  }
+  palette.appendChild(div);
+});
+
+document.querySelectorAll(".color").forEach(el => {
+  el.addEventListener("click", () => {
+    document.querySelectorAll(".color").forEach(c => c.classList.remove("selected"));
+    el.classList.add("selected");
+    currentColor = el.dataset.color;
+  });
+});
+
+document.getElementById("fillModeBtn").addEventListener("click", () => {
+  mode = "fill";
+  updateModeButtons();
+});
+document.getElementById("brushModeBtn").addEventListener("click", () => {
+  mode = "brush";
+  updateModeButtons();
+});
+document.getElementById("eraserModeBtn").addEventListener("click", () => {
+  mode = "eraser";
+  updateModeButtons();
+});
+
+function updateModeButtons() {
+  document.querySelectorAll(".mode-btn").forEach(btn => btn.classList.remove("active"));
+  document.getElementById("fillModeBtn").classList.toggle("active", mode === "fill");
+  document.getElementById("brushModeBtn").classList.toggle("active", mode === "brush");
+  document.getElementById("eraserModeBtn").classList.toggle("active", mode === "eraser");
+  document.getElementById("brushSizeSelect").style.display =
+    mode === "brush" || mode === "eraser" ? "inline-block" : "none";
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    const heading = document.querySelector("h2");
-    const loadingSpan = document.createElement("span");
-    loadingSpan.textContent = " ...loading";
-    loadingSpan.style.fontSize = "14px";
-    heading.appendChild(loadingSpan);
+document.getElementById("brushSizeSelect").addEventListener("change", function () {
+  brushSize = parseFloat(this.value);
+});
 
-    const res = await fetch(API_URL);
-    allProducts = await res.json();
-    groupNames = Object.keys(allProducts);
+document.getElementById("imageSelect").addEventListener("change", function () {
+  const selectedImage = this.value;
+  img = new Image();
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+  };
+  img.src = selectedImage;
+  document.getElementById("uploadInput").value = "";
+  undoStack = [];
+  redoStack = [];
+  originalImageName = selectedImage.split('/').pop();
+  updateSelectStyle();
+});
 
-    const groupContainer = document.getElementById("product-groups");
-
-    groupNames.forEach((groupName) => {
-      const groupId = `group-${groupName.toLowerCase().replace(/\s+/g, "-")}`;
-      const groupHTML = `
-        <h3 class="product-category clickable" data-group="${groupName}" data-target="${groupId}">
-          ${groupName} <span class="group-loading" style="font-size:10px; display:none">...loading</span>
-        </h3>
-        <div class="product-wrapper">
-          <div class="product-grid" id="${groupId}"></div>
-          <div class="toggle-container" style="display:flex; justify-content:space-between; gap: 12px; margin-top:16px;"></div>
-        </div>
-      `;
-      groupContainer.insertAdjacentHTML("beforeend", groupHTML);
-    });
-
-    heading.removeChild(loadingSpan);
-    renderGroup(groupNames[0]);
-
-    let index = 1;
-    function renderNextGroup() {
-      if (index >= groupNames.length) return;
-      renderGroup(groupNames[index]);
-      index++;
-      setTimeout(renderNextGroup, 100);
-    }
-    setTimeout(renderNextGroup, 200);
-
-  } catch (err) {
-    console.error("Lỗi khi tải dữ liệu sản phẩm:", err);
+document.getElementById("uploadInput").addEventListener("change", function () {
+  const file = this.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        undoStack = [];
+        redoStack = [];
+        originalImageName = file.name;
+        document.getElementById("imageSelect").selectedIndex = 0; // reset dropdown
+        updateSelectStyle();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 });
 
-async function renderGroup(groupName) {
-  if (groupRendered[groupName]) return;
-  groupRendered[groupName] = true;
 
-  const groupId = `group-${groupName.toLowerCase().replace(/\s+/g, "-")}`;
-  const groupTitle = document.querySelector(`[data-group="${groupName}"]`);
-  const loadingSpan = groupTitle.querySelector(".group-loading");
-  const container = document.getElementById(groupId);
-  const wrapper = container.parentElement;
-  const toggleContainer = wrapper.querySelector(".toggle-container");
 
-  loadingSpan.style.display = "inline";
-  const data = allProducts[groupName] || [];
+function getCanvasCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  let clientX, clientY;
 
-  const grouped = {};
-  data.forEach(row => {
-    const name = String(row.productname || "Không tên");
-    if (!grouped[name]) grouped[name] = [];
-    grouped[name].push(row);
-  });
-
-  const productList = Object.entries(grouped);
-  let renderedCount = 0;
-
-  function renderProducts() {
-    const fragment = document.createDocumentFragment();
-    const toShow = productList.slice(renderedCount, renderedCount + MAX_VISIBLE);
-
-    toShow.forEach(([productName, sizes]) => {
-      const first = sizes[0];
-      const sizeOptions = sizes.map(s => `
-        <option value="${s.sizes}" data-img="${s.imgs}" data-price="${s.prices}" data-sale="${s.sales}" data-color-img="${s.colorimgs}">
-          ${s.sizes}
-        </option>`).join("");
-
-      const orderOptions = sizes.map(s => `
-        <option value="${s.sizes}">${s.sizes} - ${formatPrice(s.sales)}đ</option>
-      `).join("");
-
-      const div = document.createElement("div");
-      div.className = "product fade-in";
-      div.innerHTML = `
-        <img data-src="${first.imgs || 'images/default.png'}" class="product-img lazyload" alt="${productName}">
-        <div class="product-top-row">
-          <h3 class="product-title">${productName}</h3>
-          <div class="size-row">
-            <label>Size:</label>
-            <select class="size-select">${sizeOptions}</select>
-          </div>
-        </div>
-        <div class="price-row hidden">
-          <span class="price-original">Giá: 0đ</span>
-          <span class="price-sale">Khuyến mãi: 0đ</span>
-        </div>
-        <div class="product-actions">
-          <button class="color-btn">Tô màu</button>
-          <button class="order-btn">Đặt hàng</button>
-        </div>
-        <div class="order-form hidden">
-          <input type="text" class="order-name" value="${productName}" readonly />
-          <select class="order-size">${orderOptions}</select>
-          <input type="text" class="order-customer" placeholder="Họ và tên" />
-          <input type="tel" class="order-phone" placeholder="Số điện thoại" />
-          <input type="text" class="order-address" placeholder="Địa chỉ" />
-          <textarea class="order-note" placeholder="Ghi chú"></textarea>
-          <div class="form-actions">
-            <button class="confirm-order">Xác nhận đặt hàng</button>
-            <button class="cancel-order">Hủy</button>
-          </div>
-        </div>
-      `;
-
-      const sizeSelect = div.querySelector(".size-select");
-      const priceRow = div.querySelector(".price-row");
-      const img = div.querySelector(".product-img");
-      const priceOriginal = priceRow.querySelector(".price-original");
-      const priceSale = priceRow.querySelector(".price-sale");
-
- function updateDetails() {
-  const selected = sizeSelect.selectedOptions[0];
-  const price = selected.dataset.price;
-  const sale = selected.dataset.sale;
-  const newImg = selected.dataset.img;
-
-  const hasPrice = price && parseFloat(price) > 0;
-  const hasSale = sale && parseFloat(sale) > 0;
-
-  if (!hasPrice && !hasSale) {
-    priceRow.innerHTML = `
-      <div class="contact-row">
-        <span class="contact-info">
-          <a href="tel:0903082089" title="Gọi ngay">📞Liên hệ trực tiếp</a>
-        
-        </span>
-      </div>
-    `;
-    priceRow.classList.remove("hidden");
-    return;
+  if (e.touches && e.touches[0]) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
   }
 
-  if (hasPrice && hasSale) {
-    priceRow.innerHTML = `
-      <span class="price-original"><s>Giá: ${formatPrice(price)}đ</s></span>
-      <span class="price-sale">Khuyến mãi: ${formatPrice(sale)}đ</span>
-    `;
-    priceRow.classList.remove("hidden");
-    return;
-  }
-
-  if (hasPrice) {
-    priceRow.innerHTML = `
-      <span class="price-original">Giá: ${formatPrice(price)}đ</span>
-    `;
-    priceRow.classList.remove("hidden");
-    return;
-  }
-
-  priceRow.classList.add("hidden");
-
-  if (newImg) {
-    img.setAttribute("data-src", newImg);
-    img.classList.add("lazyload");
-  }
+  const x = Math.floor((clientX - rect.left) * scaleX);
+  const y = Math.floor((clientY - rect.top) * scaleY);
+  return { x, y };
 }
 
+function drawAt(e) {
+  const { x, y } = getCanvasCoords(e);
+  ctx.fillStyle = mode === "eraser" ? "#ffffff" : currentColor;
+  ctx.beginPath();
+  ctx.arc(x, y, brushSize, 0, Math.PI * 2);
+  ctx.fill();
+}
 
+canvas.addEventListener("mousedown", (e) => {
+  if (mode === "brush" || mode === "eraser") {
+    isDrawing = true;
+    saveState();
+    drawAt(e);
+  }
+});
+canvas.addEventListener("mousemove", (e) => {
+  if (isDrawing && (mode === "brush" || mode === "eraser")) {
+    drawAt(e);
+  }
+});
+canvas.addEventListener("mouseup", () => isDrawing = false);
+canvas.addEventListener("mouseleave", () => isDrawing = false);
+canvas.addEventListener("touchstart", (e) => {
+  if (mode === "brush" || mode === "eraser") {
+    isDrawing = true;
+    saveState();
+    drawAt(e);
+    e.preventDefault();
+  }
+}, { passive: false });
+canvas.addEventListener("touchmove", (e) => {
+  if (isDrawing && (mode === "brush" || mode === "eraser")) {
+    drawAt(e);
+    e.preventDefault();
+  }
+}, { passive: false });
+canvas.addEventListener("touchend", () => isDrawing = false);
+canvas.addEventListener("click", (e) => {
+  if (mode === "fill") {
+    const { x, y } = getCanvasCoords(e);
+    saveState();
+    floodFill(x, y, hexToRgba(currentColor));
+  }
+});
 
+function hexToRgba(hex) {
+  const bigint = parseInt(hex.slice(1), 16);
+  return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
+}
 
-      sizeSelect.addEventListener("change", updateDetails);
-      updateDetails();
+function floodFill(x, y, fillColor) {
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  const width = imageData.width;
+  const height = imageData.height;
+  const stack = [[x, y]];
+  const baseIdx = (y * width + x) * 4;
+  const startColor = data.slice(baseIdx, baseIdx + 4);
+  const tolerance = 48;
 
-      div.querySelector(".order-btn").addEventListener("click", () => {
-        div.querySelector(".order-form").classList.toggle("hidden");
-      });
+  const matchColor = (i) => {
+    for (let j = 0; j < 4; j++) {
+      if (Math.abs(data[i + j] - startColor[j]) > tolerance) return false;
+    }
+    return true;
+  };
 
-      div.querySelector(".cancel-order").addEventListener("click", () => {
-        div.querySelector(".order-form").classList.add("hidden");
-      });
+  const colorPixel = (i) => {
+    for (let j = 0; j < 4; j++) {
+      data[i + j] = fillColor[j];
+    }
+  };
 
-      div.querySelector(".confirm-order").addEventListener("click", () => {
-        const customer = div.querySelector(".order-customer").value.trim();
-        const phone = div.querySelector(".order-phone").value.trim();
-        const address = div.querySelector(".order-address").value.trim();
-        const note = div.querySelector(".order-note").value.trim();
-        const productName = div.querySelector(".order-name").value;
-        const size = div.querySelector(".order-size").value;
+  const visited = new Uint8Array(width * height);
 
-        if (!customer || !phone) {
-          alert("⚠️ Vui lòng nhập đầy đủ họ tên và số điện thoại.");
-          return;
-        }
+  while (stack.length) {
+    const [cx, cy] = stack.pop();
+    const idx = (cy * width + cx) * 4;
+    const visitedIdx = cy * width + cx;
 
-        const payload = { productName, size, customer, phone, address, note };
+    if (visited[visitedIdx]) continue;
+    visited[visitedIdx] = 1;
+    if (!matchColor(idx)) continue;
+    colorPixel(idx);
 
-        const formData = new URLSearchParams();
-        for (const key in payload) {
-          formData.append(key, payload[key]);
-        }
+    if (cx > 0) stack.push([cx - 1, cy]);
+    if (cx < width - 1) stack.push([cx + 1, cy]);
+    if (cy > 0) stack.push([cx, cy - 1]);
+    if (cy < height - 1) stack.push([cx, cy + 1]);
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
 
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxw3zd3miC7Sp1iIJcjVdlYzrwDjxcMJJvECB3hyK8bOkbo5b0aFSNieshY0R7P35w1/exec";
+function saveState() {
+  undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  redoStack = [];
+}
 
-        fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
-          body: formData
-        })
-          .then(res => res.json())
-          .then(response => {
-            if (response.success || response.result === "success") {
-              alert("✅ Đơn hàng đã được gửi thành công!");
-              div.querySelector(".order-form").classList.add("hidden");
-            } else {
-              alert("❌ Gửi đơn hàng thất bại: " + (response.message || "Không rõ nguyên nhân."));
-            }
-          })
-          .catch(err => {
-            console.error("Lỗi gửi đơn:", err);
-            alert("❌ Có lỗi xảy ra khi gửi đơn hàng.");
-          });
-      });
+document.getElementById("undoBtn").addEventListener("click", () => {
+  if (undoStack.length > 0) {
+    redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    const prev = undoStack.pop();
+    ctx.putImageData(prev, 0, 0);
+  }
+});
+document.getElementById("redoBtn").addEventListener("click", () => {
+  if (redoStack.length > 0) {
+    undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    const next = redoStack.pop();
+    ctx.putImageData(next, 0, 0);
+  }
+});
 
-      div.querySelector(".color-btn").addEventListener("click", () => {
-        const selectedOption = sizeSelect.selectedOptions[0];
-        const colorImgUrl = selectedOption.dataset.colorImg;
+document.getElementById("downloadBtn").addEventListener("click", () => {
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        if (!colorImgUrl) {
-          alert("Không có ảnh tô màu cho sản phẩm này.");
-          return;
-        }
+  if (isIOS) {
+    const win = window.open("about:blank", "_blank");
+    if (!win) {
+      alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
+      return;
+    }
 
-        window.location.href = `color.html?img=${encodeURIComponent(colorImgUrl)}`;
-      });
+    win.document.write(`<!DOCTYPE html><html><head><title>Đang xử lý...</title></head><body style="text-align:center;font-family:sans-serif;"><p>⏳ Đang tạo ảnh...</p></body></html>`);
+    win.document.close();
 
-      fragment.appendChild(div);
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCtx.drawImage(canvas, 0, 0);
+
+    const logo = new Image();
+    logo.src = "images/logo.png";
+    logo.crossOrigin = "anonymous";
+
+    logo.onload = () => {
+      const logoHeight = 40;
+      const scale = logoHeight / logo.height;
+      const logoWidth = logo.width * scale;
+      const x = canvas.width - logoWidth - 10;
+      const y = canvas.height - logoHeight - 10;
+      tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
+
+      tempCtx.font = "16px Arial";
+      tempCtx.fillStyle = "black";
+      tempCtx.textBaseline = "top";
+      tempCtx.fillText(originalImageName, 10, 10);
+
+      const dataURL = tempCanvas.toDataURL("image/png");
+
+      win.document.open();
+      win.document.write(`<!DOCTYPE html><html><head><title>Ảnh đã tô màu</title></head><body style="margin:0;text-align:center;background:#fff;"><img src="${dataURL}" style="max-width:100%;height:auto;" /><p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p></body></html>`);
+      win.document.close();
+    };
+
+    logo.onerror = () => {
+      alert("Không thể tải logo từ images/logo.png");
+    };
+    return;
+  }
+
+  const logo = new Image();
+  logo.src = "images/logo.png";
+  logo.crossOrigin = "anonymous";
+
+  logo.onload = () => {
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCtx.drawImage(canvas, 0, 0);
+    tempCtx.font = "16px Arial";
+    tempCtx.fillStyle = "black";
+    tempCtx.textBaseline = "top";
+    tempCtx.fillText(originalImageName, 10, 10);
+
+    const logoHeight = 40;
+    const scale = logoHeight / logo.height;
+    const logoWidth = logo.width * scale;
+    const x = canvas.width - logoWidth - 10;
+    const y = canvas.height - logoHeight - 10;
+    tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
+
+    tempCanvas.toBlob((blob) => {
+      if (!blob) {
+        alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = originalImageName || "to_mau.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  };
+
+  logo.onerror = () => {
+    alert("Không thể tải logo từ images/logo.png");
+  };
+});
+
+function initMenuButton() {
+  const menuBtn = document.getElementById("menuToggle");
+  const nav = document.getElementById("mainNav");
+  if (menuBtn && nav && !menuBtn.dataset.bound) {
+    menuBtn.addEventListener("click", () => {
+      nav.classList.toggle("open");
     });
-
-    container.appendChild(fragment);
-    renderedCount += toShow.length;
-    updateToggleButtons();
+    menuBtn.dataset.bound = "true";
   }
-
-  function updateToggleButtons() {
-    toggleContainer.innerHTML = "";
-
-    if (renderedCount < productList.length) {
-      const showMoreBtn = document.createElement("button");
-      showMoreBtn.className = "toggle-btn show-more";
-      showMoreBtn.textContent = "Xem thêm";
-      showMoreBtn.onclick = renderProducts;
-      toggleContainer.appendChild(showMoreBtn);
-    }
-
-    if (renderedCount > MAX_VISIBLE) {
-      const collapseBtn = document.createElement("button");
-      collapseBtn.className = "toggle-btn collapse";
-      collapseBtn.textContent = "🔼 Thu gọn";
-      collapseBtn.onclick = () => {
-        container.innerHTML = "";
-        renderedCount = 0;
-        renderProducts();
-      };
-      toggleContainer.appendChild(collapseBtn);
-    }
-  }
-
-  groupTitle.addEventListener("click", () => {
-    const isVisible = container.children.length > 0;
-    container.innerHTML = "";
-    toggleContainer.innerHTML = "";
-    if (!isVisible) {
-      renderedCount = 0;
-      renderProducts();
-    }
-  });
-
-  renderProducts();
-  loadingSpan.style.display = "none";
 }
+
+window.addEventListener("DOMContentLoaded", initMenuButton);
+window.initMenuButton = initMenuButton;
