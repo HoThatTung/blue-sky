@@ -84,7 +84,31 @@ document.getElementById("imageSelect").addEventListener("change", function () {
   redoStack = [];
   originalImageName = selectedImage.split('/').pop();
   updateSelectStyle();
+}); // <-- Kết thúc xử lý imageSelect
+
+// ✅ Thêm đoạn này ngay bên dưới:
+document.getElementById("uploadInput").addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (event) {
+    img = new Image();
+    img.onload = function () {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      undoStack = [];
+      redoStack = [];
+      originalImageName = file.name;
+      document.getElementById("imageSelect").selectedIndex = 0;
+      updateSelectStyle();
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
 });
+
 
 function getCanvasCoords(e) {
   const rect = canvas.getBoundingClientRect();
@@ -238,7 +262,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCtx.drawImage(canvas, 0, 0);
 
     const logo = new Image();
-    logo.src = "images/logo.png";
+    logo.src = "images/logo.webp";
     logo.crossOrigin = "anonymous";
 
     logo.onload = () => {
@@ -262,13 +286,13 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     };
 
     logo.onerror = () => {
-      alert("Không thể tải logo từ images/logo.png");
+      alert("Không thể tải logo từ images/logo.webp");
     };
     return;
   }
 
   const logo = new Image();
-  logo.src = "images/logo.png";
+  logo.src = "images/logo.webp";
   logo.crossOrigin = "anonymous";
 
   logo.onload = () => {
@@ -308,7 +332,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   };
 
   logo.onerror = () => {
-    alert("Không thể tải logo từ images/logo.png");
+    alert("Không thể tải logo từ images/logo.webp");
   };
 });
 
