@@ -299,7 +299,7 @@ logo.onload = () => {
   tempCanvas.height = canvas.height;
   tempCtx.drawImage(canvas, 0, 0);
 
-  const logoHeight = 40;
+  const logoHeight = 30;
   const scale = logoHeight / logo.height;
   const logoWidth = logo.width * scale;
   const x = canvas.width - logoWidth - 10;
