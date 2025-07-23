@@ -671,4 +671,27 @@ document.getElementById("deleteTextBtn").addEventListener("click", () => {
 
 
 window.addEventListener("DOMContentLoaded", initMenuButton);
+window.onload = () => {
+  initMenuButton(); // Gọi lại init nếu cần thiết
+
+  const params = new URLSearchParams(window.location.search);
+  const imageUrl = params.get("img");
+
+  if (imageUrl) {
+    const imgFromUrl = new Image();
+    imgFromUrl.crossOrigin = "anonymous"; // Bắt buộc nếu ảnh từ Cloudinary hoặc ngoài domain
+    imgFromUrl.onload = () => {
+      canvas.width = imgFromUrl.width;
+      canvas.height = imgFromUrl.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(imgFromUrl, 0, 0);
+      undoStack = [];
+      redoStack = [];
+      originalImageName = imageUrl.split("/").pop();
+    };
+    imgFromUrl.src = imageUrl;
+  }
+};
+
+
 window.initMenuButton = initMenuButton;
