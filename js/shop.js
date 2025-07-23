@@ -143,16 +143,16 @@ async function renderGroup(groupName) {
   const hasPrice = price && parseFloat(price) > 0;
   const hasSale = sale && parseFloat(sale) > 0;
 
-  if (!hasPrice && !hasSale) {
-    priceRow.innerHTML = `
-      <div class="contact-row">
-        <span class="contact-info">
-          <a href="tel:0903082089" title="Gọi ngay">📞Liên hệ trực tiếp</a>
-        </span>
-      </div>
-    `;
-    priceRow.classList.remove("hidden");
-  } else if (hasPrice && hasSale) {
+if (!hasPrice && !hasSale) {
+  priceRow.innerHTML = `
+    <div class="contact-label">
+      📞 <a href="tel:0903082089" title="Gọi ngay">Liên hệ trực tiếp</a>
+    </div>
+  `;
+  priceRow.classList.remove("hidden");
+}
+
+  else if (hasPrice && hasSale) {
     priceRow.innerHTML = `
       <span class="price-original"><s>Giá: ${formatPrice(price)}đ</s></span>
       <span class="price-sale">Khuyến mãi: ${formatPrice(sale)}đ</span>
