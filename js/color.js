@@ -1,13 +1,12 @@
-// color.js - Đã sửa hoàn thiện (gồm cả xử lý lưu ảnh chuẩn iOS và initMenuButton)
-
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 let currentColor = "#000000";
 let img = new Image();
 let isDrawing = false;
-
-let mode = "fill"; // fill | brush | eraser
+let mode = "fill"; // fill | brush | eraser | text
+let isTyping = false;
+let currentTextBox = null;
 let brushSize = 7.5;
 
 let undoStack = [];
@@ -35,35 +34,58 @@ colors.forEach((color, i) => {
   palette.appendChild(div);
 });
 
+// Gán click cho mỗi ô màu trong palette
 document.querySelectorAll(".color").forEach(el => {
   el.addEventListener("click", () => {
     document.querySelectorAll(".color").forEach(c => c.classList.remove("selected"));
     el.classList.add("selected");
     currentColor = el.dataset.color;
+    // ❌ Không đổi màu ở đây nữa
   });
 });
 
+
+
+
+
 document.getElementById("fillModeBtn").addEventListener("click", () => {
-  mode = "fill";
-  updateModeButtons();
-});
-document.getElementById("brushModeBtn").addEventListener("click", () => {
-  mode = "brush";
-  updateModeButtons();
-});
-document.getElementById("eraserModeBtn").addEventListener("click", () => {
-  mode = "eraser";
-  updateModeButtons();
+  updateModeButtons("fill");
 });
 
-function updateModeButtons() {
+function updateModeButtons(newMode = null) {
+  mode = newMode;
+
   document.querySelectorAll(".mode-btn").forEach(btn => btn.classList.remove("active"));
-  document.getElementById("fillModeBtn").classList.toggle("active", mode === "fill");
-  document.getElementById("brushModeBtn").classList.toggle("active", mode === "brush");
-  document.getElementById("eraserModeBtn").classList.toggle("active", mode === "eraser");
-  document.getElementById("brushSizeSelect").style.display =
-    mode === "brush" || mode === "eraser" ? "inline-block" : "none";
+
+  if (mode === "fill") {
+    document.getElementById("fillModeBtn").classList.add("active");
+  } else if (mode === "brush") {
+    document.getElementById("brushModeBtn").classList.add("active");
+  } else if (mode === "eraser") {
+    document.getElementById("eraserModeBtn").classList.add("active");
+  } else if (mode === "text") {
+    document.getElementById("textModeBtn").classList.add("active");
+  }
+
+  
 }
+
+
+document.getElementById("textModeBtn").addEventListener("click", () => {
+  mode = "text";
+  updateModeButtons();
+  addTextBoxCentered();
+});
+
+document.getElementById("brushModeBtn").addEventListener("click", () => {
+  updateModeButtons("brush"); // ✅ Truyền đúng mode
+});
+
+document.getElementById("eraserModeBtn").addEventListener("click", () => {
+  updateModeButtons("eraser"); // ✅ Truyền đúng mode
+});
+
+
 
 document.getElementById("brushSizeSelect").addEventListener("change", function () {
   brushSize = parseFloat(this.value);
@@ -84,9 +106,8 @@ document.getElementById("imageSelect").addEventListener("change", function () {
   redoStack = [];
   originalImageName = selectedImage.split('/').pop();
   updateSelectStyle();
-}); // <-- Kết thúc xử lý imageSelect
+});
 
-// ✅ Thêm đoạn này ngay bên dưới:
 document.getElementById("uploadInput").addEventListener("change", function (e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -108,7 +129,6 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
   };
   reader.readAsDataURL(file);
 });
-
 
 function getCanvasCoords(e) {
   const rect = canvas.getBoundingClientRect();
@@ -151,6 +171,7 @@ canvas.addEventListener("mousemove", (e) => {
 });
 canvas.addEventListener("mouseup", () => isDrawing = false);
 canvas.addEventListener("mouseleave", () => isDrawing = false);
+
 canvas.addEventListener("touchstart", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
@@ -166,6 +187,7 @@ canvas.addEventListener("touchmove", (e) => {
   }
 }, { passive: false });
 canvas.addEventListener("touchend", () => isDrawing = false);
+
 canvas.addEventListener("click", (e) => {
   if (mode === "fill") {
     const { x, y } = getCanvasCoords(e);
@@ -219,6 +241,7 @@ function floodFill(x, y, fillColor) {
     if (cy > 0) stack.push([cx, cy - 1]);
     if (cy < height - 1) stack.push([cx, cy + 1]);
   }
+
   ctx.putImageData(imageData, 0, 0);
 }
 
@@ -234,6 +257,7 @@ document.getElementById("undoBtn").addEventListener("click", () => {
     ctx.putImageData(prev, 0, 0);
   }
 });
+
 document.getElementById("redoBtn").addEventListener("click", () => {
   if (redoStack.length > 0) {
     undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
@@ -244,61 +268,58 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  if (isIOS) {
-    const win = window.open("about:blank", "_blank");
-    if (!win) {
-      alert("Vui lòng bật pop-up trong trình duyệt để lưu ảnh.");
-      return;
-    }
-
-    win.document.write(`<!DOCTYPE html><html><head><title>Đang xử lý...</title></head><body style="text-align:center;font-family:sans-serif;"><p>⏳ Đang tạo ảnh...</p></body></html>`);
-    win.document.close();
-
-    const tempCanvas = document.createElement("canvas");
-    const tempCtx = tempCanvas.getContext("2d");
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    tempCtx.drawImage(canvas, 0, 0);
-
-    const logo = new Image();
-    logo.src = "images/logo.webp";
-    logo.crossOrigin = "anonymous";
-
- logo.onload = () => {
-  const logoHeight = 30;
-  const scale = logoHeight / logo.height;
-  const logoWidth = logo.width * scale;
-  const x = canvas.width - logoWidth - 10;
-  const y = canvas.height - logoHeight - 10;
-  tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
-
-  const dataURL = tempCanvas.toDataURL("image/png");
-
-  win.document.open();
-  win.document.write(`<!DOCTYPE html><html><head><title>Ảnh đã tô màu</title></head><body style="margin:0;text-align:center;background:#fff;"><img src="${dataURL}" style="max-width:100%;height:auto;" /><p style="font-family:sans-serif;">👉 Nhấn giữ ảnh và chọn 'Lưu hình ảnh'</p></body></html>`);
-  win.document.close();
-};
-
-
-    logo.onerror = () => {
-      alert("Không thể tải logo từ images/logo.webp");
-    };
-    return;
-  }
-
   const logo = new Image();
   logo.src = "images/logo.webp";
   logo.crossOrigin = "anonymous";
 
-logo.onload = () => {
+  logo.onload = () => {
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d");
-
   tempCanvas.width = canvas.width;
   tempCanvas.height = canvas.height;
+
+  // 1. Vẽ nền chính
   tempCtx.drawImage(canvas, 0, 0);
 
+  // 2. Vẽ các text-box
+  document.querySelectorAll(".text-box").forEach(box => {
+    const content = box.querySelector(".text-content");
+    const text = content.innerText;
+    if (!text.trim()) return;
+
+    const wrapperRect = document.querySelector(".canvas-wrapper").getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const boxRect = box.getBoundingClientRect();
+
+    // Tính toạ độ tương ứng trên canvas gốc
+    const scaleX = canvas.width / canvasRect.width;
+    const scaleY = canvas.height / canvasRect.height;
+
+    const centerX = (boxRect.left + boxRect.width / 2 - canvasRect.left) * scaleX;
+    const centerY = (boxRect.top + boxRect.height / 2 - canvasRect.top) * scaleY;
+
+    const fontSize = parseFloat(getComputedStyle(content).fontSize) * scaleY;
+    const fontFamily = getComputedStyle(content).fontFamily;
+    const fontWeight = getComputedStyle(content).fontWeight;
+    const textColor = getComputedStyle(content).color;
+
+    const rotation = parseFloat(box.dataset.rotation || "0");
+    const scaleBoxX = parseFloat(box.dataset.scaleX || "1");
+    const scaleBoxY = parseFloat(box.dataset.scaleY || "1");
+
+    tempCtx.save();
+    tempCtx.translate(centerX, centerY);
+    tempCtx.rotate(rotation * Math.PI / 180);
+    tempCtx.scale(scaleBoxX, scaleBoxY);
+    tempCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    tempCtx.fillStyle = textColor;
+    tempCtx.textAlign = "center";
+    tempCtx.textBaseline = "middle";
+    tempCtx.fillText(text, 0, 0);
+    tempCtx.restore();
+  });
+
+  // 3. Vẽ logo như cũ
   const logoHeight = 30;
   const scale = logoHeight / logo.height;
   const logoWidth = logo.width * scale;
@@ -306,28 +327,217 @@ logo.onload = () => {
   const y = canvas.height - logoHeight - 10;
   tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-  tempCanvas.toBlob((blob) => {
-    if (!blob) {
-      alert("Không thể lưu ảnh. Trình duyệt không hỗ trợ Blob.");
-      return;
-    }
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = originalImageName || "to_mau.png";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, "image/png");
+  // 4. Tải về
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isIOS) {
+    const win = window.open("about:blank", "_blank");
+    win.document.write(`<img src="${tempCanvas.toDataURL("image/png")}" style="max-width:100%;"/>`);
+    win.document.close();
+  } else {
+    tempCanvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = originalImageName || "to_mau.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  }
 };
 
 
-  logo.onerror = () => {
-    alert("Không thể tải logo từ images/logo.webp");
-  };
+  logo.onerror = () => alert("Không thể tải logo từ images/logo.webp");
 });
+
+function addTextBoxCentered() {
+  if (!canvas) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const container = document.querySelector(".canvas-wrapper");
+  const box = document.createElement("div");
+  box.className = "text-box";
+  box.style.left = `${(rect.width / 2) - 100}px`;
+  box.style.top = `${(rect.height / 2) - 20}px`;
+
+  const content = document.createElement("div");
+  content.className = "text-content";
+  content.contentEditable = "true";
+  content.spellcheck = false;
+  content.style.minWidth = "1ch"; // tránh co rút
+  content.style.width = "100%";
+
+  box.appendChild(content);
+  container.appendChild(box);
+
+  content.focus();
+  content.style.color = currentColor;
+  makeTextBoxDraggable(box);
+  enableResize(box);
+  enableRotate(box); 
+
+  currentTextBox = box;
+  box.addEventListener("click", () => {
+  currentTextBox = box;
+
+if (mode === "text" && currentTextBox) {
+  const content = currentTextBox.querySelector(".text-content");
+  if (content) content.style.color = currentColor;
+}
+
+});
+
+  isTyping = true;
+
+  content.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") e.preventDefault();
+  });
+}
+
+
+function makeTextBoxDraggable(box) {
+  let isDragging = false;
+  let hasMoved = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  // Desktop
+  box.addEventListener("mousedown", (e) => {
+    if (e.target !== box) return;
+    isDragging = true;
+    hasMoved = false;
+    offsetX = e.offsetX;
+    offsetY = e.offsetY;
+    e.preventDefault();
+  });
+
+  // Mobile
+  box.addEventListener("touchstart", (e) => {
+    if (e.target !== box) return;
+    isDragging = true;
+    hasMoved = false;
+
+    const touch = e.touches[0];
+    const rect = box.getBoundingClientRect();
+    offsetX = touch.clientX - rect.left;
+    offsetY = touch.clientY - rect.top;
+    e.preventDefault();
+  }, { passive: false });
+
+  // Di chuyển (cả desktop + mobile)
+  function handleMove(clientX, clientY) {
+    const wrapperRect = document.querySelector(".canvas-wrapper").getBoundingClientRect();
+    box.style.left = `${clientX - wrapperRect.left - offsetX}px`;
+    box.style.top = `${clientY - wrapperRect.top - offsetY}px`;
+  }
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    hasMoved = true;
+    handleMove(e.clientX, e.clientY);
+  });
+
+  document.addEventListener("touchmove", (e) => {
+    if (!isDragging) return;
+    hasMoved = true;
+    const touch = e.touches[0];
+    handleMove(touch.clientX, touch.clientY);
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener("mouseup", () => {
+    if (isDragging && !hasMoved) box.focus();
+    isDragging = false;
+  });
+
+  document.addEventListener("touchend", () => {
+    if (isDragging && !hasMoved) box.focus();
+    isDragging = false;
+  });
+}
+
+
+function enableResize(textBox) {
+  const resizer = document.createElement("div");
+  resizer.className = "resizer";
+  textBox.appendChild(resizer);
+
+  let isResizing = false;
+  let startX, startY;
+  let startWidth, startHeight;
+  let startScaleX, startScaleY;
+  let rotation;
+
+  textBox.style.transformOrigin = "center center";
+  textBox.dataset.scaleX = textBox.dataset.scaleX || "1";
+  textBox.dataset.scaleY = textBox.dataset.scaleY || "1";
+  textBox.dataset.rotation = textBox.dataset.rotation || "0";
+
+  const onResizeStart = (e) => {
+    e.preventDefault();
+    isResizing = true;
+
+    const clientX = e.clientX || e.touches?.[0]?.clientX;
+    const clientY = e.clientY || e.touches?.[0]?.clientY;
+
+    startX = clientX;
+    startY = clientY;
+
+    const rect = textBox.getBoundingClientRect();
+    startWidth = rect.width;
+    startHeight = rect.height;
+
+    startScaleX = parseFloat(textBox.dataset.scaleX || "1");
+    startScaleY = parseFloat(textBox.dataset.scaleY || "1");
+    rotation = parseFloat(textBox.dataset.rotation || "0");
+  };
+
+  const onResizeMove = (e) => {
+    if (!isResizing) return;
+
+    const clientX = e.clientX || e.touches?.[0]?.clientX;
+    const clientY = e.clientY || e.touches?.[0]?.clientY;
+
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+
+    const angleRad = rotation * Math.PI / 180;
+
+    const deltaW = dx * Math.cos(angleRad) + dy * Math.sin(angleRad);
+    const deltaH = dy * Math.cos(angleRad) - dx * Math.sin(angleRad);
+
+    let scaleX = (startWidth + deltaW) / startWidth * startScaleX;
+    let scaleY = (startHeight + deltaH) / startHeight * startScaleY;
+
+    scaleX = Math.max(0.2, Math.min(scaleX, 5));
+    scaleY = Math.max(0.2, Math.min(scaleY, 5));
+
+    textBox.dataset.scaleX = scaleX.toFixed(3);
+    textBox.dataset.scaleY = scaleY.toFixed(3);
+
+    applyTransform(textBox);
+  };
+
+  const onResizeEnd = () => {
+    isResizing = false;
+  };
+
+  resizer.addEventListener("mousedown", onResizeStart);
+  document.addEventListener("mousemove", onResizeMove);
+  document.addEventListener("mouseup", onResizeEnd);
+
+  resizer.addEventListener("touchstart", onResizeStart, { passive: false });
+  document.addEventListener("touchmove", onResizeMove, { passive: false });
+  document.addEventListener("touchend", onResizeEnd);
+}
+
+
+
+function updateSelectStyle() {
+  const select = document.getElementById("imageSelect");
+  select.classList.toggle("placeholder", select.selectedIndex === 0);
+}
 
 function initMenuButton() {
   const menuBtn = document.getElementById("menuToggle");
@@ -339,6 +549,126 @@ function initMenuButton() {
     menuBtn.dataset.bound = "true";
   }
 }
+
+function applyTransform(box) {
+  const angle = parseFloat(box.dataset.rotation || "0");
+  const scaleX = parseFloat(box.dataset.scaleX || "1");
+  const scaleY = parseFloat(box.dataset.scaleY || "1");
+  box.style.transform = `rotate(${angle}deg) scale(${scaleX}, ${scaleY})`;
+}
+
+
+
+function enableRotate(textBox) {
+  const rotateHandle = document.createElement("div");
+  rotateHandle.className = "rotate-handle";
+  textBox.appendChild(rotateHandle);
+
+  let isRotating = false;
+  let centerX, centerY, startAngle;
+
+  const getCenter = () => {
+    const rect = textBox.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+  };
+
+  const getAngle = (cx, cy, x, y) => {
+    return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
+  };
+
+  const startRotate = (clientX, clientY) => {
+    isRotating = true;
+    const center = getCenter();
+    centerX = center.x;
+    centerY = center.y;
+    startAngle = getAngle(centerX, centerY, clientX, clientY) - parseFloat(textBox.dataset.rotation || "0");
+  };
+
+  const rotate = (clientX, clientY) => {
+    if (!isRotating) return;
+    const angle = getAngle(centerX, centerY, clientX, clientY) - startAngle;
+    textBox.dataset.rotation = angle.toFixed(2);
+    applyTransform(textBox);
+  };
+
+  const stopRotate = () => {
+    isRotating = false;
+  };
+
+  rotateHandle.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+    startRotate(e.clientX, e.clientY);
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (isRotating) rotate(e.clientX, e.clientY);
+  });
+
+  document.addEventListener("mouseup", stopRotate);
+
+  rotateHandle.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      startRotate(touch.clientX, touch.clientY);
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.addEventListener("touchmove", (e) => {
+    if (isRotating && e.touches.length === 1) {
+      const touch = e.touches[0];
+      rotate(touch.clientX, touch.clientY);
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.addEventListener("touchend", stopRotate);
+}
+
+
+
+// Khi click vào textbox, cập nhật currentTextBox
+function handleTextBoxSelection(e) {
+  const box = e.target.closest(".text-box");
+  if (box) {
+    currentTextBox = box;
+
+    const content = currentTextBox.querySelector(".text-content");
+    if (content) {
+      content.style.color = currentColor;
+    }
+  }
+}
+
+document.addEventListener("click", handleTextBoxSelection);
+document.addEventListener("touchstart", handleTextBoxSelection, { passive: true });
+
+
+document.getElementById("boldBtn").addEventListener("click", () => {
+  if (currentTextBox) {
+    const content = currentTextBox.querySelector(".text-content");
+    const isBold = content.style.fontWeight === "bold";
+    content.style.fontWeight = isBold ? "normal" : "bold";
+  }
+});
+
+document.getElementById("fontSelect").addEventListener("change", (e) => {
+  if (currentTextBox) {
+    const content = currentTextBox.querySelector(".text-content");
+    content.style.fontFamily = e.target.value;
+  }
+});
+
+document.getElementById("deleteTextBtn").addEventListener("click", () => {
+  if (currentTextBox) {
+    currentTextBox.remove();
+    currentTextBox = null;
+  }
+});
+
 
 window.addEventListener("DOMContentLoaded", initMenuButton);
 window.initMenuButton = initMenuButton;
