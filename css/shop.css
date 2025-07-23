@@ -297,3 +297,28 @@ body, .shop-wrapper {
   flex: 1;
   max-width: 160px;
 }
+.contact-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #fff4e5;
+  color: #d35400;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #f0cba9;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.contact-label a {
+  text-decoration: none;
+  color: #d35400;
+  font-weight: 600;
+  transition: color 0.3s;
+}
+
+.contact-label a:hover {
+  color: #b84300;
+}
