@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const heading = document.querySelector("h2");
   const loadingSpan = document.createElement("span");
   loadingSpan.textContent = " ...loading";
-  loadingSpan.style.fontSize = "10px";
+  loadingSpan.style.fontSize = "14px";
   heading.appendChild(loadingSpan);
 
   try {
@@ -88,6 +88,7 @@ async function renderGroup(groupName) {
   loadingSpan.style.display = "inline";
   const data = allProducts[groupName] || [];
 
+  // Gom theo tên sản phẩm
   const grouped = {};
   data.forEach(row => {
     const name = String(row.productname || "Không tên");
@@ -124,10 +125,7 @@ async function renderGroup(groupName) {
             <select class="size-select">${sizeOptions}</select>
           </div>
         </div>
-        <div class="price-row hidden">
-          <span class="price-original">Giá: 0đ</span>
-          <span class="price-sale">Khuyến mãi: 0đ</span>
-        </div>
+        <div class="price-row hidden"></div>
         <div class="product-actions">
           <button class="color-btn">Tô màu</button>
           <button class="order-btn">Đặt hàng</button>
@@ -146,74 +144,64 @@ async function renderGroup(groupName) {
         </div>
       `;
 
+      // Tối ưu truy cập DOM
       const sizeSelect = div.querySelector(".size-select");
       const priceRow = div.querySelector(".price-row");
       const img = div.querySelector(".product-img");
-      const priceOriginal = priceRow.querySelector(".price-original");
-      const priceSale = priceRow.querySelector(".price-sale");
+      const orderForm = div.querySelector(".order-form");
+      const orderBtn = div.querySelector(".order-btn");
+      const cancelBtn = div.querySelector(".cancel-order");
+      const confirmBtn = div.querySelector(".confirm-order");
+      const colorBtn = div.querySelector(".color-btn");
+      const inputCustomer = div.querySelector(".order-customer");
+      const inputPhone = div.querySelector(".order-phone");
+      const inputAddress = div.querySelector(".order-address");
+      const inputNote = div.querySelector(".order-note");
+      const inputName = div.querySelector(".order-name");
+      const inputSize = div.querySelector(".order-size");
 
- function updateDetails() {
-  const selected = sizeSelect.selectedOptions[0];
-  const price = selected.dataset.price;
-  const sale = selected.dataset.sale;
-  const newImg = selected.dataset.img;
+      function updateDetails() {
+        const selected = sizeSelect.selectedOptions[0];
+        const price = +selected.dataset.price || 0;
+        const sale = +selected.dataset.sale || 0;
+        const newImg = selected.dataset.img;
 
-  console.log({ selected, newImg, currentImg: img.src });
+        if (!price && !sale) {
+ priceRow.innerHTML = `
+  <a class="contact-label" href="tel:0903082089" title="Gọi ngay">
+    📞 Liên hệ trực tiếp
+  </a>
+`;
 
-  const hasPrice = price && parseFloat(price) > 0;
-  const hasSale = sale && parseFloat(sale) > 0;
+          priceRow.classList.remove("hidden");
+        } else {
+          const priceHTML = price ? `<span class="price-original">${sale ? `<s>Giá: ${formatPrice(price)}đ</s>` : `Giá: ${formatPrice(price)}đ`}</span>` : "";
+          const saleHTML = sale ? `<span class="price-sale">Khuyến mãi: ${formatPrice(sale)}đ</span>` : "";
+          priceRow.innerHTML = priceHTML + saleHTML;
+          priceRow.classList.remove("hidden");
+        }
 
-if (!hasPrice && !hasSale) {
-  priceRow.innerHTML = `
-    <div class="contact-label">
-      📞 <a href="tel:0903082089" title="Gọi ngay">Liên hệ trực tiếp</a>
-    </div>
-  `;
-  priceRow.classList.remove("hidden");
-}
-
-  else if (hasPrice && hasSale) {
-    priceRow.innerHTML = `
-      <span class="price-original"><s>Giá: ${formatPrice(price)}đ</s></span>
-      <span class="price-sale">Khuyến mãi: ${formatPrice(sale)}đ</span>
-    `;
-    priceRow.classList.remove("hidden");
-  } else if (hasPrice) {
-    priceRow.innerHTML = `
-      <span class="price-original">Giá: ${formatPrice(price)}đ</span>
-    `;
-    priceRow.classList.remove("hidden");
-  } else {
-    priceRow.classList.add("hidden");
-  }
-
-  // Cập nhật ảnh đại diện khi đổi size
-if (newImg) {
-  img.src = newImg;
-}
-
-}
-
-
+        if (newImg) img.src = newImg;
+      }
 
       sizeSelect.addEventListener("change", updateDetails);
       updateDetails();
 
-      div.querySelector(".order-btn").addEventListener("click", () => {
-        div.querySelector(".order-form").classList.toggle("hidden");
+      orderBtn.addEventListener("click", () => {
+        orderForm.classList.toggle("hidden");
       });
 
-      div.querySelector(".cancel-order").addEventListener("click", () => {
-        div.querySelector(".order-form").classList.add("hidden");
+      cancelBtn.addEventListener("click", () => {
+        orderForm.classList.add("hidden");
       });
 
-      div.querySelector(".confirm-order").addEventListener("click", () => {
-        const customer = div.querySelector(".order-customer").value.trim();
-        const phone = div.querySelector(".order-phone").value.trim();
-        const address = div.querySelector(".order-address").value.trim();
-        const note = div.querySelector(".order-note").value.trim();
-        const productName = div.querySelector(".order-name").value;
-        const size = div.querySelector(".order-size").value;
+      confirmBtn.addEventListener("click", () => {
+        const customer = inputCustomer.value.trim();
+        const phone = inputPhone.value.trim();
+        const address = inputAddress.value.trim();
+        const note = inputNote.value.trim();
+        const productName = inputName.value;
+        const size = inputSize.value;
 
         if (!customer || !phone) {
           alert("⚠️ Vui lòng nhập đầy đủ họ tên và số điện thoại.");
@@ -221,45 +209,34 @@ if (newImg) {
         }
 
         const payload = { productName, size, customer, phone, address, note };
+        const formData = new URLSearchParams(payload);
 
-        const formData = new URLSearchParams();
-        for (const key in payload) {
-          formData.append(key, payload[key]);
-        }
-
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxw3zd3miC7Sp1iIJcjVdlYzrwDjxcMJJvECB3hyK8bOkbo5b0aFSNieshY0R7P35w1/exec";
-
-        fetch(SCRIPT_URL, {
+        fetch("https://script.google.com/macros/s/AKfycbxw3zd3miC7Sp1iIJcjVdlYzrwDjxcMJJvECB3hyK8bOkbo5b0aFSNieshY0R7P35w1/exec", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: formData
         })
           .then(res => res.json())
           .then(response => {
             if (response.success || response.result === "success") {
               alert("✅ Đơn hàng đã được gửi thành công!");
-              div.querySelector(".order-form").classList.add("hidden");
+              orderForm.classList.add("hidden");
             } else {
               alert("❌ Gửi đơn hàng thất bại: " + (response.message || "Không rõ nguyên nhân."));
             }
           })
           .catch(err => {
-            console.error("Lỗi gửi đơn:", err);
             alert("❌ Có lỗi xảy ra khi gửi đơn hàng.");
           });
       });
 
-      div.querySelector(".color-btn").addEventListener("click", () => {
-        const selectedOption = sizeSelect.selectedOptions[0];
-        const colorImgUrl = selectedOption.dataset.colorImg;
-
+      colorBtn.addEventListener("click", () => {
+        const selected = sizeSelect.selectedOptions[0];
+        const colorImgUrl = selected.dataset.colorImg;
         if (!colorImgUrl) {
           alert("Không có ảnh tô màu cho sản phẩm này.");
           return;
         }
-
         window.location.href = `color.html?img=${encodeURIComponent(colorImgUrl)}`;
       });
 
