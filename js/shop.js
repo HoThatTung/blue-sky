@@ -10,17 +10,35 @@ function formatPrice(val) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const heading = document.querySelector("h2");
+  const loadingSpan = document.createElement("span");
+  loadingSpan.textContent = " ...loading";
+  loadingSpan.style.fontSize = "10px";
+  heading.appendChild(loadingSpan);
+
   try {
-    const heading = document.querySelector("h2");
-    const loadingSpan = document.createElement("span");
-    loadingSpan.textContent = " ...loading";
-    loadingSpan.style.fontSize = "10px";
-    heading.appendChild(loadingSpan);
+    const cacheKey = "cachedProducts";
+    const cacheTimeKey = "cachedTime";
+    const cacheMaxAge = 1000 * 60 * 60; // 1 giờ (có thể chỉnh)
 
-    const res = await fetch(API_URL);
-    allProducts = await res.json();
+    const now = Date.now();
+    const cachedData = localStorage.getItem(cacheKey);
+    const cachedTime = localStorage.getItem(cacheTimeKey);
+
+    if (cachedData && cachedTime && now - cachedTime < cacheMaxAge) {
+      // ⏱️ Dùng cache nếu chưa hết hạn
+      allProducts = JSON.parse(cachedData);
+      console.log("⚡ Tải từ cache");
+    } else {
+      // 🌐 Tải mới từ API nếu chưa có hoặc cache hết hạn
+      const res = await fetch(API_URL);
+      allProducts = await res.json();
+      localStorage.setItem(cacheKey, JSON.stringify(allProducts));
+      localStorage.setItem(cacheTimeKey, now);
+      console.log("🌐 Tải từ API");
+    }
+
     groupNames = Object.keys(allProducts);
-
     const groupContainer = document.getElementById("product-groups");
 
     groupNames.forEach((groupName) => {
@@ -50,9 +68,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTimeout(renderNextGroup, 200);
 
   } catch (err) {
-    console.error("Lỗi khi tải dữ liệu sản phẩm:", err);
+    console.error("❌ Lỗi khi tải dữ liệu sản phẩm:", err);
+    heading.removeChild(loadingSpan);
   }
 });
+
 
 async function renderGroup(groupName) {
   if (groupRendered[groupName]) return;
