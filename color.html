@@ -49,10 +49,10 @@
       </div>
 
       <div class="tool-row">
-        <button id="fillModeBtn" class="mode-btn active">🖌️ Tô vùng</button>
-        <button id="brushModeBtn" class="mode-btn">✍️ Cọ vẽ</button>
-        <button id="eraserModeBtn" class="mode-btn">🪝 Cọ xóa</button>
-        <select id="brushSizeSelect" class="brush-size-select" style="display: none;">
+	    <button id="fillModeBtn" class="mode-btn active">🖌️ Tô</button>
+        <button id="brushModeBtn" class="mode-btn">✍️ Cọ</button>
+        <button id="eraserModeBtn" class="mode-btn">🧼 Tẩy</button>
+        <select id="brushSizeSelect" class="brush-size-select" >
           <option value="1">Cỡ cọ 1x</option>
           <option value="2">Cỡ cọ 2x</option>
           <option value="3">Cỡ cọ 3x</option>
@@ -65,6 +65,20 @@
           <option value="10">Cỡ cọ 10x</option>
         </select>
       </div>
+ <div class="tool-row text-tools-row" style="margin-top: 10px;">
+  <button id="textModeBtn" class="mode-btn">📝 Chữ</button>
+  <button id="boldBtn" title="In đậm">🔠 B</button>
+
+  <select id="fontSelect" title="Chọn font" style="padding: 5px;">
+    <option value="Arial">Arial</option>
+    <option value="Times New Roman">Times New Roman</option>
+    <option value="Comic Sans MS">Comic Sans MS</option>
+    <option value="Georgia">Georgia</option>
+    <option value="Courier New">Courier New</option>
+  </select>
+
+  <button id="deleteTextBtn" title="Xoá khung chữ hiện tại">🗑️</button>
+</div>
 
       <div id="colorPalette" class="palette"></div>
 
