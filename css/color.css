@@ -1,3 +1,8 @@
+/* === TOÀN CỤC === */
+.box, .box * {
+  font-family: "Inter", sans-serif;
+}
+
 /* === VÙNG CHÍNH === */
 .box {
   background: #ffffff;
@@ -5,7 +10,6 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   padding: 0px 20px 30px 20px;
   margin: 15px auto 20px auto;
-  font-family: "Inter", sans-serif;
   overflow-x: hidden;
 }
 
@@ -20,14 +24,11 @@
 
 /* === CHỌN ẢNH VÀ TẢI ẢNH LÊN === */
 .controls-row {
-  margin-top: 35px;
-  margin-bottom: 20px;
+  margin: 35px 0 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  padding-left: 0;
-  margin-left: 0;
 }
 
 .select-area,
@@ -40,8 +41,6 @@
 
 .select-area {
   justify-content: flex-start;
-  padding-left: 0;
-  margin-left: 0;
 }
 
 .upload-area {
@@ -66,20 +65,17 @@ select {
   padding: 8px 12px;
   border-radius: 5px;
   border: 1px solid #ccc;
-  font-size: 15px;
-  font-family: "Inter", sans-serif;
-  color: #000;
-  font-style: normal;
+  font-size: 14px;
   background-color: #f2faff;
   appearance: none;
   cursor: pointer;
 }
 
-/* Placeholder cho select */
 select.placeholder {
   color: rgba(0,0,0,0.5);
   font-style: italic;
 }
+
 select:focus option#placeholderOption {
   display: none;
 }
@@ -102,7 +98,6 @@ select:focus option#placeholderOption {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  font-family: "Inter", sans-serif;
   transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -122,7 +117,6 @@ select:focus option#placeholderOption {
   border-radius: 5px;
   border: 1px solid #ccc;
   font-size: 14px;
-  font-family: "Inter", sans-serif;
 }
 
 /* === BẢNG MÀU === */
@@ -160,6 +154,7 @@ select:focus option#placeholderOption {
   background-position: 0 0, 4px 4px;
   position: relative;
 }
+
 .color[data-color="#FFFFFF"]::after {
   content: "";
   display: block;
@@ -177,8 +172,6 @@ select:focus option#placeholderOption {
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 20px;
-  padding-left: 0;
-  padding-right: 0;
   box-sizing: border-box;
 }
 
@@ -187,10 +180,9 @@ select:focus option#placeholderOption {
   justify-content: center;
   align-items: center;
   width: 100%;
-  max-width: none;
   box-sizing: border-box;
-  padding: 0;
   position: relative;
+  touch-action: none;
 }
 
 canvas {
@@ -198,7 +190,6 @@ canvas {
   background: white;
   width: 100%;
   height: auto;
-  box-sizing: border-box;
   display: block;
 }
 
@@ -210,9 +201,7 @@ canvas {
   flex-wrap: wrap;
   margin-bottom: 15px;
   gap: 10px;
-  padding: 0;
   width: 100%;
-  box-sizing: border-box;
 }
 
 .action-left,
@@ -235,8 +224,6 @@ canvas {
   cursor: pointer;
   font-weight: bold;
   font-size: 14px;
-  font-family: "Inter", sans-serif;
-  margin: 0;
   transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -256,7 +243,6 @@ canvas {
   border-left: 4px solid #ffcc00;
   border-radius: 4px;
   margin-top: 10px;
-  font-family: "Inter", sans-serif;
 }
 
 /* === RESPONSIVE === */
@@ -264,25 +250,11 @@ canvas {
   .canvas-container {
     flex-direction: column;
     align-items: center;
-    padding-left: 0;
-    padding-right: 0;
-  }
-
-  .canvas-wrapper {
-    width: 100%;
-    padding: 0;
-  }
-
-  canvas {
-    width: 100%;
-    max-width: 100%;
-    height: auto;
   }
 
   .action-row {
     flex-direction: row;
     justify-content: space-between;
-    align-items: center;
   }
 
   .action-left {
@@ -290,10 +262,6 @@ canvas {
   }
 }
 
-/* === ẨN LABEL VÙNG CHỌN === */
-.select-area label {
-  display: none;
-}
 @media (max-width: 768px) {
   .nav {
     display: none;
@@ -303,6 +271,118 @@ canvas {
   }
 
   .nav.open {
-    display: flex !important;
+    display: flex;
+  }
+}
+
+/* === ẨN LABEL VÙNG CHỌN === */
+.select-area label {
+  display: none;
+}
+
+/* === TEXT BOX === */
+.text-box {
+  position: absolute;
+  border: 1px dashed rgba(0, 0, 0, 0.5); /* mờ hơn để không che */
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  min-height: 40px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  box-sizing: border-box;
+  overflow: visible;
+  transform-origin: center center;
+}
+
+
+.text-content {
+  outline: none;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  line-height: 1.2;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+
+.text-content:empty:before {
+  content: "Nhập chữ...";
+  color: #aaa;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+
+.text-box::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid #888;
+  border-bottom: 2px solid #888;
+  pointer-events: none;
+  z-index: 0; /* Thấp hơn resizer */
+}
+
+
+.rotate-handle {
+  position: absolute;
+  top: -14px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  background: #1976d2;
+  border-radius: 50%;
+  cursor: grab;
+  z-index: 11;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.resizer {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  right: -4px;
+  bottom: -4px;
+  background: transparent;
+  border-right: 2px solid #888;
+  border-bottom: 2px solid #888;
+  cursor: se-resize;
+  z-index: 20;
+}
+.text-tools-row button,
+.text-tools-row select {
+  font-size: 16px;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.text-tools-row button:hover,
+.text-tools-row select:hover {
+  background: #e0e0e0;
+}
+@media (max-width: 480px) {
+  .tool-row, .text-tools-row {
+    flex-direction: column;
+    gap: 6px;
   }
 }
