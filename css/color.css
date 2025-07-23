@@ -380,9 +380,4 @@ canvas {
 .text-tools-row select:hover {
   background: #e0e0e0;
 }
-@media (max-width: 480px) {
-  .tool-row, .text-tools-row {
-    flex-direction: column;
-    gap: 6px;
-  }
-}
+
