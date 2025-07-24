@@ -27,49 +27,50 @@
 
   <main>
     <section class="container box">
-      <h1>TÔ MÀU CHO DIỀU</h1>
+      <h1>COLOR THE KITE</h1>
 
       <div class="controls-row">
+	  
         <div class="select-area">
-          <select id="imageSelect" required class="placeholder">
-            <option id="placeholderOption" value="" disabled selected hidden>Diều Blue Sky...</option>
+          <select id="imageSelect">
+            <option id="placeholderOption" disabled selected hidden>BlueSky Kite</option>
             <option value="images/color/color/pilot.jpg">Pilot</option>
             <option value="images/color/color/pilotlung.jpg">Pilot mặt lưng</option>
-            <option value="images/color/color/cavang.jpg">cá vàng</option>
-            <option value="images/color/color/cathulu.jpg">cá thù lù</option>
-            <option value="images/color/color/cabuom.jpg">cá buồm</option>
-            <option value="images/color/color/canemo.jpg">cá nemo</option>
-            <option value="images/color/color/bohung.jpg">bọ hung</option>
+            <option value="images/color/color/cavang.jpg">Cá vàng</option>
+            <option value="images/color/color/cathulu.jpg">Cá thù lù</option>
+            <option value="images/color/color/cabuom.jpg">Cá buồm</option>
+            <option value="images/color/color/canemo.jpg">Cá nemo</option>
+            <option value="images/color/color/bohung.jpg">Bọ hung</option>
           </select>
         </div>
         <div class="upload-area">
-          <label for="uploadInput" class="upload-label">⬆️ Tải ảnh lên</label>
+          <label for="uploadInput" class="upload-label">⬆️ Upload</label>
           <input type="file" id="uploadInput" accept="image/*" hidden>
         </div>
       </div>
 
       <div class="tool-row">
-	    <button id="fillModeBtn" class="mode-btn active">🖌️ Tô</button>
-        <button id="brushModeBtn" class="mode-btn">✍️ Cọ</button>
-        <button id="eraserModeBtn" class="mode-btn">🧼 Tẩy</button>
+	    <button id="fillModeBtn" class="mode-btn active">🖌️ Fill</button>
+        <button id="brushModeBtn" class="mode-btn">✍️ Brush</button>
+        <button id="eraserModeBtn" class="mode-btn">🧼 Erase</button>
         <select id="brushSizeSelect" class="brush-size-select" >
-          <option value="1">Cỡ cọ 1x</option>
-          <option value="2">Cỡ cọ 2x</option>
-          <option value="3">Cỡ cọ 3x</option>
-          <option value="4">Cỡ cọ 4x</option>
-          <option value="5" selected>Cỡ cọ 5x</option>
-          <option value="6">Cỡ cọ 6x</option>
-          <option value="7">Cỡ cọ 7x</option>
-          <option value="8">Cỡ cọ 8x</option>
-          <option value="9">Cỡ cọ 9x</option>
-          <option value="10">Cỡ cọ 10x</option>
+          <option value="1">Size 1x</option>
+          <option value="2">Size 2x</option>
+          <option value="3">Size 3x</option>
+          <option value="4">Size 4x</option>
+          <option value="5" selected>Size 5x</option>
+          <option value="6">Size 6x</option>
+          <option value="7">Size 7x</option>
+          <option value="8">Size 8x</option>
+          <option value="9">Size 9x</option>
+          <option value="10">Size 10x</option>
         </select>
       </div>
  <div class="tool-row text-tools-row" style="margin-top: 10px;">
-  <button id="textModeBtn" class="mode-btn">📝 Chữ</button>
+  <button id="textModeBtn" class="mode-btn">📝 Text</button>
   <button id="boldBtn" title="In đậm">🔠 B</button>
 
-  <select id="fontSelect" title="Chọn font" style="padding: 5px;">
+  <select id="fontSelect" title="Chọn font" style="padding: 6px;">
 <option value="'Roboto', sans-serif">Roboto</option>
 <option value="'Be Vietnam Pro', sans-serif">Be Vietnam Pro</option>
 <option value="'Noto Sans', sans-serif">Noto Sans</option>
@@ -82,7 +83,7 @@
 <option value="'Source Sans 3', sans-serif">Source Sans 3</option>
   </select>
 
-  <button id="deleteTextBtn" title="Xoá khung chữ hiện tại">🗑️</button>
+  <button id="deleteTextBtn" title="Xoá khung chữ hiện tại">🗑️ Text</button>
 </div>
 
       <div id="colorPalette" class="palette"></div>
@@ -99,12 +100,12 @@
           <button id="redoBtn">↪️ Redo</button>
         </div>
         <div class="action-right">
-          <button id="downloadBtn">💾 Lưu ảnh</button>
+          <button id="downloadBtn">💾 Save Image</button>
         </div>
       </div>
 
       <p class="note">
-        📌 <strong>Ghi chú:</strong> Ảnh upload cần có viền ranh giới rõ ràng, không bị mờ hoặc chồng màu để tô hiệu quả.
+        📌 <strong>Note:</strong> Please upload images with clear outlines and no blurring or overlapping colors to ensure accurate and effective coloring.
       </p>
     </section>
   </main>
