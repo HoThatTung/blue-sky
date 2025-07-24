@@ -310,6 +310,7 @@ body, .shop-wrapper {
   border: 1px solid #f0cba9;
   justify-content: center;
   margin-top: 8px;
+  text-decoration: none;
 }
 
 .contact-label a {
