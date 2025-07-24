@@ -18,7 +18,7 @@ const colors = [
   "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
   "#FFFF00", "#000000", "#808080", "#C0C0C0", "#FFFFFF",
   "#0000FF", "#9370DB", "#00CCFF", "#00FFFF", "#006241",
-  "#008000", "#00FF00", "#99FF66", "#800080", "#8B5F65"
+  "#008000", "#00FF00", "#CCFFCC", "#800080", "#8B5F65"
 ];
 
 const palette = document.getElementById("colorPalette");
@@ -106,7 +106,11 @@ document.getElementById("imageSelect").addEventListener("change", function () {
   redoStack = [];
   originalImageName = selectedImage.split('/').pop();
   updateSelectStyle();
+
+  // 👉 THÊM VÀO ĐÂY:
+  document.getElementById("kite-label-input").style.display = "block";
 });
+
 
 document.getElementById("uploadInput").addEventListener("change", function (e) {
   const file = e.target.files[0];
@@ -535,9 +539,18 @@ function enableResize(textBox) {
 
 
 function updateSelectStyle() {
-  const select = document.getElementById("imageSelect");
-  select.classList.toggle("placeholder", select.selectedIndex === 0);
+  const isPlaceholder = imageSelect.selectedIndex === 0;
+
+  imageSelect.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
+  imageSelect.style.fontStyle = isPlaceholder ? "italic" : "normal";
+
+  if (!isPlaceholder) {
+    imageSelect.classList.add("selected-kite");
+  } else {
+    imageSelect.classList.remove("selected-kite");
+  }
 }
+
 
 function initMenuButton() {
   const menuBtn = document.getElementById("menuToggle");
@@ -670,6 +683,23 @@ document.getElementById("deleteTextBtn").addEventListener("click", () => {
 });
 
 
+const imageSelect = document.getElementById("imageSelect");
+
+function updateSelectStyle() {
+  const isPlaceholder = imageSelect.selectedIndex === 0;
+  imageSelect.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
+  imageSelect.style.fontStyle = isPlaceholder ? "italic" : "normal";
+}
+imageSelect.addEventListener("change", updateSelectStyle);
+window.addEventListener("DOMContentLoaded", updateSelectStyle);
+
+
+imageSelect.addEventListener("change", () => {
+  imageSelect.classList.add("pop");
+  setTimeout(() => imageSelect.classList.remove("pop"), 200);
+});
+
+
 window.addEventListener("DOMContentLoaded", initMenuButton);
 window.onload = () => {
   initMenuButton(); // Gọi lại init nếu cần thiết
@@ -693,5 +723,6 @@ window.onload = () => {
   }
 };
 
-
 window.initMenuButton = initMenuButton;
+
+
