@@ -157,9 +157,9 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
 });
 
 const FILL_OPTIONS = {
-  tolerance: 70,     // 50–100 thường ổn cho ảnh có anti-alias
+  tolerance: 90,     // 50–100 thường ổn cho ảnh có anti-alias
   useDiagonal: true, // 8-neighbors
-  edgeGrow: 1        // nở viền thêm 1 vòng (0 = tắt)
+  edgeGrow: 2       // nở viền thêm 1 vòng (0 = tắt)
 };
 
 function colorDistRGB(a, b) {
