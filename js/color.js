@@ -165,7 +165,7 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
 
 // ====== THIẾT LẬP CHO FILL & BẢO VỆ VIỀN ĐEN ======
 const FILL_OPTIONS = {
-  tolerance: 50,        // 50–100 thường ổn cho ảnh có anti-alias
+  tolerance: 60,        // 50–100 thường ổn cho ảnh có anti-alias
   useDiagonal: true,    // 8-neighbors
   edgeGrow: 1,          // nở viền thêm 1 vòng (0 = tắt)
   protectBlackLine: true,   // ✅ bảo vệ viền đen
