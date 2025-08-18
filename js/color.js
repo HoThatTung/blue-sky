@@ -7,6 +7,7 @@
 // - Đổi màu WordArt (textbox) ngay khi chọn màu
 // - Giới hạn undo để tránh ngốn RAM
 // - Loại bỏ biến trùng / thừa
+// - Bảo vệ viền đen: chụp lineart từ ảnh gốc và phục hồi sau mỗi thao tác
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -24,6 +25,10 @@ let redoStack = [];
 const UNDO_LIMIT = 20; // ✅ giới hạn bộ nhớ
 
 let originalImageName = "";
+
+// ====== BẢO VỆ VIỀN ĐEN (biến toàn cục) ======
+let lineArtMask = null;          // Uint8Array đánh dấu pixel viền đen
+let lineArtPixels = null;        // Uint8ClampedArray lưu RGBA gốc ở vị trí viền
 
 const colors = [
   "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
@@ -114,6 +119,7 @@ imageSelect.addEventListener("change", function () {
     canvas.height = img.height;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
+    captureLineArt(); // ✅ chụp lineart ngay sau khi vẽ ảnh
   };
   img.src = selectedImage;
   document.getElementById("uploadInput").value = "";
@@ -145,6 +151,7 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
       canvas.height = img.height;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
+      captureLineArt(); // ✅ chụp lineart sau khi load ảnh người dùng
       undoStack = [];
       redoStack = [];
       originalImageName = file.name;
@@ -156,10 +163,13 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
   reader.readAsDataURL(file);
 });
 
+// ====== THIẾT LẬP CHO FILL & BẢO VỆ VIỀN ĐEN ======
 const FILL_OPTIONS = {
-  tolerance: 60,     // 50–100 thường ổn cho ảnh có anti-alias
-  useDiagonal: true, // 8-neighbors
-  edgeGrow: 1        // nở viền thêm 1 vòng (0 = tắt)
+  tolerance: 70,        // 50–100 thường ổn cho ảnh có anti-alias
+  useDiagonal: true,    // 8-neighbors
+  edgeGrow: 1,          // nở viền thêm 1 vòng (0 = tắt)
+  protectBlackLine: true,   // ✅ bảo vệ viền đen
+  blackThreshold: 40        // R,G,B < 40 coi là “gần đen”
 };
 
 function colorDistRGB(a, b) {
@@ -179,6 +189,10 @@ function getAvg3x3(data, w, h, x, y) {
     }
   }
   return [Math.round(r/c), Math.round(g/c), Math.round(b/c), 255];
+}
+
+function isNearBlack(pix, thr = 40) { // ✅ helper bảo vệ viền đen
+  return pix[0] < thr && pix[1] < thr && pix[2] < thr;
 }
 
 // ===== Helpers =====
@@ -213,6 +227,43 @@ function saveState() {
     // Nếu canvas cross-origin không cho getImageData, bỏ qua undo
     console.warn("saveState failed:", err);
   }
+}
+
+// ===== Bảo vệ viền đen: chụp & phục hồi =====
+function captureLineArt(blackThr = 40) {
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imageData.data;
+  const N = canvas.width * canvas.height;
+
+  lineArtMask = new Uint8Array(N);
+  lineArtPixels = new Uint8ClampedArray(d.length);
+  lineArtPixels.set(d);
+
+  for (let i = 0; i < N; i++) {
+    const p = i * 4;
+    const r = d[p], g = d[p+1], b = d[p+2];
+    if (r < blackThr && g < blackThr && b < blackThr) {
+      lineArtMask[i] = 1; // đánh dấu là pixel viền (gần đen)
+    }
+  }
+}
+
+function reapplyLineArt() {
+  if (!lineArtMask || !lineArtPixels) return;
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imageData.data;
+  const N = canvas.width * canvas.height;
+
+  for (let i = 0; i < N; i++) {
+    if (lineArtMask[i]) {
+      const p = i * 4;
+      d[p]   = lineArtPixels[p];
+      d[p+1] = lineArtPixels[p+1];
+      d[p+2] = lineArtPixels[p+2];
+      d[p+3] = 255;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
 }
 
 // ===== Brush / Eraser drawing =====
@@ -275,8 +326,15 @@ canvas.addEventListener("mousemove", (e) => {
   }
 });
 
-canvas.addEventListener("mouseup", () => { isDrawing = false; lastPt = null; });
-canvas.addEventListener("mouseleave", () => { isDrawing = false; lastPt = null; });
+canvas.addEventListener("mouseup", () => {
+  isDrawing = false;
+  lastPt = null;
+  reapplyLineArt(); // ✅ phục hồi viền sau khi vẽ
+});
+canvas.addEventListener("mouseleave", () => {
+  isDrawing = false;
+  lastPt = null;
+});
 
 canvas.addEventListener("touchstart", (e) => {
   if (mode === "brush" || mode === "eraser") {
@@ -298,7 +356,11 @@ canvas.addEventListener("touchmove", (e) => {
   }
 }, { passive: false });
 
-canvas.addEventListener("touchend", () => { isDrawing = false; lastPt = null; });
+canvas.addEventListener("touchend", () => {
+  isDrawing = false;
+  lastPt = null;
+  reapplyLineArt(); // ✅ phục hồi viền sau khi vẽ
+});
 
 // ===== Fill (Bucket) =====
 canvas.addEventListener("click", (e) => {
@@ -321,7 +383,7 @@ function hexToRgba(hex) {
 }
 
 function floodFill(x, y, fillColor) {
-  const { tolerance, useDiagonal, edgeGrow } = FILL_OPTIONS;
+  const { tolerance, useDiagonal, edgeGrow, protectBlackLine, blackThreshold } = FILL_OPTIONS;
 
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
@@ -350,6 +412,11 @@ function floodFill(x, y, fillColor) {
 
     const p = idx*4;
     const pix = [data[p], data[p+1], data[p+2], data[p+3]];
+
+    // ✅ bảo vệ viền đen: không tô nếu pixel gần đen
+    if (protectBlackLine && isNearBlack(pix, blackThreshold)) {
+      continue;
+    }
 
     // so màu theo khoảng cách Euclid
     if (colorDistRGB(pix, startColor) <= tolerance) {
@@ -384,6 +451,11 @@ function floodFill(x, y, fillColor) {
     // áp dụng
     for (const ii of growList) {
       const p = ii*4;
+
+      // ✅ bảo vệ viền đen trong bước nở viền
+      const pix2 = [data[p], data[p+1], data[p+2], data[p+3]];
+      if (protectBlackLine && isNearBlack(pix2, blackThreshold)) continue;
+
       data[p] = fillColor[0];
       data[p+1] = fillColor[1];
       data[p+2] = fillColor[2];
@@ -393,6 +465,7 @@ function floodFill(x, y, fillColor) {
   }
 
   ctx.putImageData(imageData, 0, 0);
+  reapplyLineArt(); // ✅ phục hồi viền sau khi fill
 }
 
 // ===== Undo / Redo =====
@@ -402,6 +475,7 @@ document.getElementById("undoBtn").addEventListener("click", () => {
       redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
       const prev = undoStack.pop();
       ctx.putImageData(prev, 0, 0);
+      reapplyLineArt(); // ✅ giữ viền khi undo
     } catch (err) {
       console.warn("undo failed:", err);
     }
@@ -414,6 +488,7 @@ document.getElementById("redoBtn").addEventListener("click", () => {
       undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
       const next = redoStack.pop();
       ctx.putImageData(next, 0, 0);
+      reapplyLineArt(); // ✅ giữ viền khi redo
     } catch (err) {
       console.warn("redo failed:", err);
     }
@@ -791,6 +866,7 @@ window.onload = () => {
       canvas.height = imgFromUrl.height;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(imgFromUrl, 0, 0);
+      captureLineArt(); // ✅ chụp lineart sau khi load ảnh từ URL
       undoStack = [];
       redoStack = [];
       originalImageName = imageUrl.split("/").pop();
