@@ -154,7 +154,7 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
     img.src = event.target.result;
   };
   reader.readAsDataURL(file);
-});edgeGrow
+});
 
 const FILL_OPTIONS = {
   tolerance: 70,     // 50–100 thường ổn cho ảnh có anti-alias
