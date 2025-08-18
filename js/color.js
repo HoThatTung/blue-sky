@@ -154,15 +154,12 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
     img.src = event.target.result;
   };
   reader.readAsDataURL(file);
-});
+});edgeGrow
 
-// ====== THIẾT LẬP CHO FILL & BẢO VỆ VIỀN ĐEN (thêm mới) ======
 const FILL_OPTIONS = {
-  tolerance: 60,        // 50–100 thường ổn cho ảnh có anti-alias
-  useDiagonal: true,    // 8-neighbors
-  edgeGrow: 0,          // nở viền thêm 1 vòng (0 = tắt)
-  protectBlackLine: true,   // ✅ bảo vệ viền đen
-  blackThreshold: 40        // R,G,B < 40 coi là “gần đen”
+  tolerance: 60,     // 50–100 thường ổn cho ảnh có anti-alias
+  useDiagonal: true, // 8-neighbors
+  edgeGrow: 1        // nở viền thêm 1 vòng (0 = tắt)
 };
 
 function colorDistRGB(a, b) {
@@ -182,10 +179,6 @@ function getAvg3x3(data, w, h, x, y) {
     }
   }
   return [Math.round(r/c), Math.round(g/c), Math.round(b/c), 255];
-}
-
-function isNearBlack(pix, thr = 40) { // ✅ helper bảo vệ viền đen
-  return pix[0] < thr && pix[1] < thr && pix[2] < thr;
 }
 
 // ===== Helpers =====
@@ -328,7 +321,7 @@ function hexToRgba(hex) {
 }
 
 function floodFill(x, y, fillColor) {
-  const { tolerance, useDiagonal, edgeGrow, protectBlackLine, blackThreshold } = FILL_OPTIONS;
+  const { tolerance, useDiagonal, edgeGrow } = FILL_OPTIONS;
 
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
@@ -357,11 +350,6 @@ function floodFill(x, y, fillColor) {
 
     const p = idx*4;
     const pix = [data[p], data[p+1], data[p+2], data[p+3]];
-
-    // ✅ bảo vệ viền đen: không tô nếu pixel gần đen
-    if (protectBlackLine && isNearBlack(pix, blackThreshold)) {
-      continue;
-    }
 
     // so màu theo khoảng cách Euclid
     if (colorDistRGB(pix, startColor) <= tolerance) {
@@ -396,11 +384,6 @@ function floodFill(x, y, fillColor) {
     // áp dụng
     for (const ii of growList) {
       const p = ii*4;
-
-      // ✅ bảo vệ viền đen trong bước nở viền
-      const pix2 = [data[p], data[p+1], data[p+2], data[p+3]];
-      if (protectBlackLine && isNearBlack(pix2, blackThreshold)) continue;
-
       data[p] = fillColor[0];
       data[p+1] = fillColor[1];
       data[p+2] = fillColor[2];
