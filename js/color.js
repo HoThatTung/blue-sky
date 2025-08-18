@@ -160,7 +160,7 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
 const FILL_OPTIONS = {
   tolerance: 60,        // 50–100 thường ổn cho ảnh có anti-alias
   useDiagonal: true,    // 8-neighbors
-  edgeGrow: 1,          // nở viền thêm 1 vòng (0 = tắt)
+  edgeGrow: 0,          // nở viền thêm 1 vòng (0 = tắt)
   protectBlackLine: true,   // ✅ bảo vệ viền đen
   blackThreshold: 40        // R,G,B < 40 coi là “gần đen”
 };
