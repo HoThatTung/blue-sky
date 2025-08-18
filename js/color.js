@@ -156,6 +156,31 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
   reader.readAsDataURL(file);
 });
 
+const FILL_OPTIONS = {
+  tolerance: 70,     // 50–100 thường ổn cho ảnh có anti-alias
+  useDiagonal: true, // 8-neighbors
+  edgeGrow: 1        // nở viền thêm 1 vòng (0 = tắt)
+};
+
+function colorDistRGB(a, b) {
+  const dr = a[0]-b[0], dg = a[1]-b[1], db = a[2]-b[2];
+  return Math.sqrt(dr*dr + dg*dg + db*db);
+}
+
+function getAvg3x3(data, w, h, x, y) {
+  let r=0,g=0,b=0,c=0;
+  for (let j=-1;j<=1;j++){
+    for (let i=-1;i<=1;i++){
+      const xx = Math.min(w-1, Math.max(0, x+i));
+      const yy = Math.min(h-1, Math.max(0, y+j));
+      const k = (yy*w+xx)*4;
+      r += data[k]; g += data[k+1]; b += data[k+2];
+      c++;
+    }
+  }
+  return [Math.round(r/c), Math.round(g/c), Math.round(b/c), 255];
+}
+
 // ===== Helpers =====
 function getCanvasCoords(e) {
   const rect = canvas.getBoundingClientRect();
@@ -296,46 +321,75 @@ function hexToRgba(hex) {
 }
 
 function floodFill(x, y, fillColor) {
+  const { tolerance, useDiagonal, edgeGrow } = FILL_OPTIONS;
+
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
-  const width = imageData.width;
-  const height = imageData.height;
-  const startIdx = (y * width + x) * 4;
-  const startColor = data.slice(startIdx, startIdx + 4);
-  const tolerance = 48;
+  const w = imageData.width;
+  const h = imageData.height;
 
-  // ✅ nếu vùng click gần trùng màu fill thì bỏ qua
-  let already = true;
-  for (let j = 0; j < 4; j++) { if (Math.abs(startColor[j] - fillColor[j]) > 5) { already = false; break; } }
-  if (already) return;
+  const startColor = getAvg3x3(data, w, h, x, y);
 
-  const matchColor = (i) => {
-    for (let j = 0; j < 4; j++) {
-      if (Math.abs(data[i + j] - startColor[j]) > tolerance) return false;
-    }
-    return true;
-  };
+  // Nếu điểm click đã gần giống màu fill → bỏ qua
+  if (colorDistRGB(startColor, fillColor) <= 5) return;
 
-  const colorPixel = (i) => {
-    for (let j = 0; j < 4; j++) data[i + j] = fillColor[j];
-  };
-
-  const visited = new Uint8Array(width * height);
+  const visited = new Uint8Array(w*h);
+  const filled  = new Uint8Array(w*h); // mask vùng đã tô (để nở viền sau)
   const stack = [[x, y]];
+
+  const neighbors4 = [[1,0],[-1,0],[0,1],[0,-1]];
+  const neighbors8 = neighbors4.concat([[1,1],[1,-1],[-1,1],[-1,-1]]);
+  const neighbors = useDiagonal ? neighbors8 : neighbors4;
 
   while (stack.length) {
     const [cx, cy] = stack.pop();
-    if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
-    const vi = cy * width + cx;
-    if (visited[vi]) continue;
-    visited[vi] = 1;
+    if (cx<0 || cy<0 || cx>=w || cy>=h) continue;
+    const idx = cy*w + cx;
+    if (visited[idx]) continue;
+    visited[idx] = 1;
 
-    const idx = vi * 4;
-    if (!matchColor(idx)) continue;
-    colorPixel(idx);
+    const p = idx*4;
+    const pix = [data[p], data[p+1], data[p+2], data[p+3]];
 
-    // 4-neighbors; có thể thêm chéo nếu muốn kín hơn
-    stack.push([cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]);
+    // so màu theo khoảng cách Euclid
+    if (colorDistRGB(pix, startColor) <= tolerance) {
+      // tô màu
+      data[p] = fillColor[0];
+      data[p+1] = fillColor[1];
+      data[p+2] = fillColor[2];
+      data[p+3] = 255;
+      filled[idx] = 1;
+
+      for (const [dx,dy] of neighbors) stack.push([cx+dx, cy+dy]);
+    }
+  }
+
+  // NỞ VIỀN nhẹ để phủ dải anti-alias sát biên
+  for (let iter=0; iter<edgeGrow; iter++) {
+    const growList = [];
+    for (let yy=0; yy<h; yy++) {
+      for (let xx=0; xx<w; xx++) {
+        const ii = yy*w + xx;
+        if (filled[ii]) continue;
+
+        // nếu kề cận pixel đã tô thì tô thêm pixel này
+        let nearFilled = false;
+        for (const [dx,dy] of neighbors) {
+          const nx = xx+dx, ny = yy+dy;
+          if (nx>=0 && ny>=0 && nx<w && ny<h && filled[ny*w+nx]) { nearFilled = true; break; }
+        }
+        if (nearFilled) growList.push(ii);
+      }
+    }
+    // áp dụng
+    for (const ii of growList) {
+      const p = ii*4;
+      data[p] = fillColor[0];
+      data[p+1] = fillColor[1];
+      data[p+2] = fillColor[2];
+      data[p+3] = 255;
+      filled[ii] = 1;
+    }
   }
 
   ctx.putImageData(imageData, 0, 0);
