@@ -181,7 +181,7 @@ function strokeFromTo(x0, y0, x1, y1, radius, rgba, isErase=false) {
     return;
   }
   // bước nội suy: nhỏ hơn => mượt hơn (0.4–0.6*radius là hợp lý)
-  const step = Math.max(1, radius * 0.5);
+  const step = Math.max(1, radius * 0.4);
   const n = Math.ceil(dist / step);
   for (let i = 1; i <= n; i++) {
     const t = i / n;
