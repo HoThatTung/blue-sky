@@ -38,8 +38,8 @@ const ADAPTIVE = {
   closeGapsRadius: 1,     // closing bịt khe li ti
 
   // TÁCH 2 MỨC NỞ:
-  maskGrowProtect: 1,     // nở nhẹ cho mask CHẶN FILL
-  lineGrowRender: 3       // nở dày hơn cho mask VẼ VIỀN (che sạch khe trắng)
+  maskGrowProtect: 0,     // nở nhẹ cho mask CHẶN FILL
+  lineGrowRender: 2       // nở dày hơn cho mask VẼ VIỀN (che sạch khe trắng)
 };
 
 const FILL_TOLERANCE = 80;       // độ gần màu cho flood (ăn dải AA)
@@ -142,18 +142,18 @@ function loadImage(src, nameForDownload) {
   img = new Image();
   img.crossOrigin = "anonymous";
   img.onload = () => {
-    // Đồng bộ kích thước cho tất cả canvas
+    // Đồng bộ kích thước
     [canvas, baseCanvas, paintCanvas, lineOnlyCanvas].forEach(c => {
       c.width = img.width;
       c.height = img.height;
     });
 
-    // 1) base: chỉ để đọc/tiền xử lý, KHÔNG render ra màn hình
+    // 1) base: đọc/tiền xử lý (không render)
     baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
     baseCtx.drawImage(img, 0, 0);
     baseImageData = baseCtx.getImageData(0, 0, baseCanvas.width, baseCanvas.height);
 
-    // 2) coreLineMask: phát hiện viền (không phụ thuộc màu), KHÔNG nở ở đây
+    // 2) coreLineMask: phát hiện viền (KHÔNG nở)
     const coreLineMask = buildLineArtMaskAdaptiveB(baseImageData, {
       win: ADAPTIVE.win,
       C: ADAPTIVE.C,
@@ -162,11 +162,11 @@ function loadImage(src, nameForDownload) {
       maskGrow: 0
     });
 
-    // 3) protectedMask (chặn fill) & renderMask (vẽ viền dày hơn để che khe trắng)
-    protectedMask = dilate(coreLineMask, baseCanvas.width, baseCanvas.height, ADAPTIVE.maskGrowProtect);
+    // 3) Mask bảo vệ & mask hiển thị
+    protectedMask = coreLineMask; // <-- giữ nguyên core để fill áp sát viền
     const renderMask = dilate(coreLineMask, baseCanvas.width, baseCanvas.height, ADAPTIVE.lineGrowRender);
 
-    // 4) lineOnlyCanvas: GIỮ NGUYÊN MÀU viền gốc, lấp đầy cả phần nở theo renderMask
+    // 4) Tạo sprite viền giữ màu gốc, phủ theo renderMask
     buildLineOnlySpriteFromMaskKeepColor(baseImageData, coreLineMask, renderMask);
 
     // 5) Xoá lớp tô, render
@@ -176,6 +176,7 @@ function loadImage(src, nameForDownload) {
   };
   img.src = src;
 }
+
 
 // ====== RENDER (mới): nền trắng -> paint -> lineOnly (không bao giờ vẽ base ra màn hình) ======
 function renderComposite() {
@@ -400,6 +401,39 @@ function floodFillCompositeAware(x, y, fillColor) {
       }
     }
   }
+// ---- SNAP-TO-LINE: đẩy màu áp sát viền còn cách 1px ----
+(function snapToLine(){
+  const w = paintCanvas.width, h = paintCanvas.height;
+  const near = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  const tolAA = 35; // chấp nhận phần rìa xám nhẹ
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i1d = y*w + x;
+      // Bỏ qua nếu đã tô hoặc là viền
+      if (paintData[i1d*4+3] > 0) continue;
+      if (protectedMask && protectedMask[i1d]) continue;
+
+      // nếu kề 1px với viền → cho tô luôn (nếu còn gần màu gốc)
+      let touchLine = false;
+      for (const [dx,dy] of near) {
+        const nx = x+dx, ny = y+dy;
+        if (nx<0||ny<0||nx>=w||ny>=h) continue;
+        if (protectedMask && protectedMask[ny*w+nx]) { touchLine = true; break; }
+      }
+      if (!touchLine) continue;
+
+      const col = getCompositeRGBA(paintData, baseData, w, x, y);
+      if (colorClose(col, startCol, tolAA)) {
+        const p = i1d*4;
+        paintData[p]   = fillColor[0];
+        paintData[p+1] = fillColor[1];
+        paintData[p+2] = fillColor[2];
+        paintData[p+3] = 255;
+      }
+    }
+  }
+})();
 
   paintCtx.putImageData(paintObj, 0, 0);
 }
