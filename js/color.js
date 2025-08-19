@@ -12,15 +12,17 @@ const T_LOW  = 220;                 // > T_LOW  => "trắng chắc"
 const DILATE_RADIUS = 0;            // nở nét (0..2) ở mask gốc (không bắt buộc)
 
 // AA (anti-alias) cho lineLayer
-const AA_BLUR_PX       = 0.9;       // blur nhẹ ở không gian upsample
-const AA_ALPHA_GAMMA   = 0.60;      // <1 làm alpha đậm hơn (nét đen hơn, biên vẫn mượt)
-const AA_EDGE_MIN      = 8; 
+// AA (anti-alias) cho lineLayer
+const AA_BLUR_PX         = 0.8;   // blur nhẹ hơn để mép gọn
+const AA_ALPHA_GAMMA     = 0.50;  // <1 => tăng alpha ở mép
+const AA_EDGE_MIN        = 96;    // ~38%: alpha tối thiểu cho mép (tránh nền xám/nhuộm)
+const AA_EDGE_HARDEN_THR = 0.55;  // >55% thì coi như alpha=1 (đậm lõi mép)
 const UPSCALE_LIMIT_MP = 12_000_000;// giới hạn số pixel sau upsample (~12MP)
 
 // ---------- Flood-fill kín mép ----------
 const FILL_TOLERANCE      = 48;     // so màu (RGB) khi BFS
 const WHITE_LUMA          = 238;    // near-white >= ngưỡng
-const FILL_GROW_RADIUS    = 1;      // nở mép sau fill (0..2)
+const FILL_GROW_RADIUS    = 0;      // nở mép sau fill (0..2)
 const FILL_BARRIER_RADIUS = 2;      // barrier chặn tràn = nở lineMask 1px
 
 // ---------- State ----------
@@ -789,39 +791,40 @@ function renderLineLayerFromMask(mask, w, h, scale = 3) {
   bctx.filter = `blur(${Math.max(0.6, AA_BLUR_PX * scale)}px)`;
   bctx.drawImage(up, 0, 0);
 
-  // 4) Downsample về lineCanvas (có smoothing chất lượng cao)
+  // 4) Downsample về lineCanvas (smoothing chất lượng cao)
   lineCtx.clearRect(0, 0, w, h);
   lineCtx.imageSmoothingEnabled = true;
   if ('imageSmoothingQuality' in lineCtx) lineCtx.imageSmoothingQuality = 'high';
   lineCtx.drawImage(bl, 0, 0, w, h);
 
-  // 5) Grayscale -> Alpha (gamma), NỀN = alpha 0, LÕI NÉT = alpha 1
+  // 5) Grayscale -> Alpha (gamma)
   let lid;
   try { lid = lineCtx.getImageData(0, 0, w, h); }
   catch (e) { console.error(e); return; }
   const ld = lid.data;
 
   for (let i = 0; i < ld.length; i += 4) {
-    const p = (i >> 2);
+    const p   = (i >> 2);
     const lum = 0.299 * ld[i] + 0.587 * ld[i + 1] + 0.114 * ld[i + 2]; // 0..255
-    // a thô dựa trên “đen” (đen -> 1, trắng -> 0)
-    let a = 1 - (lum / 255);
+    let a = 1 - (lum / 255);             // đen -> 1, trắng -> 0
 
     if (mask && mask[p] === 1) {
-      // lõi nét từ mask gốc => alpha 1 (đen đặc), tránh bị nhuộm khi tô
+      // lõi nét từ mask gốc: đen đặc
       a = 1;
     } else {
-      // vùng nền/mép: nếu rất trắng thì alpha = 0, còn lại gamma + min rất nhỏ
-      if (a <= 0.02) {           // ~5/255, coi như trắng tuyệt đối
+      // nền rất trắng: hoàn toàn trong suốt (tránh nền xám)
+      if (a <= 0.02) {
         a = 0;
       } else {
+        // tăng alpha mép cho đậm hơn, vẫn mượt
         a = Math.pow(a, AA_ALPHA_GAMMA);
-        a = Math.max(AA_EDGE_MIN / 255, Math.min(1, a));
+        if (a > AA_EDGE_HARDEN_THR) a = 1;                // mép đậm hóa
+        else a = Math.max(AA_EDGE_MIN / 255, a);          // không quá mỏng
       }
     }
 
-    ld[i] = ld[i + 1] = ld[i + 2] = 0;          // nét đen
-    ld[i + 3] = Math.round(a * 255);            // alpha mượt
+    ld[i] = ld[i + 1] = ld[i + 2] = 0;                    // nét đen
+    ld[i + 3] = Math.round(a * 255);                      // alpha
   }
   lineCtx.putImageData(lid, 0, 0);
   lineCtx.imageSmoothingEnabled = false; // reset
