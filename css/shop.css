@@ -138,9 +138,13 @@ body, .shop-wrapper{
 }
 
 .product-img{
-  width:100%; height:auto; aspect-ratio:3/4;
+  width:100%; 
+  height:auto; 
+  aspect-ratio:4/3;
   object-fit:contain;
-  background:#f0f0f0; padding:8px; border-radius:6px;
+  background:#f0f0f0; 
+  padding:8px; 
+  border-radius:6px;
 }
 
 .size-row{
