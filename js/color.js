@@ -31,19 +31,24 @@ let redoStack = [];
 let originalImageName = "";
 
 // ====== Cấu hình nhận diện viền (Adaptive + Sobel) & Fill ======
-const ADAPTIVE = {
-  win: 21,                // (lẻ) 15–31: cửa sổ tính trung bình cục bộ
-  C: 10,                  // bù trừ: Y < meanLocal - C -> viền tối
-  sobelThr: 50,           // ngưỡng biên độ Sobel bắt biên mạnh/màu
-  closeGapsRadius: 1,     // closing bịt khe li ti
+// trước đây
+// const ADAPTIVE = { win:21, C:10, sobelThr:50, closeGapsRadius:1, maskGrowProtect:0, lineGrowRender:2 };
+// const FILL_TOLERANCE = 80;
+// const EDGE_GROW_AFTER_FILL = 1;
 
-  // TÁCH 2 MỨC NỞ:
-  maskGrowProtect: 0,     // nở nhẹ cho mask CHẶN FILL
-  lineGrowRender: 3       // nở dày hơn cho mask VẼ VIỀN (che sạch khe trắng)
+// thay bằng
+const ADAPTIVE = {
+  win: 23,
+  C: 12,
+  sobelThr: 70,        // ngưỡng Sobel cao hơn -> bớt “ăn” mép sáng
+  closeGapsRadius: 2,  // bịt khe tốt hơn
+  maskGrowProtect: 0,  // KHÔNG nở mask chặn fill
+  lineGrowRender: 4    // nở hiển thị viền dày hơn để phủ sạch rìa
 };
 
-const FILL_TOLERANCE = 80;       // độ gần màu cho flood (ăn dải AA)
-const EDGE_GROW_AFTER_FILL = 2;  // nở vùng sau fill (đã có renderMask che nên để 0–1)
+const FILL_TOLERANCE = 95;      // fill “ăn” cả dải AA
+const EDGE_GROW_AFTER_FILL = 2; // nở vùng tô thêm 1 vòng nữa
+
 
 // Mask chặn fill và dữ liệu ảnh gốc
 let protectedMask = null;  // Uint8Array (mask dùng để CHẶN fill)
@@ -404,8 +409,11 @@ function floodFillCompositeAware(x, y, fillColor) {
 // ---- SNAP-TO-LINE: đẩy màu áp sát viền còn cách 1px ----
 (function snapToLine(){
   const w = paintCanvas.width, h = paintCanvas.height;
-  const near = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
-  const tolAA = 45; // chấp nhận phần rìa xám nhẹ
+const near = [
+  [1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1],
+  [2,0],[-2,0],[0,2],[0,-2]  // thêm vòng cách 2px
+];
+const tolAA = 50;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -842,39 +850,41 @@ function buildLineArtMaskAdaptiveB(imageData, opt) {
   const src = imageData.data;
   const N = w * h;
 
-  // 1) Tính luminance Y
+  // 1) luminance
   const Y = new Uint8ClampedArray(N);
   for (let i = 0; i < N; i++) {
     const p = i * 4;
-    const r = src[p], g = src[p+1], b = src[p+2];
-    Y[i] = Math.round(0.2126*r + 0.7152*g + 0.0722*b);
+    Y[i] = Math.round(0.2126*src[p] + 0.7152*src[p+1] + 0.0722*src[p+2]);
   }
 
-  // 2) Integral image để lấy mean cục bộ nhanh
-  const integral = buildIntegralImage(Y, w, h);
+  // 2) integral image
+  const S = buildIntegralImage(Y, w, h);
 
-  // 3) Adaptive: viền tối so với lân cận
+  // 3) mean cục bộ + mask “tối hơn trung bình”
   const half = (win|0) >> 1;
+  const meanLocal = new Uint16Array(N);      // lưu mean để tái dùng khi lọc Sobel
   let mask = new Uint8Array(N);
+
   for (let y = 0; y < h; y++) {
     const y0 = Math.max(0, y - half), y1 = Math.min(h - 1, y + half);
     for (let x = 0; x < w; x++) {
       const x0 = Math.max(0, x - half), x1 = Math.min(w - 1, x + half);
       const area = (x1 - x0 + 1) * (y1 - y0 + 1);
-      const sum = rectSum(integral, x0, y0, x1, y1, w);
+      const sum = rectSum(S, x0, y0, x1, y1, w);
       const mean = sum / area;
-      const i = y * w + x;
-      if (Y[i] < mean - C) mask[i] = 1;
+      const i = y*w + x;
+      meanLocal[i] = mean;
+      if (Y[i] < mean - C) mask[i] = 1;     // viền tối
     }
   }
 
-  // 4) Sobel magnitude để bắt biên mạnh (kể cả viền sáng/màu)
+  // 4) Sobel magnitude – CHỈ cộng thêm khi pixel cũng “tối hơn lân cận” (loại mép trắng)
   const G = sobelMagnitude(Y, w, h);
   for (let i = 0; i < N; i++) {
-    if (G[i] >= sobelThr) mask[i] = 1;
+    if (G[i] >= sobelThr && Y[i] < meanLocal[i] - (C >> 1)) mask[i] = 1;
   }
 
-  // 5) Closing & grow nếu yêu cầu
+  // 5) closing + grow
   if (closeGapsRadius > 0) {
     mask = dilate(mask, w, h, closeGapsRadius);
     mask = erode (mask, w, h, closeGapsRadius);
