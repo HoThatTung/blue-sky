@@ -1,17 +1,13 @@
-// ====================== Canvas Coloring (2-layer, finalized) ======================
+// ====================== Canvas Coloring (1-layer, finalized) ======================
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// ---------- NEW: 2 offscreen layers ----------
-const baseCanvas = document.createElement("canvas");      // lineart (black/white)
-const baseCtx = baseCanvas.getContext("2d");
-const paintCanvas = document.createElement("canvas");     // painting layer
-const paintCtx = paintCanvas.getContext("2d");
-
-// ---------- Config for binarize & stroke ----------
-const THRESH = 200;        // 0..255: lower => more black. Tùy chỉnh theo ảnh nguồn
-const STROKE_DILATE = 1;   // 0 = không nở nét; 1..2 thường là ổn
+// ---------- Config cho chuẩn hoá & bảo vệ nét ----------
+const T_HIGH = 180;      // pixel tối hơn => chắc chắn là "đen"
+const T_LOW  = 230;      // pixel sáng hơn => chắc chắn là "trắng"
+const DILATE_RADIUS = 1; // nở nét 0..2 (1 thường là ổn)
+const BLACK_THR = 10;    // ngưỡng "gần đen" để skip khi tô/brush/eraser
 
 let currentColor = "#000000";
 let img = new Image();
@@ -41,7 +37,7 @@ colors.forEach((color, i) => {
   div.dataset.color = color;
   if (i === 0) {
     div.classList.add("selected");
-    setCurrentColor(color); // dùng hàm chặn đen tuyệt đối
+    setCurrentColor(color); // chặn đen tuyệt đối
   }
   palette.appendChild(div);
 });
@@ -118,13 +114,12 @@ document.getElementById("imageSelect").addEventListener("change", function () {
 
   const localImg = new Image();
   localImg.onload = () => {
-    loadImageIntoLayers(localImg);
+    loadImageToMainCanvas(localImg);
     undoStack = [];
     redoStack = [];
     originalImageName = selectedImage.split('/').pop();
     updateSelectStyle();
 
-    // show optional label if exists
     const kiteLabel = document.getElementById("kite-label-input");
     if (kiteLabel) kiteLabel.style.display = "block";
   };
@@ -140,7 +135,7 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
   reader.onload = function (event) {
     const upImg = new Image();
     upImg.onload = function () {
-      loadImageIntoLayers(upImg);
+      loadImageToMainCanvas(upImg);
       undoStack = [];
       redoStack = [];
       originalImageName = file.name;
@@ -172,23 +167,14 @@ function getCanvasCoords(e) {
   return { x, y };
 }
 
-// ----------------- Drawing (brush / eraser) -----------------
+// ----------------- Drawing (brush / eraser) – bảo vệ nét đen -----------------
 function drawAt(e) {
-  ensureLayersInitialized(); // đảm bảo layer có kích thước
+  ensureInitialized();
   const { x, y } = getCanvasCoords(e);
-  paintCtx.save();
-  if (mode === "eraser") {
-    paintCtx.globalCompositeOperation = "destination-out";
-    paintCtx.fillStyle = "rgba(0,0,0,1)";
-  } else {
-    paintCtx.globalCompositeOperation = "source-over";
-    paintCtx.fillStyle = currentColor;
-  }
-  paintCtx.beginPath();
-  paintCtx.arc(x, y, brushSize, 0, Math.PI * 2);
-  paintCtx.fill();
-  paintCtx.restore();
-  composite();
+  const isErase = (mode === "eraser");
+  const rgba = isErase ? [255, 255, 255, 255] : hexToRgba(currentColor);
+  paintCircleOnMain(x, y, brushSize, rgba, isErase);
+  // Không cần composite vì 1 layer
 }
 
 canvas.addEventListener("mousedown", (e) => {
@@ -222,13 +208,13 @@ canvas.addEventListener("touchmove", (e) => {
 }, { passive: false });
 canvas.addEventListener("touchend", () => isDrawing = false);
 
-// ----------------- Fill -----------------
+// ----------------- Fill – bảo vệ nét đen -----------------
 canvas.addEventListener("click", (e) => {
   if (mode === "fill") {
-    ensureLayersInitialized(); // đảm bảo layer đã sẵn sàng
+    ensureInitialized();
     const { x, y } = getCanvasCoords(e);
-    saveState(); // lưu paint layer
-    floodFillMasked(x, y, hexToRgba(currentColor)); // fill vào paint, bỏ qua nét đen
+    saveState();
+    floodFillSingleLayer(x, y, hexToRgba(currentColor));
   }
 });
 
@@ -237,88 +223,112 @@ function hexToRgba(hex) {
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
 
-// Flood-fill trên paint layer, dựa trên màu composite và KHÔNG tô vào pixel đen của base
-function floodFillMasked(x, y, fillColor) {
-  ensureLayersInitialized();
+function isNearBlack(r, g, b, thr = BLACK_THR) {
+  return (r < thr && g < thr && b < thr);
+}
 
-  const w = paintCanvas.width, h = paintCanvas.height;
+// Flood-fill trực tiếp trên canvas chính, KHÔNG tô vào pixel đen
+function floodFillSingleLayer(x, y, fillColor) {
+  const w = canvas.width, h = canvas.height;
   if (w === 0 || h === 0) return;
 
-  let baseID, paintID;
+  let imageData;
   try {
-    baseID = baseCtx.getImageData(0, 0, w, h);
-    paintID = paintCtx.getImageData(0, 0, w, h);
+    imageData = ctx.getImageData(0, 0, w, h);
   } catch (err) {
     console.error(err);
     alert("Không thể tô màu do ảnh bị chặn đọc pixel (CORS). Hãy dùng ảnh cùng domain hoặc bật CORS/crossOrigin='anonymous'.");
     return;
   }
-
-  const baseData = baseID.data;
-  const pData = paintID.data;
+  const data = imageData.data;
 
   const idx0 = (y * w + x) * 4;
+  const startR = data[idx0], startG = data[idx0 + 1], startB = data[idx0 + 2];
 
-  // Nếu click ngay trên nét đen (base) thì bỏ qua
-  if (baseData[idx0] === 0 && baseData[idx0 + 1] === 0 && baseData[idx0 + 2] === 0) return;
+  // Nếu click ngay trên nét đen -> bỏ
+  if (isNearBlack(startR, startG, startB)) return;
 
-  // Lấy màu gốc từ composite-like: ưu tiên paint nếu có alpha
-  function getCompositeRGB(i) {
-    const pa = pData[i + 3];
-    if (pa > 0) return [pData[i], pData[i + 1], pData[i + 2], pa];
-    return [baseData[i], baseData[i + 1], baseData[i + 2], baseData[i + 3]];
-  }
-
-  const startColor = getCompositeRGB(idx0);
   const tolerance = 48;
-
-  const matchColor = (i) => {
-    // Không tô vào pixel có nét đen ở base
-    if (baseData[i] === 0 && baseData[i + 1] === 0 && baseData[i + 2] === 0) return false;
-
-    const c = getCompositeRGB(i);
-    for (let k = 0; k < 3; k++) {
-      if (Math.abs(c[k] - startColor[k]) > tolerance) return false;
-    }
-    return true;
-  };
-
   const visited = new Uint8Array(w * h);
   const stack = [[x, y]];
+
+  const match = (i) => {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    if (isNearBlack(r, g, b)) return false; // chặn đen
+    return (Math.abs(r - startR) <= tolerance &&
+            Math.abs(g - startG) <= tolerance &&
+            Math.abs(b - startB) <= tolerance);
+  };
 
   while (stack.length) {
     const [cx, cy] = stack.pop();
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
 
-    const idx = (cy * w + cx) * 4;
-    const vi = cy * w + cx;
+    const i = (cy * w + cx) * 4;
+    const vi = (cy * w + cx);
 
     if (visited[vi]) continue;
     visited[vi] = 1;
-    if (!matchColor(idx)) continue;
+    if (!match(i)) continue;
 
-    // tô vào paint layer
-    pData[idx] = fillColor[0];
-    pData[idx + 1] = fillColor[1];
-    pData[idx + 2] = fillColor[2];
-    pData[idx + 3] = 255;
+    data[i] = fillColor[0];
+    data[i + 1] = fillColor[1];
+    data[i + 2] = fillColor[2];
+    data[i + 3] = 255;
 
-    stack.push([cx - 1, cy]);
-    stack.push([cx + 1, cy]);
-    stack.push([cx, cy - 1]);
-    stack.push([cx, cy + 1]);
+    stack.push([cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]);
   }
 
-  paintCtx.putImageData(paintID, 0, 0);
-  composite();
+  ctx.putImageData(imageData, 0, 0);
 }
 
-// ----------------- Undo / Redo (lưu paint layer) -----------------
-function saveState() {
-  ensureLayersInitialized();
-  if (paintCanvas.width === 0 || paintCanvas.height === 0) return;
+// Brush/Eraser theo pixel trên canvas chính, KHÔNG đè lên pixel đen
+function paintCircleOnMain(x, y, radius, rgba, isErase = false) {
+  const w = canvas.width, h = canvas.height;
+  const x0 = Math.max(0, Math.floor(x - radius));
+  const x1 = Math.min(w - 1, Math.ceil(x + radius));
+  const y0 = Math.max(0, Math.floor(y - radius));
+  const y1 = Math.min(h - 1, Math.ceil(y + radius));
+
+  let imageData;
   try {
-    undoStack.push(paintCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height));
+    imageData = ctx.getImageData(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+  } catch (err) {
+    console.error(err);
+    alert("Không thể vẽ do ảnh bị chặn đọc pixel (CORS). Hãy dùng ảnh cùng domain hoặc bật CORS/crossOrigin='anonymous'.");
+    return;
+  }
+  const d = imageData.data;
+  const rr = radius * radius;
+
+  for (let yy = y0; yy <= y1; yy++) {
+    for (let xx = x0; xx <= x1; xx++) {
+      const dx = xx - x, dy = yy - y;
+      if (dx * dx + dy * dy > rr) continue;
+
+      const i = ((yy - y0) * (x1 - x0 + 1) + (xx - x0)) * 4;
+      const R = d[i], G = d[i + 1], B = d[i + 2];
+
+      // Bảo vệ nét đen
+      if (isNearBlack(R, G, B)) continue;
+
+      if (isErase) {
+        // Eraser = trả về trắng tuyệt đối
+        d[i] = 255; d[i + 1] = 255; d[i + 2] = 255; d[i + 3] = 255;
+      } else {
+        d[i] = rgba[0]; d[i + 1] = rgba[1]; d[i + 2] = rgba[2]; d[i + 3] = 255;
+      }
+    }
+  }
+  ctx.putImageData(imageData, x0, y0);
+}
+
+// ----------------- Undo / Redo (lưu snapshot canvas) -----------------
+function saveState() {
+  ensureInitialized();
+  if (canvas.width === 0 || canvas.height === 0) return;
+  try {
+    undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
     redoStack = [];
   } catch (e) {
     console.warn("saveState failed:", e);
@@ -328,11 +338,10 @@ function saveState() {
 document.getElementById("undoBtn").addEventListener("click", () => {
   if (undoStack.length > 0) {
     try {
-      const current = paintCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height);
+      const current = ctx.getImageData(0, 0, canvas.width, canvas.height);
       redoStack.push(current);
       const prev = undoStack.pop();
-      paintCtx.putImageData(prev, 0, 0);
-      composite();
+      ctx.putImageData(prev, 0, 0);
     } catch (e) {
       console.warn("undo failed:", e);
     }
@@ -342,18 +351,17 @@ document.getElementById("undoBtn").addEventListener("click", () => {
 document.getElementById("redoBtn").addEventListener("click", () => {
   if (redoStack.length > 0) {
     try {
-      const current = paintCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height);
+      const current = ctx.getImageData(0, 0, canvas.width, canvas.height);
       undoStack.push(current);
       const next = redoStack.pop();
-      paintCtx.putImageData(next, 0, 0);
-      composite();
+      ctx.putImageData(next, 0, 0);
     } catch (e) {
       console.warn("redo failed:", e);
     }
   }
 });
 
-// ----------------- Download (re-composite + text + logo) -----------------
+// ----------------- Download (canvas + text + logo) -----------------
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const logo = new Image();
@@ -366,11 +374,10 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
 
-    // 1) Re-composite: paint dưới, base trên
-    tempCtx.drawImage(paintCanvas, 0, 0);
-    tempCtx.drawImage(baseCanvas, 0, 0);
+    // 1) Vẽ ảnh chính (đã gồm nét + tô)
+    tempCtx.drawImage(canvas, 0, 0);
 
-    // 2) Vẽ text-box DOM lên
+    // 2) Vẽ các text-box DOM
     document.querySelectorAll(".text-box").forEach(box => {
       const content = box.querySelector(".text-content");
       const text = content.innerText;
@@ -763,8 +770,8 @@ function initMenuButton() {
 window.addEventListener("DOMContentLoaded", () => {
   initMenuButton();
 
-  // đảm bảo có layer trắng để vẽ ngay cả khi chưa load ảnh
-  ensureLayersInitialized();
+  // đảm bảo có nền trắng để vẽ ngay cả khi chưa load ảnh
+  ensureInitialized();
 
   const params = new URLSearchParams(window.location.search);
   const imageUrl = params.get("img");
@@ -773,7 +780,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const imgFromUrl = new Image();
     imgFromUrl.crossOrigin = "anonymous"; // cần nếu ảnh từ ngoài domain
     imgFromUrl.onload = () => {
-      loadImageIntoLayers(imgFromUrl);
+      loadImageToMainCanvas(imgFromUrl);
       undoStack = [];
       redoStack = [];
       originalImageName = imageUrl.split("/").pop();
@@ -782,103 +789,99 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// ======================  Helpers cho 2-layer & binarize  ======================
-function resizeLayers(w, h) {
-  [canvas, baseCanvas, paintCanvas].forEach(c => { c.width = w; c.height = h; });
-}
+// ======================  Helpers: chuẩn hoá & init  ======================
 
-function composite() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(paintCanvas, 0, 0);
-  ctx.drawImage(baseCanvas, 0, 0);
-}
-
-// NEW: đảm bảo layer đã khởi tạo kích thước để vẽ/fill được ngay
-function ensureLayersInitialized() {
-  if (paintCanvas.width === 0 || paintCanvas.height === 0) {
+// Khởi tạo nền trắng nếu chưa có kích thước
+function ensureInitialized() {
+  if (canvas.width === 0 || canvas.height === 0) {
     const w = +(
-      canvas.width ||
       canvas.getAttribute('width') ||
       canvas.clientWidth ||
       1024
     );
     const h = +(
-      canvas.height ||
       canvas.getAttribute('height') ||
       canvas.clientHeight ||
       768
     );
-    resizeLayers(w, h);
+    canvas.width = w;
+    canvas.height = h;
 
-    // Base trắng tuyệt đối
-    baseCtx.fillStyle = "#FFFFFF";
-    baseCtx.fillRect(0, 0, w, h);
-
-    composite();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, w, h);
   }
 }
 
-function loadImageIntoLayers(image) {
-  resizeLayers(image.width, image.height);
+// Vẽ ảnh vào canvas chính và chuẩn hoá thành đen/trắng
+function loadImageToMainCanvas(image) {
+  canvas.width = image.width;
+  canvas.height = image.height;
 
-  // tắt smoothing để không làm mềm mép
-  baseCtx.imageSmoothingEnabled = false;
-  paintCtx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, 0, 0);
 
-  paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
-
-  baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
-  baseCtx.drawImage(image, 0, 0);
-  toPureBWAndThicken(baseCtx, baseCanvas.width, baseCanvas.height);
-
-  composite();
+  normalizeLineartBW(ctx, canvas.width, canvas.height);
 }
 
-// Biến ảnh thành nền trắng tuyệt đối & nét đen tuyệt đối; có thể nở nét
-function toPureBWAndThicken(ctxSrc, w, h) {
-  const id = ctxSrc.getImageData(0, 0, w, h);
+// Chuẩn hoá: gom xám sát viền vào đen, rồi (tuỳ chọn) nở nét, xuất đen/trắng tuyệt đối
+function normalizeLineartBW(ctx, w, h) {
+  const id = ctx.getImageData(0, 0, w, h);
   const d = id.data;
 
-  // 1) Binarize: trắng #FFFFFF hoặc đen #000000
-  for (let i = 0; i < d.length; i += 4) {
-    const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    if (y < THRESH) {
-      d[i] = d[i + 1] = d[i + 2] = 0;
-      d[i + 3] = 255;
-    } else {
-      d[i] = d[i + 1] = d[i + 2] = 255;
-      d[i + 3] = 255;
+  // 1) phân loại sơ bộ: đen chắc / trắng chắc
+  const hardBlack = new Uint8Array(w * h);
+  const hardWhite = new Uint8Array(w * h);
+  for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const y = 0.299 * r + 0.587 * g + 0.114 * b;
+    if (y < T_HIGH) hardBlack[p] = 1;
+    else if (y > T_LOW) hardWhite[p] = 1;
+  }
+
+  // 2) vùng xám: nếu kề đen chắc thì nhập vào đen (hysteresis)
+  const outBlack = new Uint8Array(hardBlack);
+  const N = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (hardBlack[p] || hardWhite[p]) continue;
+      for (const [dx, dy] of N) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        if (hardBlack[ny * w + nx]) { outBlack[p] = 1; break; }
+      }
     }
   }
 
-  // 2) Dilate nét đen (8-neighbor)
-  if (STROKE_DILATE > 0) {
-    const bin = new Uint8Array(w * h);
-    for (let p = 0, i = 0; p < w * h; p++, i += 4) {
-      bin[p] = (d[i] === 0) ? 1 : 0;
-    }
-    const out = new Uint8Array(bin);
-    const R = STROKE_DILATE;
-
+  // 3) (tuỳ chọn) nở nét 1px để bịt khe cực nhỏ
+  if (DILATE_RADIUS > 0) {
+    const src = outBlack;
+    const out = new Uint8Array(src);
+    const R = DILATE_RADIUS;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const idx = y * w + x;
-        if (bin[idx]) continue;
+        const p = y * w + x;
+        if (src[p]) continue;
         let touch = false;
         for (let dy = -R; dy <= R && !touch; dy++) {
           for (let dx = -R; dx <= R && !touch; dx++) {
             const nx = x + dx, ny = y + dy;
             if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-            if (bin[ny * w + nx]) touch = true;
+            if (src[ny * w + nx]) touch = true;
           }
         }
-        if (touch) out[idx] = 1;
+        if (touch) out[p] = 1;
       }
     }
-    for (let p = 0, i = 0; p < w * h; p++, i += 4) {
-      if (out[p]) { d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = 255; }
-    }
+    outBlack.set(out);
   }
 
-  ctxSrc.putImageData(id, 0, 0);
+  // 4) ghi kết quả: đen/ trắng tuyệt đối
+  for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+    const isBlack = outBlack[p] === 1;
+    d[i] = d[i + 1] = d[i + 2] = isBlack ? 0 : 255;
+    d[i + 3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
 }
