@@ -1,6 +1,6 @@
-// ===== Canvas Painter (Phương án B: giữ nguyên màu viền gốc) =====
-// CHỈ SỬA các phần: load/vẽ lại ảnh (mask + lineOnly), fill, render
-// CÁC TÍNH NĂNG KHÁC giữ nguyên hành vi (palette, brush, eraser, text, undo/redo, download, menu...)
+// ===== Canvas Painter (Phương án B + 2 mask: protect & render) =====
+// CHỈ SỬA: load/vẽ lại ảnh (mask + lineOnly), fill, render.
+// CÁC TÍNH NĂNG KHÁC GIỮ NGUYÊN: palette, brush, eraser, text, undo/redo, download, menu...
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -32,18 +32,21 @@ let originalImageName = "";
 
 // ====== Cấu hình nhận diện viền (Adaptive + Sobel) & Fill ======
 const ADAPTIVE = {
-  win: 21,            // (lẻ) 15–31: cửa sổ tính trung bình cục bộ
-  C: 10,              // bù trừ: Y < meanLocal - C -> viền tối
-  sobelThr: 50,       // ngưỡng biên độ Sobel để bắt biên mạnh/màu
-  closeGapsRadius: 1, // closing để bịt khe li ti
-  maskGrow: 2         // nở mask 1–2 px để bảo vệ viền
+  win: 21,                // (lẻ) 15–31: cửa sổ tính trung bình cục bộ
+  C: 10,                  // bù trừ: Y < meanLocal - C -> viền tối
+  sobelThr: 50,           // ngưỡng biên độ Sobel bắt biên mạnh/màu
+  closeGapsRadius: 1,     // closing bịt khe li ti
+
+  // TÁCH 2 MỨC NỞ:
+  maskGrowProtect: 1,     // nở nhẹ cho mask CHẶN FILL
+  lineGrowRender: 3       // nở dày hơn cho mask VẼ VIỀN (che sạch khe trắng)
 };
 
-const FILL_TOLERANCE = 80;       // độ giống màu cho flood (ăn dải AA)
-const EDGE_GROW_AFTER_FILL = 3;  // nở vùng sau fill để lấp khe sát viền
+const FILL_TOLERANCE = 80;       // độ gần màu cho flood (ăn dải AA)
+const EDGE_GROW_AFTER_FILL = 1;  // nở vùng sau fill (đã có renderMask che nên để 0–1)
 
-// Mask viền (1 = pixel thuộc/kề viền), và dữ liệu ảnh gốc
-let lineArtMask = null;  // Uint8Array
+// Mask chặn fill và dữ liệu ảnh gốc
+let protectedMask = null;  // Uint8Array (mask dùng để CHẶN fill)
 let baseImageData = null;
 
 // ===== Palette =====
@@ -105,9 +108,8 @@ document.getElementById("brushSizeSelect").addEventListener("change", function (
   brushSize = parseFloat(this.value);
 });
 
-// ===== Image select / upload (SỬA load: dùng pipeline mới) =====
+// ===== Image select / upload =====
 const imageSelect = document.getElementById("imageSelect");
-
 imageSelect.addEventListener("change", function () {
   const selectedImage = this.value;
   loadImage(selectedImage, selectedImage.split('/').pop());
@@ -135,12 +137,12 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
   reader.readAsDataURL(file);
 });
 
-// ====== LOAD ẢNH (SỬA MỚI): tạo mask + lineOnly (giữ màu viền), không render base ======
+// ====== LOAD ẢNH (mới): coreMask -> protectedMask & renderMask -> lineOnly giữ MÀU ======
 function loadImage(src, nameForDownload) {
   img = new Image();
   img.crossOrigin = "anonymous";
   img.onload = () => {
-    // Đồng bộ kích thước
+    // Đồng bộ kích thước cho tất cả canvas
     [canvas, baseCanvas, paintCanvas, lineOnlyCanvas].forEach(c => {
       c.width = img.width;
       c.height = img.height;
@@ -151,13 +153,23 @@ function loadImage(src, nameForDownload) {
     baseCtx.drawImage(img, 0, 0);
     baseImageData = baseCtx.getImageData(0, 0, baseCanvas.width, baseCanvas.height);
 
-    // 2) Tạo mask viền (không phụ thuộc màu), rồi closing + grow
-    lineArtMask = buildLineArtMaskAdaptiveB(baseImageData, ADAPTIVE);
+    // 2) coreLineMask: phát hiện viền (không phụ thuộc màu), KHÔNG nở ở đây
+    const coreLineMask = buildLineArtMaskAdaptiveB(baseImageData, {
+      win: ADAPTIVE.win,
+      C: ADAPTIVE.C,
+      sobelThr: ADAPTIVE.sobelThr,
+      closeGapsRadius: ADAPTIVE.closeGapsRadius,
+      maskGrow: 0
+    });
 
-    // 3) Sinh lineOnlyCanvas: GIỮ NGUYÊN MÀU viền gốc (nền trong suốt)
-    buildLineOnlySpriteFromMaskKeepColor(baseImageData, lineArtMask);
+    // 3) protectedMask (chặn fill) & renderMask (vẽ viền dày hơn để che khe trắng)
+    protectedMask = dilate(coreLineMask, baseCanvas.width, baseCanvas.height, ADAPTIVE.maskGrowProtect);
+    const renderMask = dilate(coreLineMask, baseCanvas.width, baseCanvas.height, ADAPTIVE.lineGrowRender);
 
-    // 4) Xoá lớp tô, render lần đầu
+    // 4) lineOnlyCanvas: GIỮ NGUYÊN MÀU viền gốc, lấp đầy cả phần nở theo renderMask
+    buildLineOnlySpriteFromMaskKeepColor(baseImageData, coreLineMask, renderMask);
+
+    // 5) Xoá lớp tô, render
     paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
     originalImageName = nameForDownload || "to_mau.png";
     renderComposite();
@@ -165,7 +177,7 @@ function loadImage(src, nameForDownload) {
   img.src = src;
 }
 
-// ====== RENDER (SỬA MỚI): nền trắng -> paint -> lineOnly ======
+// ====== RENDER (mới): nền trắng -> paint -> lineOnly (không bao giờ vẽ base ra màn hình) ======
 function renderComposite() {
   // Tránh nội suy tạo xám khi có scale CSS
   ctx.imageSmoothingEnabled = false;
@@ -214,7 +226,7 @@ function saveState() {
   }
 }
 
-// ===== Brush / Eraser (KHÔNG ĐỔI HÀNH VI, nhưng ghi lên paintCanvas) =====
+// ===== Brush / Eraser (giữ nguyên, nhưng ghi lên paintCanvas) =====
 function drawDotOnPaint(x, y) {
   paintCtx.beginPath();
   paintCtx.arc(x, y, brushSize, 0, Math.PI * 2);
@@ -292,7 +304,7 @@ canvas.addEventListener("touchmove", (e) => {
 }, { passive: false });
 canvas.addEventListener("touchend", () => isDrawing = false);
 
-// ===== FILL (SỬA MỚI): chỉ ghi paintCanvas, tôn trọng mask viền, nở vùng sau fill =====
+// ===== FILL (mới): chỉ ghi paintCanvas, tôn trọng protectedMask, nở vùng sau fill =====
 canvas.addEventListener("click", (e) => {
   if (mode !== "fill") return;
   const { x, y } = getCanvasCoords(e);
@@ -319,7 +331,7 @@ function floodFillCompositeAware(x, y, fillColor) {
   const w = paintCanvas.width, h = paintCanvas.height;
   const startIdx = y * w + x;
 
-  if (lineArtMask && lineArtMask[startIdx]) return; // click trúng viền → bỏ
+  if (protectedMask && protectedMask[startIdx]) return; // click trúng viền → bỏ
 
   const paintObj = paintCtx.getImageData(0, 0, w, h);
   const paintData = paintObj.data;
@@ -348,8 +360,8 @@ function floodFillCompositeAware(x, y, fillColor) {
     if (visited[i1d]) continue;
     visited[i1d] = 1;
 
-    // Cấm ghi lên viền
-    if (lineArtMask && lineArtMask[i1d]) continue;
+    // Cấm ghi lên viền (bảo vệ)
+    if (protectedMask && protectedMask[i1d]) continue;
 
     // So màu dựa trên ảnh ghép hiện tại
     const col = getCompositeRGBA(paintData, baseData, w, cx, cy);
@@ -364,26 +376,28 @@ function floodFillCompositeAware(x, y, fillColor) {
     stack.push([cx, cy+1]);
   }
 
-  // NỞ VÙNG để lấp dải AA sát viền (vẫn tôn trọng mask)
-  const n8 = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
-  for (let iter = 0; iter < EDGE_GROW_AFTER_FILL; iter++) {
-    const toGrow = [];
-    for (let yy = 0; yy < h; yy++) {
-      for (let xx = 0; xx < w; xx++) {
-        const i1d = yy * w + xx;
-        if (filled[i1d]) continue;
-        if (lineArtMask && lineArtMask[i1d]) continue;
-        let near = false;
-        for (const [dx,dy] of n8) {
-          const nx = xx + dx, ny = yy + dy;
-          if (nx>=0 && ny>=0 && nx<w && ny<h && filled[ny*w + nx]) { near = true; break; }
+  // NỞ VÙNG nhẹ để lấp AA sát viền (vẫn tôn trọng protectedMask)
+  if (EDGE_GROW_AFTER_FILL > 0) {
+    const n8 = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    for (let iter = 0; iter < EDGE_GROW_AFTER_FILL; iter++) {
+      const toGrow = [];
+      for (let yy = 0; yy < h; yy++) {
+        for (let xx = 0; xx < w; xx++) {
+          const i1d = yy * w + xx;
+          if (filled[i1d]) continue;
+          if (protectedMask && protectedMask[i1d]) continue;
+          let near = false;
+          for (const [dx,dy] of n8) {
+            const nx = xx + dx, ny = yy + dy;
+            if (nx>=0 && ny>=0 && nx<w && ny<h && filled[ny*w + nx]) { near = true; break; }
+          }
+          if (near) toGrow.push(i1d);
         }
-        if (near) toGrow.push(i1d);
       }
-    }
-    for (const i1d of toGrow) {
-      paintPixel(i1d);
-      filled[i1d] = 1;
+      for (const i1d of toGrow) {
+        paintPixel(i1d);
+        filled[i1d] = 1;
+      }
     }
   }
 
@@ -419,7 +433,7 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// ===== Download (giữ nguyên logic, nhưng render: trắng + paint + lineOnly) =====
+// ===== Download (giữ nguyên, nhưng render: trắng + paint + lineOnly) =====
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const logo = new Image();
@@ -440,7 +454,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCtx.drawImage(paintCanvas, 0, 0);
     tempCtx.drawImage(lineOnlyCanvas, 0, 0);
 
-    // 4. Vẽ các text-box (giữ nguyên như trước)
+    // 4. Vẽ các text-box (giữ nguyên)
     document.querySelectorAll(".text-box").forEach(box => {
       const content = box.querySelector(".text-content");
       const text = content?.innerText ?? "";
@@ -670,9 +684,7 @@ function enableResize(textBox) {
     applyTransform(textBox);
   };
 
-  const onResizeEnd = () => {
-    isResizing = false;
-  };
+  const onResizeEnd = () => { isResizing = false; };
 
   resizer.addEventListener("mousedown", onResizeStart);
   document.addEventListener("mousemove", onResizeMove);
@@ -700,15 +712,10 @@ function enableRotate(textBox) {
 
   const getCenter = () => {
     const rect = textBox.getBoundingClientRect();
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
-    };
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   };
 
-  const getAngle = (cx, cy, x, y) => {
-    return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
-  };
+  const getAngle = (cx, cy, x, y) => Math.atan2(y - cy, x - cx) * (180 / Math.PI);
 
   const startRotate = (clientX, clientY) => {
     isRotating = true;
@@ -725,52 +732,36 @@ function enableRotate(textBox) {
     applyTransform(textBox);
   };
 
-  const stopRotate = () => {
-    isRotating = false;
-  };
+  const stopRotate = () => { isRotating = false; };
 
-  rotateHandle.addEventListener("mousedown", (e) => {
-    e.stopPropagation();
-    startRotate(e.clientX, e.clientY);
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (isRotating) rotate(e.clientX, e.clientY);
-  });
-
+  rotateHandle.addEventListener("mousedown", (e) => { e.stopPropagation(); startRotate(e.clientX, e.clientY); });
+  document.addEventListener("mousemove", (e) => { if (isRotating) rotate(e.clientX, e.clientY); });
   document.addEventListener("mouseup", stopRotate);
 
   rotateHandle.addEventListener("touchstart", (e) => {
     if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      startRotate(touch.clientX, touch.clientY);
+      const t = e.touches[0];
+      startRotate(t.clientX, t.clientY);
       e.preventDefault();
     }
   }, { passive: false });
-
   document.addEventListener("touchmove", (e) => {
     if (isRotating && e.touches.length === 1) {
-      const touch = e.touches[0];
-      rotate(touch.clientX, touch.clientY);
+      const t = e.touches[0];
+      rotate(t.clientX, t.clientY);
       e.preventDefault();
     }
   }, { passive: false });
-
   document.addEventListener("touchend", stopRotate);
 }
 
 // ===== Select styling (giữ nguyên) =====
 function updateSelectStyle() {
   const isPlaceholder = imageSelect.selectedIndex === 0;
-
   imageSelect.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
   imageSelect.style.fontStyle = isPlaceholder ? "italic" : "normal";
-
-  if (!isPlaceholder) {
-    imageSelect.classList.add("selected-kite");
-  } else {
-    imageSelect.classList.remove("selected-kite");
-  }
+  if (!isPlaceholder) imageSelect.classList.add("selected-kite");
+  else imageSelect.classList.remove("selected-kite");
 }
 imageSelect.addEventListener("change", updateSelectStyle);
 window.addEventListener("DOMContentLoaded", updateSelectStyle);
@@ -849,9 +840,11 @@ function buildLineArtMaskAdaptiveB(imageData, opt) {
     if (G[i] >= sobelThr) mask[i] = 1;
   }
 
-  // 5) Closing + grow để bịt khe và tạo dải bảo vệ
-  mask = dilate(mask, w, h, closeGapsRadius);
-  mask = erode (mask, w, h, closeGapsRadius);
+  // 5) Closing & grow nếu yêu cầu
+  if (closeGapsRadius > 0) {
+    mask = dilate(mask, w, h, closeGapsRadius);
+    mask = erode (mask, w, h, closeGapsRadius);
+  }
   if (maskGrow > 0) mask = dilate(mask, w, h, maskGrow);
 
   return mask;
@@ -948,8 +941,8 @@ function erode(mask, w, h, r = 1) {
   return out;
 }
 
-// Sinh lineOnlyCanvas GIỮ NGUYÊN MÀU viền từ ảnh gốc (nền trong suốt)
-function buildLineOnlySpriteFromMaskKeepColor(imageData, mask) {
+// Giữ MÀU VIỀN GỐC cho vùng core; phần nở thêm dùng màu core gần nhất để liền mạch
+function buildLineOnlySpriteFromMaskKeepColor(imageData, coreMask, renderMask) {
   const w = imageData.width, h = imageData.height;
   const src = imageData.data;
 
@@ -959,18 +952,48 @@ function buildLineOnlySpriteFromMaskKeepColor(imageData, mask) {
   const out = lineOnlyCtx.createImageData(w, h);
   const dst = out.data;
 
-  for (let i = 0; i < w*h; i++) {
-    const p = i * 4;
-    if (mask[i]) {
-      dst[p]   = src[p];
-      dst[p+1] = src[p+1];
-      dst[p+2] = src[p+2];
-      dst[p+3] = 255; // viền đậm 100%
-    } else {
-      dst[p]   = 0;
-      dst[p+1] = 0;
-      dst[p+2] = 0;
-      dst[p+3] = 0;   // nền trong suốt
+  // tiện tra nhanh xem pixel nào là core
+  const isCore = coreMask;
+
+  // lấy màu core gần nhất xung quanh (x,y) trong bán kính nhỏ
+  function nearestCoreColor(x, y) {
+    const R = 3;
+    for (let r = 0; r <= R; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx<0||ny<0||nx>=w||ny>=h) continue;
+          const ii = ny*w + nx;
+          if (isCore[ii]) {
+            const p2 = ii*4;
+            return [src[p2], src[p2+1], src[p2+2]];
+          }
+        }
+      }
+    }
+    return [0,0,0];
+  }
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y*w + x;
+      const p = i*4;
+
+      if (renderMask[i]) {
+        if (isCore[i]) {
+          // màu nguyên bản của viền gốc
+          dst[p]   = src[p];
+          dst[p+1] = src[p+1];
+          dst[p+2] = src[p+2];
+        } else {
+          // phần nở thêm: lấy màu core gần nhất để liền mạch
+          const [r,g,b] = nearestCoreColor(x,y);
+          dst[p]   = r; dst[p+1] = g; dst[p+2] = b;
+        }
+        dst[p+3] = 255;
+      } else {
+        dst[p] = dst[p+1] = dst[p+2] = dst[p+3] = 0; // trong suốt
+      }
     }
   }
 
