@@ -10,10 +10,10 @@ const DILATE_RADIUS = 0;     // nở nét khi chuẩn hoá (0..2)
 
 const WHITE_LUMA = 250;      // luma coi như trắng tuyệt đối khi dựng alpha
 // Anti-alias preview cho line layer (không làm xám nền)
-const AA_BLUR_PX         = 0.8;
+const AA_BLUR_PX         = 0.6;
 const AA_ALPHA_GAMMA     = 0.50; // <1 => tăng alpha vùng mép
 const AA_EDGE_MIN        = 96;   // alpha tối thiểu cho mép (≈38%)
-const AA_EDGE_HARDEN_THR = 0.55; // mép > ngưỡng => coi như alpha=1 (đậm)
+const AA_EDGE_HARDEN_THR = 0.7; // mép > ngưỡng => coi như alpha=1 (đậm)
 
 const FILL_TOLERANCE = 48;       // ngưỡng so màu khi flood-fill
 const FILL_GROW_RADIUS = 1;      // nở kết quả fill vào lòng 0..1 px
