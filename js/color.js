@@ -24,6 +24,10 @@ const LINE_PROTECT = {
   maskGrow: 1               // nở mask thêm 1px (8-neighbors). Tăng 2 nếu còn rò
 };
 
+// ===== tinh chỉnh fill để lấp khe trắng sát viền =====
+const FILL_TOLERANCE = 70;          // trước là 48 → tăng để ăn hết dải anti-alias
+const EDGE_GROW_AFTER_FILL = 2;     // nở vùng đã tô thêm 2 vòng (1–3 tuỳ ảnh)
+
 const colors = [
   "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
   "#FFFF00", "#000000", "#808080", "#C0C0C0", "#FFFFFF",
@@ -212,36 +216,38 @@ function hexToRgba(hex) {
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
 
-// ===== Fill (Bucket) — bảo vệ viền bằng mask gốc =====
+// ===== Fill (Bucket) — bảo vệ viền bằng mask gốc + nở vùng sau khi tô =====
 function floodFill(x, y, fillColor) {
   const w = canvas.width, h = canvas.height;
   const startIdx = y * w + x;
 
   // 🔒 Nếu click trúng viền gốc → bỏ qua để không fill tràn theo viền
-  if (LINE_PROTECT.enabled && lineArtMask && lineArtMask[startIdx]) {
-    return;
-  }
+  if (LINE_PROTECT.enabled && lineArtMask && lineArtMask[startIdx]) return;
 
   const imageData = ctx.getImageData(0, 0, w, h);
   const data = imageData.data;
 
   const base = (y * w + x) * 4;
   const startColor = data.slice(base, base + 4);
-  const tolerance = 48;
+  const tol = FILL_TOLERANCE;
 
   const sameAsStart = (p) => {
     for (let j = 0; j < 4; j++) {
-      if (Math.abs(data[p + j] - startColor[j]) > tolerance) return false;
+      if (Math.abs(data[p + j] - startColor[j]) > tol) return false;
     }
     return true;
   };
 
-  const colorPixel = (p) => {
-    for (let j = 0; j < 4; j++) data[p + j] = fillColor[j];
+  const paint = (p) => {
+    data[p]   = fillColor[0];
+    data[p+1] = fillColor[1];
+    data[p+2] = fillColor[2];
+    data[p+3] = 255;
   };
 
   const stack = [[x, y]];
   const visited = new Uint8Array(w * h);
+  const filled  = new Uint8Array(w * h); // đánh dấu vùng đã tô
 
   while (stack.length) {
     const [cx, cy] = stack.pop();
@@ -253,17 +259,45 @@ function floodFill(x, y, fillColor) {
     if (visited[i1d]) continue;
     visited[i1d] = 1;
 
-    // 🔒 chỉ chặn pixel thuộc viền gốc (mask), KHÔNG chặn mọi pixel gần đen
+    // 🔒 không đè lên pixel thuộc viền gốc
     if (LINE_PROTECT.enabled && lineArtMask && lineArtMask[i1d]) continue;
 
     if (!sameAsStart(p)) continue;
 
-    colorPixel(p);
+    paint(p);
+    filled[i1d] = 1;
 
     if (cx > 0)        stack.push([cx - 1, cy]);
     if (cx < w - 1)    stack.push([cx + 1, cy]);
     if (cy > 0)        stack.push([cx, cy - 1]);
     if (cy < h - 1)    stack.push([cx, cy + 1]);
+  }
+
+  // === NỞ VÙNG SAU KHI TÔ (bịt khe trắng sát viền, vẫn tôn trọng mask) ===
+  const neighbors8 = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  for (let iter = 0; iter < EDGE_GROW_AFTER_FILL; iter++) {
+    const toGrow = [];
+    for (let yy = 0; yy < h; yy++) {
+      for (let xx = 0; xx < w; xx++) {
+        const i1d2 = yy * w + xx;
+        if (filled[i1d2]) continue;
+        // không nở vào pixel viền gốc
+        if (LINE_PROTECT.enabled && lineArtMask && lineArtMask[i1d2]) continue;
+
+        // nếu kề cận pixel đã tô thì lấp khe này
+        let nearFilled = false;
+        for (const [dx, dy] of neighbors8) {
+          const nx = xx + dx, ny = yy + dy;
+          if (nx>=0 && ny>=0 && nx<w && ny<h && filled[ny*w + nx]) { nearFilled = true; break; }
+        }
+        if (nearFilled) toGrow.push(i1d2);
+      }
+    }
+    for (const i1d2 of toGrow) {
+      const p2 = i1d2 * 4;
+      paint(p2);
+      filled[i1d2] = 1;
+    }
   }
 
   ctx.putImageData(imageData, 0, 0);
