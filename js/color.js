@@ -39,11 +39,11 @@ const ADAPTIVE = {
 
   // TÁCH 2 MỨC NỞ:
   maskGrowProtect: 0,     // nở nhẹ cho mask CHẶN FILL
-  lineGrowRender: 2       // nở dày hơn cho mask VẼ VIỀN (che sạch khe trắng)
+  lineGrowRender: 3       // nở dày hơn cho mask VẼ VIỀN (che sạch khe trắng)
 };
 
 const FILL_TOLERANCE = 80;       // độ gần màu cho flood (ăn dải AA)
-const EDGE_GROW_AFTER_FILL = 1;  // nở vùng sau fill (đã có renderMask che nên để 0–1)
+const EDGE_GROW_AFTER_FILL = 2;  // nở vùng sau fill (đã có renderMask che nên để 0–1)
 
 // Mask chặn fill và dữ liệu ảnh gốc
 let protectedMask = null;  // Uint8Array (mask dùng để CHẶN fill)
@@ -405,7 +405,7 @@ function floodFillCompositeAware(x, y, fillColor) {
 (function snapToLine(){
   const w = paintCanvas.width, h = paintCanvas.height;
   const near = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
-  const tolAA = 35; // chấp nhận phần rìa xám nhẹ
+  const tolAA = 45; // chấp nhận phần rìa xám nhẹ
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
