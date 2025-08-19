@@ -232,20 +232,17 @@ function floodFill(x, y, fillColor) {
   const startColor = data.slice(baseIdx, baseIdx + 4);
   const tolerance = 48;
 
-  const matchColor = (i) => {
-    // ✅ nếu bảo vệ viền: bỏ qua pixel gần đen
-    if (LINE_PROTECT.enabled && isNearBlack(data[i], data[i+1], data[i+2], LINE_PROTECT.blackThreshold)) {
-      return false;
-    }
+  const sameAsStart = (p) => {
+    // So màu theo tolerance với màu tại điểm click ban đầu
     for (let j = 0; j < 4; j++) {
-      if (Math.abs(data[i + j] - startColor[j]) > tolerance) return false;
+      if (Math.abs(data[p + j] - startColor[j]) > tolerance) return false;
     }
     return true;
   };
 
-  const colorPixel = (i) => {
+  const colorPixel = (p) => {
     for (let j = 0; j < 4; j++) {
-      data[i + j] = fillColor[j];
+      data[p + j] = fillColor[j];
     }
   };
 
@@ -253,22 +250,32 @@ function floodFill(x, y, fillColor) {
 
   while (stack.length) {
     const [cx, cy] = stack.pop();
-    const idx = (cy * width + cx) * 4;
-    const visitedIdx = cy * width + cx;
+    if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
 
-    if (visited[visitedIdx]) continue;
-    visited[visitedIdx] = 1;
-    if (!matchColor(idx)) continue;
-    colorPixel(idx);
+    const idx1d = cy * width + cx;     // chỉ số theo pixel
+    const p = idx1d * 4;
 
-    if (cx > 0) stack.push([cx - 1, cy]);
-    if (cx < width - 1) stack.push([cx + 1, cy]);
-    if (cy > 0) stack.push([cx, cy - 1]);
-    if (cy < height - 1) stack.push([cx, cy + 1]);
+    if (visited[idx1d]) continue;
+    visited[idx1d] = 1;
+
+    // 🔒 Chỉ chặn pixel thuộc viền gốc (lineArtMask), không chặn “mọi pixel gần đen”
+    if (LINE_PROTECT.enabled && lineArtMask && lineArtMask[idx1d]) {
+      continue;
+    }
+
+    if (!sameAsStart(p)) continue;
+
+    colorPixel(p);
+
+    if (cx > 0)        stack.push([cx - 1, cy]);
+    if (cx < width-1)  stack.push([cx + 1, cy]);
+    if (cy > 0)        stack.push([cx, cy - 1]);
+    if (cy < height-1) stack.push([cx, cy + 1]);
   }
 
   ctx.putImageData(imageData, 0, 0);
 }
+
 
 function saveState() {
   undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
