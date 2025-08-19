@@ -14,7 +14,7 @@ const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
 const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 
 // ---------- Cấu hình anti-alias động ----------
-const AA_BLUR_PX = 1.1;             // độ mờ (px) ở không gian upsample
+const AA_BLUR_PX = 0.9;             // độ mờ (px) ở không gian upsample
 const AA_SHARPEN_ALPHA = 0.85;      // overlay lại nét gốc sau khi blur (0..1)
 const AA_UPSCALE_LIMIT_MP = 6000000;// giới hạn số pixel sau upsample (an toàn mobile)
 
