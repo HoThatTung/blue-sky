@@ -4,9 +4,9 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 // ---------- Config cho chuẩn hoá & bảo vệ nét ----------
-const T_HIGH = 180;      // pixel tối hơn => chắc chắn là "đen"
-const T_LOW  = 230;      // pixel sáng hơn => chắc chắn là "trắng"
-const DILATE_RADIUS = 1; // nở nét 0..2 (1 thường là ổn)
+const T_HIGH = 170;      // pixel tối hơn => chắc chắn là "đen"
+const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
+const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 const BLACK_THR = 10;    // ngưỡng "gần đen" để skip khi tô/brush/eraser
 
 let currentColor = "#000000";
