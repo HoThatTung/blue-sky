@@ -54,9 +54,9 @@ async function init() {
   heading.appendChild(loadingSpan);
 
   try {
-    const CACHE_KEY = "cachedProducts:v2";   // bump version khi thay đổi cấu trúc
+    const CACHE_KEY = "cachedProducts:v2";
     const CACHE_TIME = "cachedTime:v2";
-    const MAX_AGE = 1000 * 60 * 60;          // 1h
+    const MAX_AGE = 1000 * 60 * 60; // 1h
 
     const now = Date.now();
     const cached = getCache(CACHE_KEY);
@@ -91,9 +91,9 @@ async function init() {
       );
     });
 
-    // render dần các nhóm (nhẹ máy)
+    // render dần các nhóm
     heading.removeChild(loadingSpan);
-    renderGroup(groupNames[0]);
+    if (groupNames.length) renderGroup(groupNames[0]);
     let i = 1;
     (function loop() {
       if (i >= groupNames.length) return;
@@ -101,9 +101,10 @@ async function init() {
       setTimeout(loop, 120);
     })();
 
-    // Event delegation cho toàn trang (ít listener, mượt hơn)
-    document.getElementById("product-groups").addEventListener("change", onChange);
-    document.getElementById("product-groups").addEventListener("click", onClick);
+    // Delegation
+    const root = document.getElementById("product-groups");
+    root.addEventListener("change", onChange);
+    root.addEventListener("click", onClick);
   } catch (err) {
     console.error("❌ Lỗi khi tải dữ liệu sản phẩm:", err);
     try { heading.removeChild(loadingSpan); } catch {}
@@ -142,6 +143,7 @@ async function renderGroup(groupName) {
     for (const [productName, sizes] of slice) {
       const first = sizes[0] || {};
       const imgSrc = first.imgs || "images/default.png";
+
       const optionsSize = sizes.map(s => {
         const size = esc(s.sizes || "");
         const di = esc(s.imgs || "");
@@ -197,7 +199,15 @@ async function renderGroup(groupName) {
 
     container.appendChild(frag);
     renderedCount += slice.length;
-    updateToggleButtons(wrapper, container, productList.length, renderedCount, renderProducts);
+
+    // ✅ truyền renderMore + renderFromStart để vẽ nút Xem thêm / Thu gọn
+    updateToggleButtons(
+      wrapper,
+      container,
+      productList.length,
+      renderedCount,
+      renderProducts
+    );
 
     if (loadingSpan) loadingSpan.style.display = "none";
 
@@ -212,6 +222,13 @@ async function renderGroup(groupName) {
       groupTitle.dataset.bound = "1";
     }
   }
+
+  // ✅ cung cấp cách “render từ đầu” cho nút Thu gọn
+  renderProducts.reset = function () {
+    container.innerHTML = "";
+    renderedCount = 0;
+    renderProducts();
+  };
 
   renderProducts();
 }
@@ -244,7 +261,7 @@ function updateCardDetails(card) {
   if (newImg) img.src = newImg;
 }
 
-// ---------- Toggle buttons ----------
+// ---------- Toggle buttons (single source of truth) ----------
 function updateToggleButtons(wrapper, container, total, renderedCount, renderMore) {
   const toggle = wrapper.querySelector(".toggle-container");
   toggle.innerHTML = "";
@@ -256,17 +273,15 @@ function updateToggleButtons(wrapper, container, total, renderedCount, renderMor
     more.onclick = renderMore;
     toggle.appendChild(more);
   }
+
   if (renderedCount > MAX_VISIBLE) {
     const collapse = document.createElement("button");
-    collapse.className = "toggle-btn collapse";
+    // 🔹 Biến thể ghost cho nút Thu gọn
+    collapse.className = "toggle-btn toggle-btn--ghost collapse";
     collapse.textContent = "🔼 Thu gọn";
     collapse.onclick = () => {
-      container.innerHTML = "";
-      renderMore.reset?.(); // no-op if not present
-      // render lại từ đầu
-      const parentWrapper = container.parentElement;
-      const groupName = parentWrapper.previousElementSibling?.dataset.group;
-      if (groupName) renderGroup(groupName); // simple rebuild
+      // render lại từ đầu bằng hàm reset đã gắn sẵn
+      renderMore.reset?.();
     };
     toggle.appendChild(collapse);
   }
@@ -338,28 +353,4 @@ function submitOrder(card) {
     }
   })
   .catch(() => alert("❌ Có lỗi xảy ra khi gửi đơn hàng."));
-}
-function updateToggleButtons() {
-  toggleContainer.innerHTML = "";
-
-  if (renderedCount < productList.length) {
-    const showMoreBtn = document.createElement("button");
-    showMoreBtn.className = "toggle-btn show-more"; // mặc định là nút đặc (primary)
-    showMoreBtn.textContent = "Xem thêm";
-    showMoreBtn.onclick = renderProducts;
-    toggleContainer.appendChild(showMoreBtn);
-  }
-
-  if (renderedCount > MAX_VISIBLE) {
-    const collapseBtn = document.createElement("button");
-    // ✅ thêm biến thể ghost cho Thu gọn
-    collapseBtn.className = "toggle-btn toggle-btn--ghost collapse";
-    collapseBtn.textContent = "🔼 Thu gọn";
-    collapseBtn.onclick = () => {
-      container.innerHTML = "";
-      renderedCount = 0;
-      renderProducts();
-    };
-    toggleContainer.appendChild(collapseBtn);
-  }
 }
