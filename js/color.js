@@ -1,4 +1,4 @@
-// ====================== Canvas Coloring (1-layer, finalized + anti-aliased lines) ======================
+// ====================== Canvas Coloring (1-layer, finalized + anti-aliased lines, cleaned) ======================
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -7,17 +7,14 @@ const ctx = canvas.getContext("2d");
 const T_HIGH = 165;      // pixel tối hơn => chắc chắn là "đen"
 const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
 const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
-const BLACK_THR = 10;    // fallback: "gần đen" nếu chưa có lineMask
 
 // ✅ cấu hình mịn nét (anti-alias)
-const AA_SCALE = 3;      // 2 hoặc 3 (2 thường là đủ mịn)
+const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
 
 // ---------- State ----------
 let currentColor = "#000000";
-let img = new Image();
 let isDrawing = false;
 let mode = "fill"; // fill | brush | eraser | text
-let isTyping = false;
 let currentTextBox = null;
 let brushSize = 7.5;
 
@@ -260,14 +257,18 @@ function hexToRgba(hex) {
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
 
-function isNearBlack(r, g, b, thr = BLACK_THR) {
-  return (r < thr && g < thr && b < thr);
-}
-
 function isLinePixel(x, y, w, h) {
   if (!lineMask) return false;
-  if (x < 0 || y < 0 || x >= w || y >= h) return false;
-  return lineMask[y * w + x] === 1;
+  // ✅ bảo vệ mép 1px lân cận nét
+  const s = 1; // bán kính bảo vệ
+  for (let yy = -s; yy <= s; yy++) {
+    for (let xx = -s; xx <= s; xx++) {
+      const nx = x + xx, ny = y + yy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      if (lineMask[ny * w + nx] === 1) return true;
+    }
+  }
+  return false;
 }
 
 // Flood-fill trực tiếp trên canvas chính, KHÔNG tô vào pixel thuộc lineMask
@@ -348,7 +349,7 @@ function paintCircleOnMain(x, y, radius, rgba, isErase = false) {
       const dx = xx - x, dy = yy - y;
       if (dx * dx + dy * dy > rr) continue;
 
-      // Bảo vệ nét theo mask
+      // Bảo vệ nét theo mask (kèm mép 1px)
       if (isLinePixel(xx, yy, w, h)) continue;
 
       const i = ((yy - y0) * (x1 - x0 + 1) + (xx - x0)) * 4;
@@ -518,8 +519,6 @@ function addTextBoxCentered() {
       if (content) content.style.color = currentColor;
     }
   });
-
-  isTyping = true;
 
   content.addEventListener("keydown", (e) => {
     if (e.key === "Enter") e.preventDefault();
@@ -951,4 +950,7 @@ function renderLineartAAFromMask(mask, w, h, scale = 2) {
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(up, 0, 0, w, h);
+
+  // 🔧 reset smoothing để các thao tác sau không bị ảnh hưởng
+  ctx.imageSmoothingEnabled = false;
 }
