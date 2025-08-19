@@ -10,7 +10,7 @@ const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 const BLACK_THR = 10;    // fallback: "gần đen" nếu chưa có lineMask
 
 // ✅ cấu hình mịn nét (anti-alias)
-const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
+const AA_SCALE = 3;      // 2 hoặc 3 (2 thường là đủ mịn)
 
 // ---------- State ----------
 let currentColor = "#000000";
