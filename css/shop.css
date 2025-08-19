@@ -341,3 +341,54 @@ body, .shop-wrapper{
   top:-60%; left:-30%;
   width:30%; height:220%;
   background:linear-gradient(120deg, rgba(255,255,255,0)
+/* ===== Page header / hero cho tiêu đề (tương thích base.css) ===== */
+.page-header{
+  margin: 8px 0 24px;
+  padding: 20px 24px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eef5ff 0%, #ffffff 60%);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  position: relative;
+  overflow: hidden;
+}
+.page-header::before{
+  content:"";
+  position:absolute;
+  right:-80px; top:-80px;
+  width:260px; height:260px;
+  background: radial-gradient(closest-side, rgba(25,118,210,.12), transparent 70%);
+  pointer-events:none;
+}
+.page-title{
+  margin:0;
+  font-size: clamp(22px, 2.2vw + 12px, 40px);
+  line-height:1.2;
+  letter-spacing:.2px;
+  color:#111;
+}
+.page-title > span{
+  background: linear-gradient(90deg, #1976d2, #7c4dff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.page-title::after{
+  content:"";
+  display:block;
+  width:76px; height:4px;
+  background: linear-gradient(90deg, #7c4dff, #1976d2);
+  border-radius:999px;
+  margin-top:10px;
+}
+.page-subtitle{
+  margin:10px 0 0;
+  color:#5b6b7a;
+  font-weight:500;
+  font-size:14px;
+}
+
+/* Mobile: căn giữa hero để cân đối với header responsive bạn đang dùng */
+@media (max-width: 768px){
+  .page-header{ text-align:center; padding:18px; }
+  .page-title::after{ margin-left:auto; margin-right:auto; }
+}
