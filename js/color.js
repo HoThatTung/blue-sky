@@ -9,18 +9,12 @@ if (canvas && canvas.style) {
 }
 
 // ---------- Config cho chuẩn hoá & bảo vệ nét ----------
-const T_HIGH = 175;      // pixel tối hơn => chắc chắn là "đen"
-const T_LOW  = 235;      // pixel sáng hơn => chắc chắn là "trắng"
+const T_HIGH = 165;      // pixel tối hơn => chắc chắn là "đen"
+const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
 const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 
-// ✅ Làm mảnh nét (mask erosion). 0=tắt, 1=ăn mòn ~1px, 2=mảnh hơn nữa.
-const ERODE_RADIUS = 0;
-// Hysteresis: số hàng xóm đen tối thiểu để xám nhập vào đen
-const HYSTERESIS_MIN_NEIGHBORS = 2; // 1=dày, 2=mảnh hơn, 3=mảnh nữa
-
 // ✅ cấu hình mịn nét (anti-alias)
-const AA_SCALE   = 1;    // 2 hoặc 3 (2 thường là đủ mịn)
-const AA_BLUR_PX = 0.3;  // 0.4–0.6 là đẹp; 0 = tắt blur tinh chỉnh
+const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
 
 // ---------- State ----------
 let currentColor = "#000000";
@@ -874,7 +868,6 @@ function loadImageToMainCanvas(image) {
 
   // Downscale ảnh đầu vào có smoothing để đẹp
   ctx.imageSmoothingEnabled = true;
-  if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
   ctx.clearRect(0, 0, w, h);
   ctx.drawImage(image, 0, 0, srcW, srcH, 0, 0, w, h);
 
@@ -884,29 +877,7 @@ function loadImageToMainCanvas(image) {
   normalizeLineartBW(ctx, w, h);
 }
 
-// Loại bỏ các chấm đen lẻ loi nhưng KHÔNG làm mỏng toàn bộ đường
-function removeTinySpecks(mask, w, h, minNeighbors = 2) {
-  const out = new Uint8Array(mask); // copy
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const p = y * w + x;
-      if (!mask[p]) continue;
-      let cnt = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          if (mask[ny * w + nx]) cnt++;
-        }
-      }
-      if (cnt < minNeighbors) out[p] = 0; // chấm lẻ → bỏ
-    }
-  }
-  return out;
-}
-
-// Chuẩn hoá: gom xám sát viền vào đen, (tuỳ chọn) nở nét/ăn mòn, tạo lineMask, rồi vẽ mịn (AA)
+// Chuẩn hoá: gom xám sát viền vào đen, (tuỳ chọn) nở nét, tạo lineMask, rồi vẽ mịn (AA)
 function normalizeLineartBW(ctx, w, h) {
   let id;
   try {
@@ -929,25 +900,21 @@ function normalizeLineartBW(ctx, w, h) {
   }
 
   // 2) vùng xám: nếu kề đen chắc thì nhập vào đen (hysteresis)
-  let outBlack = new Uint8Array(hardBlack);
+  const outBlack = new Uint8Array(hardBlack);
   const N = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
   for (let y = 0; y < h; y++) {
-  for (let x = 0; x < w; x++) {
-    const p = y * w + x;
-    if (hardBlack[p] || hardWhite[p]) continue;
-
-    let cnt = 0;
-    for (const [dx, dy] of N) {
-      const nx = x + dx, ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-      if (hardBlack[ny * w + nx]) { cnt++; if (cnt >= HYSTERESIS_MIN_NEIGHBORS) break; }
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (hardBlack[p] || hardWhite[p]) continue;
+      for (const [dx, dy] of N) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        if (hardBlack[ny * w + nx]) { outBlack[p] = 1; break; }
+      }
     }
-    if (cnt >= HYSTERESIS_MIN_NEIGHBORS) outBlack[p] = 1;
   }
-}
 
-
-  // 3a) (tuỳ chọn) nở nét 1px để bịt khe cực nhỏ
+  // 3) (tuỳ chọn) nở nét 1px để bịt khe cực nhỏ
   if (DILATE_RADIUS > 0) {
     const src = outBlack;
     const out = new Uint8Array(src);
@@ -970,45 +937,14 @@ function normalizeLineartBW(ctx, w, h) {
     outBlack.set(out);
   }
 
-  // 3b) lọc chấm lẻ
-  outBlack = removeTinySpecks(outBlack, w, h, 2);
-
-  // 3c) (tuỳ chọn) ăn mòn để làm mảnh nét
-  if (ERODE_RADIUS > 0) {
-    outBlack = erodeMask(outBlack, w, h, ERODE_RADIUS);
-  }
-
   // 4) lưu lineMask & vẽ nét mịn bằng supersampling
   lineMask = outBlack;
   renderLineartAAFromMask(lineMask, w, h, AA_SCALE);
 }
 
-// === Ăn mòn mask (làm mảnh nét) ===
-function erodeMask(mask, w, h, r = 1) {
-  if (!mask || r <= 0) return mask;
-  const out = new Uint8Array(mask); // copy
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const p = y * w + x;
-      if (mask[p] !== 1) { out[p] = 0; continue; }
-      // Pixel biên: có hàng xóm 0 trong phạm vi r => xóa (ăn mòn)
-      let keep = true;
-      for (let dy = -r; dy <= r && keep; dy++) {
-        for (let dx = -r; dx <= r && keep; dx++) {
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) { keep = false; break; }
-          if (mask[ny * w + nx] === 0) keep = false;
-        }
-      }
-      out[p] = keep ? 1 : 0;
-    }
-  }
-  return out;
-}
-
-// === Vẽ mịn từ lineMask: upsample (no smoothing) -> blur nhẹ -> downsample (smoothing chất lượng cao) ===
+// === Vẽ mịn từ lineMask: upsample (no smoothing) -> downsample (smoothing) ===
 function renderLineartAAFromMask(mask, w, h, scale = 2) {
-  // 1) mask -> canvas nhị phân
+  // temp canvas ở kích thước gốc để đổ mask nhị phân
   const src = document.createElement('canvas');
   src.width = w; src.height = h;
   const sctx = src.getContext('2d');
@@ -1021,7 +957,7 @@ function renderLineartAAFromMask(mask, w, h, scale = 2) {
   }
   sctx.putImageData(id, 0, 0);
 
-  // 2) Upsample (không smoothing)
+  // phóng to không làm mượt
   const up = document.createElement('canvas');
   up.width = w * scale;
   up.height = h * scale;
@@ -1029,29 +965,13 @@ function renderLineartAAFromMask(mask, w, h, scale = 2) {
   uctx.imageSmoothingEnabled = false;
   uctx.drawImage(src, 0, 0, up.width, up.height);
 
-  // 3) Blur nhẹ sau upsample để mép mượt hơn
-  const bl = document.createElement('canvas');
-  bl.width = up.width; bl.height = up.height;
-  const bctx = bl.getContext('2d');
-  if (AA_BLUR_PX > 0) bctx.filter = `blur(${AA_BLUR_PX * scale}px)`;
-  bctx.drawImage(up, 0, 0);
-
-  // 4) Downsample chất lượng cao về canvas chính
-  ctx.save();
+  // vẽ về kích thước gốc có smoothing => cạnh mịn
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, w, h);
-  ctx.imageSmoothingEnabled = true;
-  if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(bl, 0, 0, w, h);
-  ctx.restore();
+  ctx.drawImage(up, 0, 0, w, h);
 
-  // 5) Reset để các thao tác pixel sau không bị ảnh hưởng
+  // 🔧 reset smoothing để các thao tác sau không bị ảnh hưởng
   ctx.imageSmoothingEnabled = false;
-}
-
-// ----------------- Utils -----------------
-function hexToRgba(hex) {
-  const bigint = parseInt(hex.slice(1), 16);
-  return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
