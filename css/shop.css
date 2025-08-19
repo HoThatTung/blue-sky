@@ -392,3 +392,18 @@ body, .shop-wrapper{
   .page-header{ text-align:center; padding:18px; }
   .page-title::after{ margin-left:auto; margin-right:auto; }
 }
+.toggle-btn .chev{
+  display:inline-block;
+  transition: transform .25s ease;
+  margin-left: 6px;
+}
+.toggle-btn.show-more .chev{ transform: translateY(2px) rotate(0deg) }
+.toggle-btn.collapse .chev{ transform: translateY(-1px) rotate(180deg) }
+
+/* Biến thể ghost đã có, giữ nguyên: */
+.toggle-btn--ghost{
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+.toggle-btn--ghost:hover{ background: #e3f2fd; }
