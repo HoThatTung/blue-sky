@@ -1,38 +1,25 @@
-// ====================== Canvas Coloring (1-layer, AA improved, mobile/desktop optimized) ======================
+// ====================== Canvas Coloring (1-layer, finalized + anti-aliased lines, mobile/desktop optimized) ======================
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// Ngăn cuộn/zoom mặc định khi chạm vẽ trên mobile
+// Ngăn cuộn/zoom mặc định trên mobile khi vẽ
 if (canvas && canvas.style) {
   canvas.style.touchAction = "none";
 }
 
-// ---------- Config chuẩn hoá nét ----------
+// ---------- Config cho chuẩn hoá & bảo vệ nét ----------
 const T_HIGH = 165;      // pixel tối hơn => chắc chắn là "đen"
 const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
 const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 
-// ---------- Cấu hình anti-alias động ----------
-const AA_BLUR_PX = 1.1;             // độ mờ (px) ở không gian upsample
-const AA_SHARPEN_ALPHA = 0.85;      // overlay lại nét gốc sau khi blur (0..1)
-const AA_UPSCALE_LIMIT_MP = 6000000;// giới hạn số pixel sau upsample (an toàn mobile)
-
-function isMobile() {
-  return /Android|webOS|iPhone|iPad|iPod|Windows Phone|BlackBerry/i.test(navigator.userAgent);
-}
-function getAAScale(w, h) {
-  const prefer = isMobile() ? 3 : 4;          // ưu tiên chất lượng
-  const est = w * h * prefer * prefer;        // ước lượng số pixel sau upsample
-  if (est > AA_UPSCALE_LIMIT_MP) return 3;    // giảm nếu quá nặng
-  return prefer;
-}
+// ✅ cấu hình mịn nét (anti-alias)
+const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
 
 // ---------- State ----------
 let currentColor = "#000000";
 let isDrawing = false;
 let mode = "fill"; // fill | brush | eraser | text
-let isTyping = false;
 let currentTextBox = null;
 let brushSize = 7.5;
 
@@ -41,13 +28,12 @@ let redoStack = [];
 
 let originalImageName = "";
 
-// Mặt nạ nét (1 = pixel thuộc đường nét; 0 = nền/vùng tô)
+// ✅ mặt nạ nét (1 = pixel thuộc đường nét; 0 = nền/vùng tô)
 let lineMask = null;
 
-// Lưu điểm trước đó để nội suy nét brush
+// ✅ lưu điểm trước đó để nội suy nét brush
 let lastPt = null;
 
-// ---------- Palette ----------
 const colors = [
   "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
   "#FFFF00", "#000000", "#808080", "#C0C0C0", "#FFFFFF",
@@ -68,21 +54,24 @@ colors.forEach((color, i) => {
   palette.appendChild(div);
 });
 
+// Không cho màu tô là đen tuyệt đối
 function setCurrentColor(hex) {
   const val = hex.startsWith('#') ? hex.slice(1) : hex;
   if (/^0{6}$/i.test(val)) {
-    currentColor = "#111111"; // không dùng đen tuyệt đối
+    currentColor = "#111111"; // thay thế an toàn
   } else {
     currentColor = "#" + val.toUpperCase();
   }
 }
 
+// Gán click cho mỗi ô màu trong palette
 document.querySelectorAll(".color").forEach(el => {
   el.addEventListener("click", () => {
     document.querySelectorAll(".color").forEach(c => c.classList.remove("selected"));
     el.classList.add("selected");
     setCurrentColor(el.dataset.color);
 
+    // Nếu đang ở mode text và có text-box đang chọn, đổi màu ngay
     if (mode === "text" && currentTextBox) {
       const content = currentTextBox.querySelector(".text-content");
       if (content) content.style.color = currentColor;
@@ -190,7 +179,12 @@ function getCanvasCoords(e) {
   return { x, y };
 }
 
-// ----------------- Brush / Eraser (nội suy để không hở nét) -----------------
+// ----------------- Brush / Eraser – nội suy để không hở nét -----------------
+
+function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|Windows Phone|BlackBerry/i.test(navigator.userAgent);
+}
+
 function strokeFromTo(x0, y0, x1, y1, radius, rgba, isErase=false) {
   const dx = x1 - x0, dy = y1 - y0;
   const dist = Math.hypot(dx, dy);
@@ -273,7 +267,7 @@ function hexToRgba(hex) {
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
 
-// KHÔNG bảo vệ mép 1px: chỉ kiểm tra đúng pixel trong mask
+// ✅ KHÔNG bảo vệ mép 1px — chỉ kiểm tra đúng pixel trong mask
 function isLinePixel(x, y, w, h) {
   if (!lineMask) return false;
   if (x < 0 || y < 0 || x >= w || y >= h) return false;
@@ -305,7 +299,7 @@ function floodFillSingleLayer(x, y, fillColor) {
   const stack = [[x, y]];
 
   const match = (cx, cy, i) => {
-    if (isLinePixel(cx, cy, w, h)) return false; // bảo vệ nét
+    if (isLinePixel(cx, cy, w, h)) return false; // bảo vệ nét dù đã anti-aliased
     const r = data[i], g = data[i + 1], b = data[i + 2];
     return (Math.abs(r - startR) <= tolerance &&
             Math.abs(g - startG) <= tolerance &&
@@ -358,10 +352,12 @@ function paintCircleOnMain(x, y, radius, rgba, isErase = false) {
       const dx = xx - x, dy = yy - y;
       if (dx * dx + dy * dy > rr) continue;
 
+      // Bảo vệ nét theo mask
       if (isLinePixel(xx, yy, w, h)) continue;
 
       const i = ((yy - y0) * (x1 - x0 + 1) + (xx - x0)) * 4;
       if (isErase) {
+        // Eraser = trả về trắng tuyệt đối
         d[i] = 255; d[i + 1] = 255; d[i + 2] = 255; d[i + 3] = 255;
       } else {
         d[i] = rgba[0]; d[i + 1] = rgba[1]; d[i + 2] = rgba[2]; d[i + 3] = 255;
@@ -371,7 +367,7 @@ function paintCircleOnMain(x, y, radius, rgba, isErase = false) {
   ctx.putImageData(imageData, x0, y0);
 }
 
-// ----------------- Undo / Redo -----------------
+// ----------------- Undo / Redo (lưu snapshot canvas) -----------------
 function saveState() {
   ensureInitialized();
   if (canvas.width === 0 || canvas.height === 0) return;
@@ -422,7 +418,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
 
-    // 1) Vẽ ảnh chính
+    // 1) Vẽ ảnh chính (đã gồm nét + tô)
     tempCtx.drawImage(canvas, 0, 0);
 
     // 2) Vẽ các text-box DOM
@@ -491,7 +487,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   logo.onerror = () => alert("Không thể tải logo từ images/logo.webp");
 });
 
-// ----------------- Text box DOM -----------------
+// ----------------- Text box DOM (giữ nguyên tính năng) -----------------
 function addTextBoxCentered() {
   if (!canvas) return;
 
@@ -526,8 +522,6 @@ function addTextBoxCentered() {
       if (content) content.style.color = currentColor;
     }
   });
-
-  isTyping = true;
 
   content.addEventListener("keydown", (e) => {
     if (e.key === "Enter") e.preventDefault();
@@ -637,7 +631,7 @@ function enableResize(textBox) {
     const clientY = e.clientY || e.touches?.[0]?.clientY;
 
     const dx = clientX - startX;
-    const dy = clientY - startY;   // <-- FIX tại đây (thay vì "the dy = ...")
+    const dy = clientY - startY;
 
     const angleRad = rotation * Math.PI / 180;
 
@@ -656,7 +650,9 @@ function enableResize(textBox) {
     applyTransform(textBox);
   };
 
-  const onResizeEnd = () => { isResizing = false; };
+  const onResizeEnd = () => {
+    isResizing = false;
+  };
 
   resizer.addEventListener("mousedown", onResizeStart);
   document.addEventListener("mousemove", onResizeMove);
@@ -684,15 +680,21 @@ function enableRotate(textBox) {
 
   const getCenter = () => {
     const rect = textBox.getBoundingClientRect();
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
   };
 
-  const getAngle = (cx, cy, x, y) => Math.atan2(y - cy, x - cx) * (180 / Math.PI);
+  const getAngle = (cx, cy, x, y) => {
+    return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
+  };
 
   const startRotate = (clientX, clientY) => {
     isRotating = true;
-    const c = getCenter();
-    centerX = c.x; centerY = c.y;
+    const center = getCenter();
+    centerX = center.x;
+    centerY = center.y;
     startAngle = getAngle(centerX, centerY, clientX, clientY) - parseFloat(textBox.dataset.rotation || "0");
   };
 
@@ -703,28 +705,33 @@ function enableRotate(textBox) {
     applyTransform(textBox);
   };
 
-  const stopRotate = () => { isRotating = false; };
+  const stopRotate = () => {
+    isRotating = false;
+  };
 
   rotateHandle.addEventListener("mousedown", (e) => {
     e.stopPropagation();
     startRotate(e.clientX, e.clientY);
   });
 
-  document.addEventListener("mousemove", (e) => { if (isRotating) rotate(e.clientX, e.clientY); });
+  document.addEventListener("mousemove", (e) => {
+    if (isRotating) rotate(e.clientX, e.clientY);
+  });
+
   document.addEventListener("mouseup", stopRotate);
 
   rotateHandle.addEventListener("touchstart", (e) => {
     if (e.touches.length === 1) {
-      const t = e.touches[0];
-      startRotate(t.clientX, t.clientY);
+      const touch = e.touches[0];
+      startRotate(touch.clientX, touch.clientY);
       e.preventDefault();
     }
   }, { passive: false });
 
   document.addEventListener("touchmove", (e) => {
     if (isRotating && e.touches.length === 1) {
-      const t = e.touches[0];
-      rotate(t.clientX, t.clientY);
+      const touch = e.touches[0];
+      rotate(touch.clientX, touch.clientY);
       e.preventDefault();
     }
   }, { passive: false });
@@ -767,7 +774,7 @@ document.getElementById("deleteTextBtn").addEventListener("click", () => {
   }
 });
 
-// ----------------- Select style -----------------
+// ----------------- Select style (1 bản duy nhất) -----------------
 function updateSelectStyle() {
   const el = document.getElementById("imageSelect");
   if (!el) return;
@@ -775,9 +782,13 @@ function updateSelectStyle() {
   el.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
   el.style.fontStyle = isPlaceholder ? "italic" : "normal";
 
-  if (!isPlaceholder) el.classList.add("selected-kite");
-  else el.classList.remove("selected-kite");
+  if (!isPlaceholder) {
+    el.classList.add("selected-kite");
+  } else {
+    el.classList.remove("selected-kite");
+  }
 }
+
 imageSelect.addEventListener("change", updateSelectStyle);
 window.addEventListener("DOMContentLoaded", updateSelectStyle);
 
@@ -800,6 +811,8 @@ function initMenuButton() {
 
 window.addEventListener("DOMContentLoaded", () => {
   initMenuButton();
+
+  // đảm bảo có nền trắng để vẽ ngay cả khi chưa load ảnh
   ensureInitialized();
 
   const params = new URLSearchParams(window.location.search);
@@ -807,7 +820,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   if (imageUrl) {
     const imgFromUrl = new Image();
-    imgFromUrl.crossOrigin = "anonymous";
+    imgFromUrl.crossOrigin = "anonymous"; // cần nếu ảnh từ ngoài domain
     imgFromUrl.onload = () => {
       loadImageToMainCanvas(imgFromUrl);
       undoStack = [];
@@ -823,8 +836,16 @@ window.addEventListener("DOMContentLoaded", () => {
 // Khởi tạo nền trắng nếu chưa có kích thước
 function ensureInitialized() {
   if (canvas.width === 0 || canvas.height === 0) {
-    const w = +(canvas.getAttribute('width') || canvas.clientWidth || 1024);
-    const h = +(canvas.getAttribute('height') || canvas.clientHeight || 768);
+    const w = +(
+      canvas.getAttribute('width') ||
+      canvas.clientWidth ||
+      1024
+    );
+    const h = +(
+      canvas.getAttribute('height') ||
+      canvas.clientHeight ||
+      768
+    );
     canvas.width = w;
     canvas.height = h;
 
@@ -847,11 +868,10 @@ function loadImageToMainCanvas(image) {
 
   // Downscale ảnh đầu vào có smoothing để đẹp
   ctx.imageSmoothingEnabled = true;
-  if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
   ctx.clearRect(0, 0, w, h);
   ctx.drawImage(image, 0, 0, srcW, srcH, 0, 0, w, h);
 
-  // Tắt smoothing cho các phép pixel sau
+  // Tắt smoothing cho các phép đọc/ghi pixel tiếp theo
   ctx.imageSmoothingEnabled = false;
 
   normalizeLineartBW(ctx, w, h);
@@ -894,7 +914,7 @@ function normalizeLineartBW(ctx, w, h) {
     }
   }
 
-  // 3) (tuỳ chọn) nở nét
+  // 3) (tuỳ chọn) nở nét 1px để bịt khe cực nhỏ
   if (DILATE_RADIUS > 0) {
     const src = outBlack;
     const out = new Uint8Array(src);
@@ -919,12 +939,12 @@ function normalizeLineartBW(ctx, w, h) {
 
   // 4) lưu lineMask & vẽ nét mịn bằng supersampling
   lineMask = outBlack;
-  renderLineartAAFromMask(lineMask, w, h, getAAScale(w, h));
+  renderLineartAAFromMask(lineMask, w, h, AA_SCALE);
 }
 
-// === Vẽ mịn từ lineMask: upsample (no smoothing) -> blur nhẹ -> downsample (smoothing high) + sharpen ===
-function renderLineartAAFromMask(mask, w, h, scale = 3) {
-  // 1) Tạo ảnh nhị phân từ mask
+// === Vẽ mịn từ lineMask: upsample (no smoothing) -> downsample (smoothing) ===
+function renderLineartAAFromMask(mask, w, h, scale = 2) {
+  // temp canvas ở kích thước gốc để đổ mask nhị phân
   const src = document.createElement('canvas');
   src.width = w; src.height = h;
   const sctx = src.getContext('2d');
@@ -932,12 +952,12 @@ function renderLineartAAFromMask(mask, w, h, scale = 3) {
   const dd = id.data;
   for (let p = 0, i = 0; p < w * h; p++, i += 4) {
     const black = mask[p] === 1;
-    dd[i]   = dd[i+1] = dd[i+2] = black ? 0 : 255;
+    dd[i] = dd[i+1] = dd[i+2] = black ? 0 : 255;
     dd[i+3] = 255;
   }
   sctx.putImageData(id, 0, 0);
 
-  // 2) Upsample không smoothing
+  // phóng to không làm mượt
   const up = document.createElement('canvas');
   up.width = w * scale;
   up.height = h * scale;
@@ -945,32 +965,13 @@ function renderLineartAAFromMask(mask, w, h, scale = 3) {
   uctx.imageSmoothingEnabled = false;
   uctx.drawImage(src, 0, 0, up.width, up.height);
 
-  // 3) Blur nhẹ ở không gian upsample để tạo coverage sub-pixel
-  const bl = document.createElement('canvas');
-  bl.width = up.width; bl.height = up.height;
-  const bctx = bl.getContext('2d');
-  bctx.filter = `blur(${Math.max(0.4, AA_BLUR_PX * scale)}px)`;
-  bctx.drawImage(up, 0, 0);
-
-  // 4) Downsample về kích thước gốc với chất lượng cao + sharpen nhẹ
-  ctx.save();
+  // vẽ về kích thước gốc có smoothing => cạnh mịn
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, w, h);
-
-  ctx.imageSmoothingEnabled = true;
-  if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
-
-  // lớp mờ (edge mềm)
-  ctx.drawImage(bl, 0, 0, w, h);
-
-  // chồng nét gốc để giữ độ đậm
-  ctx.globalAlpha = AA_SHARPEN_ALPHA;
   ctx.drawImage(up, 0, 0, w, h);
-  ctx.globalAlpha = 1;
 
-  ctx.restore();
-
-  // 5) Tắt smoothing cho các thao tác pixel kế tiếp (tô màu/brush)
+  // 🔧 reset smoothing để các thao tác sau không bị ảnh hưởng
   ctx.imageSmoothingEnabled = false;
 }
