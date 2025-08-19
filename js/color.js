@@ -1,3 +1,13 @@
+// ===== Canvas Painter (fixed & consolidated) =====
+// - Sửa updateModeButtons (không làm rơi mode)
+// - Hợp nhất updateSelectStyle (tránh trùng hàm)
+// - Eraser dùng destination-out (xóa thật)
+// - Mượt nét cọ (nội suy điểm giữa các sự kiện)
+// - FloodFill tối ưu (bỏ qua nếu vùng đã là màu đích)
+// - Đổi màu WordArt (textbox) ngay khi chọn màu
+// - Giới hạn undo để tránh ngốn RAM
+// - Loại bỏ biến trùng / thừa
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -11,6 +21,7 @@ let brushSize = 7.5;
 
 let undoStack = [];
 let redoStack = [];
+const UNDO_LIMIT = 20; // ✅ giới hạn bộ nhớ
 
 let originalImageName = "";
 
@@ -21,6 +32,7 @@ const colors = [
   "#008000", "#00FF00", "#CCFFCC", "#800080", "#8B5F65"
 ];
 
+// ===== Palette =====
 const palette = document.getElementById("colorPalette");
 colors.forEach((color, i) => {
   const div = document.createElement("div");
@@ -35,63 +47,66 @@ colors.forEach((color, i) => {
 });
 
 // Gán click cho mỗi ô màu trong palette
+// ✅ Nếu đang ở chế độ text & có textbox đang chọn, đổi màu ngay
+
 document.querySelectorAll(".color").forEach(el => {
   el.addEventListener("click", () => {
     document.querySelectorAll(".color").forEach(c => c.classList.remove("selected"));
     el.classList.add("selected");
     currentColor = el.dataset.color;
-    // ❌ Không đổi màu ở đây nữa
+
+    if (mode === "text" && currentTextBox) {
+      const content = currentTextBox.querySelector(".text-content");
+      if (content) content.style.color = currentColor;
+    }
   });
 });
 
-
-
-
-
+// ===== Mode buttons =====
 document.getElementById("fillModeBtn").addEventListener("click", () => {
   updateModeButtons("fill");
 });
 
-function updateModeButtons(newMode = null) {
-  mode = newMode;
-
-  document.querySelectorAll(".mode-btn").forEach(btn => btn.classList.remove("active"));
-
-  if (mode === "fill") {
-    document.getElementById("fillModeBtn").classList.add("active");
-  } else if (mode === "brush") {
-    document.getElementById("brushModeBtn").classList.add("active");
-  } else if (mode === "eraser") {
-    document.getElementById("eraserModeBtn").classList.add("active");
-  } else if (mode === "text") {
-    document.getElementById("textModeBtn").classList.add("active");
-  }
-
-  
-}
-
-
 document.getElementById("textModeBtn").addEventListener("click", () => {
-  mode = "text";
-  updateModeButtons();
+  updateModeButtons("text"); // ✅ luôn truyền tham số
   addTextBoxCentered();
 });
 
 document.getElementById("brushModeBtn").addEventListener("click", () => {
-  updateModeButtons("brush"); // ✅ Truyền đúng mode
+  updateModeButtons("brush");
 });
 
 document.getElementById("eraserModeBtn").addEventListener("click", () => {
-  updateModeButtons("eraser"); // ✅ Truyền đúng mode
+  updateModeButtons("eraser");
 });
 
+function updateModeButtons(newMode) {
+  if (newMode) mode = newMode; // ✅ không làm rơi mode về null
+  document.querySelectorAll(".mode-btn").forEach(btn => btn.classList.remove("active"));
+  if (mode === "fill")   document.getElementById("fillModeBtn").classList.add("active");
+  if (mode === "brush")  document.getElementById("brushModeBtn").classList.add("active");
+  if (mode === "eraser") document.getElementById("eraserModeBtn").classList.add("active");
+  if (mode === "text")   document.getElementById("textModeBtn").classList.add("active");
+}
 
-
+// ===== Brush size =====
 document.getElementById("brushSizeSelect").addEventListener("change", function () {
   brushSize = parseFloat(this.value);
 });
 
-document.getElementById("imageSelect").addEventListener("change", function () {
+// ===== Image select / upload =====
+const imageSelect = document.getElementById("imageSelect");
+
+// ✅ HỢP NHẤT: chỉ một hàm updateSelectStyle
+function updateSelectStyle() {
+  const isPlaceholder = imageSelect.selectedIndex === 0;
+  imageSelect.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
+  imageSelect.style.fontStyle = isPlaceholder ? "italic" : "normal";
+  if (!isPlaceholder) imageSelect.classList.add("selected-kite");
+  else imageSelect.classList.remove("selected-kite");
+}
+
+imageSelect.addEventListener("change", function () {
   const selectedImage = this.value;
   img = new Image();
   img.onload = () => {
@@ -107,10 +122,17 @@ document.getElementById("imageSelect").addEventListener("change", function () {
   originalImageName = selectedImage.split('/').pop();
   updateSelectStyle();
 
-  // 👉 THÊM VÀO ĐÂY:
-  document.getElementById("kite-label-input").style.display = "block";
+  const kiteLabel = document.getElementById("kite-label-input");
+  if (kiteLabel) kiteLabel.style.display = "block"; // nếu có input label
+
+  // hiệu ứng nhỏ
+  imageSelect.classList.add("pop");
+  setTimeout(() => imageSelect.classList.remove("pop"), 200);
 });
 
+window.addEventListener("DOMContentLoaded", updateSelectStyle);
+
+// Upload
 
 document.getElementById("uploadInput").addEventListener("change", function (e) {
   const file = e.target.files[0];
@@ -126,7 +148,7 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
       undoStack = [];
       redoStack = [];
       originalImageName = file.name;
-      document.getElementById("imageSelect").selectedIndex = 0;
+      imageSelect.selectedIndex = 0;
       updateSelectStyle();
     };
     img.src = event.target.result;
@@ -134,6 +156,7 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
   reader.readAsDataURL(file);
 });
 
+// ===== Helpers =====
 function getCanvasCoords(e) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
@@ -143,9 +166,12 @@ function getCanvasCoords(e) {
   if (e.touches && e.touches[0]) {
     clientX = e.touches[0].clientX;
     clientY = e.touches[0].clientY;
-  } else {
+  } else if (e.clientX != null && e.clientY != null) {
     clientX = e.clientX;
     clientY = e.clientY;
+  } else if (e.__direct) { // nội suy: truyền toạ độ trực tiếp
+    clientX = e.x;
+    clientY = e.y;
   }
 
   const x = Math.floor((clientX - rect.left) * scaleX);
@@ -153,45 +179,103 @@ function getCanvasCoords(e) {
   return { x, y };
 }
 
-function drawAt(e) {
-  const { x, y } = getCanvasCoords(e);
-  ctx.fillStyle = mode === "eraser" ? "#ffffff" : currentColor;
+function saveState() {
+  try {
+    undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+    redoStack = [];
+  } catch (err) {
+    // Nếu canvas cross-origin không cho getImageData, bỏ qua undo
+    console.warn("saveState failed:", err);
+  }
+}
+
+// ===== Brush / Eraser drawing =====
+let lastPt = null;
+
+function drawDot(x, y) {
   ctx.beginPath();
   ctx.arc(x, y, brushSize, 0, Math.PI * 2);
   ctx.fill();
+}
+
+function drawAt(e) {
+  const { x, y } = getCanvasCoords(e);
+  if (mode === "eraser") {
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out"; // ✅ xóa thực sự
+    drawDot(x, y);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = currentColor;
+    drawDot(x, y);
+  }
+}
+
+function drawInterpolated(prev, curr) {
+  // Nội suy giữa hai điểm để tránh đứt nét
+  const dist = Math.hypot(curr.x - prev.x, curr.y - prev.y);
+  const step = Math.max(1, Math.floor(dist / (brushSize / 2)));
+  for (let i = 1; i <= step; i++) {
+    const t = i / step;
+    const ix = prev.x + (curr.x - prev.x) * t;
+    const iy = prev.y + (curr.y - prev.y) * t;
+    if (mode === "eraser") {
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      drawDot(ix, iy);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = currentColor;
+      drawDot(ix, iy);
+    }
+  }
 }
 
 canvas.addEventListener("mousedown", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
     saveState();
+    lastPt = getCanvasCoords(e);
     drawAt(e);
   }
 });
+
 canvas.addEventListener("mousemove", (e) => {
   if (isDrawing && (mode === "brush" || mode === "eraser")) {
-    drawAt(e);
+    const curr = getCanvasCoords(e);
+    const prev = lastPt || curr;
+    drawInterpolated(prev, curr);
+    lastPt = curr;
   }
 });
-canvas.addEventListener("mouseup", () => isDrawing = false);
-canvas.addEventListener("mouseleave", () => isDrawing = false);
+
+canvas.addEventListener("mouseup", () => { isDrawing = false; lastPt = null; });
+canvas.addEventListener("mouseleave", () => { isDrawing = false; lastPt = null; });
 
 canvas.addEventListener("touchstart", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
     saveState();
+    lastPt = getCanvasCoords(e);
     drawAt(e);
     e.preventDefault();
   }
 }, { passive: false });
+
 canvas.addEventListener("touchmove", (e) => {
   if (isDrawing && (mode === "brush" || mode === "eraser")) {
-    drawAt(e);
+    const curr = getCanvasCoords(e);
+    const prev = lastPt || curr;
+    drawInterpolated(prev, curr);
+    lastPt = curr;
     e.preventDefault();
   }
 }, { passive: false });
-canvas.addEventListener("touchend", () => isDrawing = false);
 
+canvas.addEventListener("touchend", () => { isDrawing = false; lastPt = null; });
+
+// ===== Fill (Bucket) =====
 canvas.addEventListener("click", (e) => {
   if (mode === "fill") {
     const { x, y } = getCanvasCoords(e);
@@ -201,6 +285,12 @@ canvas.addEventListener("click", (e) => {
 });
 
 function hexToRgba(hex) {
+  if (hex.startsWith("rgb")) {
+    // rgb(a) -> rgba array
+    const nums = hex.match(/\d+/g).map(Number);
+    const [r, g, b, a = 255] = nums;
+    return [r, g, b, a];
+  }
   const bigint = parseInt(hex.slice(1), 16);
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
@@ -210,10 +300,14 @@ function floodFill(x, y, fillColor) {
   const data = imageData.data;
   const width = imageData.width;
   const height = imageData.height;
-  const stack = [[x, y]];
-  const baseIdx = (y * width + x) * 4;
-  const startColor = data.slice(baseIdx, baseIdx + 4);
+  const startIdx = (y * width + x) * 4;
+  const startColor = data.slice(startIdx, startIdx + 4);
   const tolerance = 48;
+
+  // ✅ nếu vùng click gần trùng màu fill thì bỏ qua
+  let already = true;
+  for (let j = 0; j < 4; j++) { if (Math.abs(startColor[j] - fillColor[j]) > 5) { already = false; break; } }
+  if (already) return;
 
   const matchColor = (i) => {
     for (let j = 0; j < 4; j++) {
@@ -223,53 +317,56 @@ function floodFill(x, y, fillColor) {
   };
 
   const colorPixel = (i) => {
-    for (let j = 0; j < 4; j++) {
-      data[i + j] = fillColor[j];
-    }
+    for (let j = 0; j < 4; j++) data[i + j] = fillColor[j];
   };
 
   const visited = new Uint8Array(width * height);
+  const stack = [[x, y]];
 
   while (stack.length) {
     const [cx, cy] = stack.pop();
-    const idx = (cy * width + cx) * 4;
-    const visitedIdx = cy * width + cx;
+    if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
+    const vi = cy * width + cx;
+    if (visited[vi]) continue;
+    visited[vi] = 1;
 
-    if (visited[visitedIdx]) continue;
-    visited[visitedIdx] = 1;
+    const idx = vi * 4;
     if (!matchColor(idx)) continue;
     colorPixel(idx);
 
-    if (cx > 0) stack.push([cx - 1, cy]);
-    if (cx < width - 1) stack.push([cx + 1, cy]);
-    if (cy > 0) stack.push([cx, cy - 1]);
-    if (cy < height - 1) stack.push([cx, cy + 1]);
+    // 4-neighbors; có thể thêm chéo nếu muốn kín hơn
+    stack.push([cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]);
   }
 
   ctx.putImageData(imageData, 0, 0);
 }
 
-function saveState() {
-  undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-  redoStack = [];
-}
-
+// ===== Undo / Redo =====
 document.getElementById("undoBtn").addEventListener("click", () => {
   if (undoStack.length > 0) {
-    redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    const prev = undoStack.pop();
-    ctx.putImageData(prev, 0, 0);
+    try {
+      redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      const prev = undoStack.pop();
+      ctx.putImageData(prev, 0, 0);
+    } catch (err) {
+      console.warn("undo failed:", err);
+    }
   }
 });
 
 document.getElementById("redoBtn").addEventListener("click", () => {
   if (redoStack.length > 0) {
-    undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    const next = redoStack.pop();
-    ctx.putImageData(next, 0, 0);
+    try {
+      undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      const next = redoStack.pop();
+      ctx.putImageData(next, 0, 0);
+    } catch (err) {
+      console.warn("redo failed:", err);
+    }
   }
 });
 
+// ===== Download (rasterize text boxes + logo) =====
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const logo = new Image();
@@ -277,87 +374,84 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   logo.crossOrigin = "anonymous";
 
   logo.onload = () => {
-  const tempCanvas = document.createElement("canvas");
-  const tempCtx = tempCanvas.getContext("2d");
-  tempCanvas.width = canvas.width;
-  tempCanvas.height = canvas.height;
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
 
-  // 1. Vẽ nền chính
-  tempCtx.drawImage(canvas, 0, 0);
+    // 1. Vẽ nền chính
+    tempCtx.drawImage(canvas, 0, 0);
 
-  // 2. Vẽ các text-box
-  document.querySelectorAll(".text-box").forEach(box => {
-    const content = box.querySelector(".text-content");
-    const text = content.innerText;
-    if (!text.trim()) return;
+    // 2. Vẽ các text-box
+    document.querySelectorAll(".text-box").forEach(box => {
+      const content = box.querySelector(".text-content");
+      const text = content?.innerText ?? "";
+      if (!text.trim()) return;
 
-    const wrapperRect = document.querySelector(".canvas-wrapper").getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-    const boxRect = box.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      const boxRect = box.getBoundingClientRect();
 
-    // Tính toạ độ tương ứng trên canvas gốc
-    const scaleX = canvas.width / canvasRect.width;
-    const scaleY = canvas.height / canvasRect.height;
+      const scaleX = canvas.width / canvasRect.width;
+      const scaleY = canvas.height / canvasRect.height;
 
-    const centerX = (boxRect.left + boxRect.width / 2 - canvasRect.left) * scaleX;
-    const centerY = (boxRect.top + boxRect.height / 2 - canvasRect.top) * scaleY;
+      const centerX = (boxRect.left + boxRect.width / 2 - canvasRect.left) * scaleX;
+      const centerY = (boxRect.top + boxRect.height / 2 - canvasRect.top) * scaleY;
 
-    const fontSize = parseFloat(getComputedStyle(content).fontSize) * scaleY;
-    const fontFamily = getComputedStyle(content).fontFamily;
-    const fontWeight = getComputedStyle(content).fontWeight;
-    const textColor = getComputedStyle(content).color;
+      const cs = getComputedStyle(content);
+      const fontSize = parseFloat(cs.fontSize) * scaleY;
+      const fontFamily = cs.fontFamily;
+      const fontWeight = cs.fontWeight;
+      const textColor = cs.color;
 
-    const rotation = parseFloat(box.dataset.rotation || "0");
-    const scaleBoxX = parseFloat(box.dataset.scaleX || "1");
-    const scaleBoxY = parseFloat(box.dataset.scaleY || "1");
+      const rotation = parseFloat(box.dataset.rotation || "0");
+      const scaleBoxX = parseFloat(box.dataset.scaleX || "1");
+      const scaleBoxY = parseFloat(box.dataset.scaleY || "1");
 
-    tempCtx.save();
-    tempCtx.translate(centerX, centerY);
-    tempCtx.rotate(rotation * Math.PI / 180);
-    tempCtx.scale(scaleBoxX, scaleBoxY);
-    tempCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-    tempCtx.fillStyle = textColor;
-    tempCtx.textAlign = "center";
-    tempCtx.textBaseline = "middle";
-    tempCtx.fillText(text, 0, 0);
-    tempCtx.restore();
-  });
+      tempCtx.save();
+      tempCtx.translate(centerX, centerY);
+      tempCtx.rotate(rotation * Math.PI / 180);
+      tempCtx.scale(scaleBoxX, scaleBoxY);
+      tempCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+      tempCtx.fillStyle = textColor;
+      tempCtx.textAlign = "center";
+      tempCtx.textBaseline = "middle";
+      tempCtx.fillText(text, 0, 0);
+      tempCtx.restore();
+    });
 
-  // 3. Vẽ logo như cũ
-  const logoHeight = 30;
-  const scale = logoHeight / logo.height;
-  const logoWidth = logo.width * scale;
-  const x = canvas.width - logoWidth - 10;
-  const y = canvas.height - logoHeight - 10;
-  tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
+    // 3. Vẽ logo
+    const logoHeight = 30;
+    const scale = logoHeight / logo.height;
+    const logoWidth = logo.width * scale;
+    const x = canvas.width - logoWidth - 10;
+    const y = canvas.height - logoHeight - 10;
+    tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-  // 4. Tải về
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isIOS) {
-    const win = window.open("about:blank", "_blank");
-    win.document.write(`<img src="${tempCanvas.toDataURL("image/png")}" style="max-width:100%;"/>`);
-    win.document.close();
-  } else {
-    tempCanvas.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = originalImageName || "to_mau.png";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, "image/png");
-  }
-};
-
+    // 4. Xuất file
+    if (isIOS) {
+      const win = window.open("about:blank", "_blank");
+      win.document.write(`<img src="${tempCanvas.toDataURL("image/png")}" style="max-width:100%;"/>`);
+      win.document.close();
+    } else {
+      tempCanvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = originalImageName || "to_mau.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    }
+  };
 
   logo.onerror = () => alert("Không thể tải logo từ images/logo.webp");
 });
 
+// ===== Text boxes =====
 function addTextBoxCentered() {
   if (!canvas) return;
-
   const rect = canvas.getBoundingClientRect();
   const container = document.querySelector(".canvas-wrapper");
   const box = document.createElement("div");
@@ -369,7 +463,7 @@ function addTextBoxCentered() {
   content.className = "text-content";
   content.contentEditable = "true";
   content.spellcheck = false;
-  content.style.minWidth = "1ch"; // tránh co rút
+  content.style.minWidth = "1ch";
   content.style.width = "100%";
 
   box.appendChild(content);
@@ -379,26 +473,18 @@ function addTextBoxCentered() {
   content.style.color = currentColor;
   makeTextBoxDraggable(box);
   enableResize(box);
-  enableRotate(box); 
+  enableRotate(box);
 
   currentTextBox = box;
   box.addEventListener("click", () => {
-  currentTextBox = box;
-
-if (mode === "text" && currentTextBox) {
-  const content = currentTextBox.querySelector(".text-content");
-  if (content) content.style.color = currentColor;
-}
-
-});
+    currentTextBox = box;
+    const c = currentTextBox.querySelector(".text-content");
+    if (mode === "text" && c) c.style.color = currentColor;
+  });
 
   isTyping = true;
-
-  content.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") e.preventDefault();
-  });
+  content.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
 }
-
 
 function makeTextBoxDraggable(box) {
   let isDragging = false;
@@ -421,7 +507,6 @@ function makeTextBoxDraggable(box) {
     if (e.target !== box) return;
     isDragging = true;
     hasMoved = false;
-
     const touch = e.touches[0];
     const rect = box.getBoundingClientRect();
     offsetX = touch.clientX - rect.left;
@@ -429,7 +514,6 @@ function makeTextBoxDraggable(box) {
     e.preventDefault();
   }, { passive: false });
 
-  // Di chuyển (cả desktop + mobile)
   function handleMove(clientX, clientY) {
     const wrapperRect = document.querySelector(".canvas-wrapper").getBoundingClientRect();
     box.style.left = `${clientX - wrapperRect.left - offsetX}px`;
@@ -461,6 +545,12 @@ function makeTextBoxDraggable(box) {
   });
 }
 
+function applyTransform(box) {
+  const angle = parseFloat(box.dataset.rotation || "0");
+  const scaleX = parseFloat(box.dataset.scaleX || "1");
+  const scaleY = parseFloat(box.dataset.scaleY || "1");
+  box.style.transform = `rotate(${angle}deg) scale(${scaleX}, ${scaleY})`;
+}
 
 function enableResize(textBox) {
   const resizer = document.createElement("div");
@@ -523,9 +613,7 @@ function enableResize(textBox) {
     applyTransform(textBox);
   };
 
-  const onResizeEnd = () => {
-    isResizing = false;
-  };
+  const onResizeEnd = () => { isResizing = false; };
 
   resizer.addEventListener("mousedown", onResizeStart);
   document.addEventListener("mousemove", onResizeMove);
@@ -535,42 +623,6 @@ function enableResize(textBox) {
   document.addEventListener("touchmove", onResizeMove, { passive: false });
   document.addEventListener("touchend", onResizeEnd);
 }
-
-
-
-function updateSelectStyle() {
-  const isPlaceholder = imageSelect.selectedIndex === 0;
-
-  imageSelect.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
-  imageSelect.style.fontStyle = isPlaceholder ? "italic" : "normal";
-
-  if (!isPlaceholder) {
-    imageSelect.classList.add("selected-kite");
-  } else {
-    imageSelect.classList.remove("selected-kite");
-  }
-}
-
-
-function initMenuButton() {
-  const menuBtn = document.getElementById("menuToggle");
-  const nav = document.getElementById("mainNav");
-  if (menuBtn && nav && !menuBtn.dataset.bound) {
-    menuBtn.addEventListener("click", () => {
-      nav.classList.toggle("open");
-    });
-    menuBtn.dataset.bound = "true";
-  }
-}
-
-function applyTransform(box) {
-  const angle = parseFloat(box.dataset.rotation || "0");
-  const scaleX = parseFloat(box.dataset.scaleX || "1");
-  const scaleY = parseFloat(box.dataset.scaleY || "1");
-  box.style.transform = `rotate(${angle}deg) scale(${scaleX}, ${scaleY})`;
-}
-
-
 
 function enableRotate(textBox) {
   const rotateHandle = document.createElement("div");
@@ -582,15 +634,10 @@ function enableRotate(textBox) {
 
   const getCenter = () => {
     const rect = textBox.getBoundingClientRect();
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
-    };
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   };
 
-  const getAngle = (cx, cy, x, y) => {
-    return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
-  };
+  const getAngle = (cx, cy, x, y) => Math.atan2(y - cy, x - cx) * (180 / Math.PI);
 
   const startRotate = (clientX, clientY) => {
     isRotating = true;
@@ -607,63 +654,48 @@ function enableRotate(textBox) {
     applyTransform(textBox);
   };
 
-  const stopRotate = () => {
-    isRotating = false;
-  };
+  const stopRotate = () => { isRotating = false; };
 
-  rotateHandle.addEventListener("mousedown", (e) => {
-    e.stopPropagation();
-    startRotate(e.clientX, e.clientY);
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (isRotating) rotate(e.clientX, e.clientY);
-  });
-
+  rotateHandle.addEventListener("mousedown", (e) => { e.stopPropagation(); startRotate(e.clientX, e.clientY); });
+  document.addEventListener("mousemove", (e) => { if (isRotating) rotate(e.clientX, e.clientY); });
   document.addEventListener("mouseup", stopRotate);
 
   rotateHandle.addEventListener("touchstart", (e) => {
     if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      startRotate(touch.clientX, touch.clientY);
+      const t = e.touches[0];
+      startRotate(t.clientX, t.clientY);
       e.preventDefault();
     }
   }, { passive: false });
-
   document.addEventListener("touchmove", (e) => {
     if (isRotating && e.touches.length === 1) {
-      const touch = e.touches[0];
-      rotate(touch.clientX, touch.clientY);
+      const t = e.touches[0];
+      rotate(t.clientX, t.clientY);
       e.preventDefault();
     }
   }, { passive: false });
-
   document.addEventListener("touchend", stopRotate);
 }
-
-
 
 // Khi click vào textbox, cập nhật currentTextBox
 function handleTextBoxSelection(e) {
   const box = e.target.closest(".text-box");
   if (box) {
     currentTextBox = box;
-
     const content = currentTextBox.querySelector(".text-content");
-    if (content) {
-      content.style.color = currentColor;
-    }
+    if (content) content.style.color = currentColor;
   }
 }
 
 document.addEventListener("click", handleTextBoxSelection);
 document.addEventListener("touchstart", handleTextBoxSelection, { passive: true });
 
+// Text style controls
 
 document.getElementById("boldBtn").addEventListener("click", () => {
   if (currentTextBox) {
     const content = currentTextBox.querySelector(".text-content");
-    const isBold = content.style.fontWeight === "bold";
+    const isBold = (getComputedStyle(content).fontWeight === "700" || content.style.fontWeight === "bold");
     content.style.fontWeight = isBold ? "normal" : "bold";
   }
 });
@@ -682,34 +714,24 @@ document.getElementById("deleteTextBtn").addEventListener("click", () => {
   }
 });
 
-
-const imageSelect = document.getElementById("imageSelect");
-
-function updateSelectStyle() {
-  const isPlaceholder = imageSelect.selectedIndex === 0;
-  imageSelect.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
-  imageSelect.style.fontStyle = isPlaceholder ? "italic" : "normal";
+// ===== Menu & deep-link image =====
+function initMenuButton() {
+  const menuBtn = document.getElementById("menuToggle");
+  const nav = document.getElementById("mainNav");
+  if (menuBtn && nav && !menuBtn.dataset.bound) {
+    menuBtn.addEventListener("click", () => { nav.classList.toggle("open"); });
+    menuBtn.dataset.bound = "true";
+  }
 }
-imageSelect.addEventListener("change", updateSelectStyle);
-window.addEventListener("DOMContentLoaded", updateSelectStyle);
-
-
-imageSelect.addEventListener("change", () => {
-  imageSelect.classList.add("pop");
-  setTimeout(() => imageSelect.classList.remove("pop"), 200);
-});
-
 
 window.addEventListener("DOMContentLoaded", initMenuButton);
 window.onload = () => {
-  initMenuButton(); // Gọi lại init nếu cần thiết
-
+  initMenuButton();
   const params = new URLSearchParams(window.location.search);
   const imageUrl = params.get("img");
-
   if (imageUrl) {
     const imgFromUrl = new Image();
-    imgFromUrl.crossOrigin = "anonymous"; // Bắt buộc nếu ảnh từ Cloudinary hoặc ngoài domain
+    imgFromUrl.crossOrigin = "anonymous"; // ảnh ngoài domain cần CORS
     imgFromUrl.onload = () => {
       canvas.width = imgFromUrl.width;
       canvas.height = imgFromUrl.height;
@@ -723,6 +745,5 @@ window.onload = () => {
   }
 };
 
+// Expose nếu cần ở nơi khác
 window.initMenuButton = initMenuButton;
-
-
