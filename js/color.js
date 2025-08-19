@@ -14,6 +14,14 @@ let redoStack = [];
 
 let originalImageName = "";
 
+// ===== bảo vệ viền đen (thêm mới) =====
+let lineArtMask = null;     // Uint8Array đánh dấu pixel gần đen
+let lineArtPixels = null;   // Uint8ClampedArray lưu RGBA gốc ở vị trí viền
+const LINE_PROTECT = {
+  enabled: true,
+  blackThreshold: 40 // tăng lên 50–60 nếu viền hơi xám
+};
+
 const colors = [
   "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
   "#FFFF00", "#000000", "#808080", "#C0C0C0", "#FFFFFF",
@@ -44,10 +52,6 @@ document.querySelectorAll(".color").forEach(el => {
   });
 });
 
-
-
-
-
 document.getElementById("fillModeBtn").addEventListener("click", () => {
   updateModeButtons("fill");
 });
@@ -66,10 +70,7 @@ function updateModeButtons(newMode = null) {
   } else if (mode === "text") {
     document.getElementById("textModeBtn").classList.add("active");
   }
-
-  
 }
-
 
 document.getElementById("textModeBtn").addEventListener("click", () => {
   mode = "text";
@@ -85,8 +86,6 @@ document.getElementById("eraserModeBtn").addEventListener("click", () => {
   updateModeButtons("eraser"); // ✅ Truyền đúng mode
 });
 
-
-
 document.getElementById("brushSizeSelect").addEventListener("change", function () {
   brushSize = parseFloat(this.value);
 });
@@ -99,6 +98,8 @@ document.getElementById("imageSelect").addEventListener("change", function () {
     canvas.height = img.height;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
+    // ✅ chụp viền đen gốc
+    captureLineArt();
   };
   img.src = selectedImage;
   document.getElementById("uploadInput").value = "";
@@ -111,7 +112,6 @@ document.getElementById("imageSelect").addEventListener("change", function () {
   document.getElementById("kite-label-input").style.display = "block";
 });
 
-
 document.getElementById("uploadInput").addEventListener("change", function (e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -123,6 +123,8 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
       canvas.height = img.height;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
+      // ✅ chụp viền đen gốc
+      captureLineArt();
       undoStack = [];
       redoStack = [];
       originalImageName = file.name;
@@ -173,7 +175,11 @@ canvas.addEventListener("mousemove", (e) => {
     drawAt(e);
   }
 });
-canvas.addEventListener("mouseup", () => isDrawing = false);
+canvas.addEventListener("mouseup", () => {
+  isDrawing = false;
+  // ✅ phục hồi viền đen sau khi vẽ/erase
+  reapplyLineArt();
+});
 canvas.addEventListener("mouseleave", () => isDrawing = false);
 
 canvas.addEventListener("touchstart", (e) => {
@@ -190,19 +196,30 @@ canvas.addEventListener("touchmove", (e) => {
     e.preventDefault();
   }
 }, { passive: false });
-canvas.addEventListener("touchend", () => isDrawing = false);
+canvas.addEventListener("touchend", () => {
+  isDrawing = false;
+  // ✅ phục hồi viền đen
+  reapplyLineArt();
+});
 
 canvas.addEventListener("click", (e) => {
   if (mode === "fill") {
     const { x, y } = getCanvasCoords(e);
     saveState();
     floodFill(x, y, hexToRgba(currentColor));
+    // ✅ phục hồi viền đen sau khi fill
+    reapplyLineArt();
   }
 });
 
 function hexToRgba(hex) {
   const bigint = parseInt(hex.slice(1), 16);
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
+}
+
+// helper bảo vệ viền
+function isNearBlack(r, g, b, thr) {
+  return r < thr && g < thr && b < thr;
 }
 
 function floodFill(x, y, fillColor) {
@@ -216,6 +233,10 @@ function floodFill(x, y, fillColor) {
   const tolerance = 48;
 
   const matchColor = (i) => {
+    // ✅ nếu bảo vệ viền: bỏ qua pixel gần đen
+    if (LINE_PROTECT.enabled && isNearBlack(data[i], data[i+1], data[i+2], LINE_PROTECT.blackThreshold)) {
+      return false;
+    }
     for (let j = 0; j < 4; j++) {
       if (Math.abs(data[i + j] - startColor[j]) > tolerance) return false;
     }
@@ -254,11 +275,59 @@ function saveState() {
   redoStack = [];
 }
 
+// ===== chụp & phục hồi lineart (thêm mới) =====
+function captureLineArt() {
+  if (!LINE_PROTECT.enabled) return;
+  try {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imageData.data;
+    const N = canvas.width * canvas.height;
+
+    lineArtMask = new Uint8Array(N);
+    lineArtPixels = new Uint8ClampedArray(d.length);
+    lineArtPixels.set(d);
+
+    const thr = LINE_PROTECT.blackThreshold;
+    for (let i = 0; i < N; i++) {
+      const p = i * 4;
+      const r = d[p], g = d[p+1], b = d[p+2];
+      if (isNearBlack(r, g, b, thr)) lineArtMask[i] = 1;
+    }
+  } catch (e) {
+    console.warn("captureLineArt failed:", e);
+    lineArtMask = null;
+    lineArtPixels = null;
+  }
+}
+
+function reapplyLineArt() {
+  if (!LINE_PROTECT.enabled || !lineArtMask || !lineArtPixels) return;
+  try {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imageData.data;
+    const N = canvas.width * canvas.height;
+    for (let i = 0; i < N; i++) {
+      if (lineArtMask[i]) {
+        const p = i * 4;
+        d[p]   = lineArtPixels[p];
+        d[p+1] = lineArtPixels[p+1];
+        d[p+2] = lineArtPixels[p+2];
+        d[p+3] = 255;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  } catch (e) {
+    console.warn("reapplyLineArt failed:", e);
+  }
+}
+
 document.getElementById("undoBtn").addEventListener("click", () => {
   if (undoStack.length > 0) {
     redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
     const prev = undoStack.pop();
     ctx.putImageData(prev, 0, 0);
+    // ✅ giữ viền khi undo
+    reapplyLineArt();
   }
 });
 
@@ -267,6 +336,8 @@ document.getElementById("redoBtn").addEventListener("click", () => {
     undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
     const next = redoStack.pop();
     ctx.putImageData(next, 0, 0);
+    // ✅ giữ viền khi redo
+    reapplyLineArt();
   }
 });
 
@@ -351,7 +422,6 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   }
 };
 
-
   logo.onerror = () => alert("Không thể tải logo từ images/logo.webp");
 });
 
@@ -398,7 +468,6 @@ if (mode === "text" && currentTextBox) {
     if (e.key === "Enter") e.preventDefault();
   });
 }
-
 
 function makeTextBoxDraggable(box) {
   let isDragging = false;
@@ -460,7 +529,6 @@ function makeTextBoxDraggable(box) {
     isDragging = false;
   });
 }
-
 
 function enableResize(textBox) {
   const resizer = document.createElement("div");
@@ -536,8 +604,6 @@ function enableResize(textBox) {
   document.addEventListener("touchend", onResizeEnd);
 }
 
-
-
 function updateSelectStyle() {
   const isPlaceholder = imageSelect.selectedIndex === 0;
 
@@ -550,7 +616,6 @@ function updateSelectStyle() {
     imageSelect.classList.remove("selected-kite");
   }
 }
-
 
 function initMenuButton() {
   const menuBtn = document.getElementById("menuToggle");
@@ -569,8 +634,6 @@ function applyTransform(box) {
   const scaleY = parseFloat(box.dataset.scaleY || "1");
   box.style.transform = `rotate(${angle}deg) scale(${scaleX}, ${scaleY})`;
 }
-
-
 
 function enableRotate(textBox) {
   const rotateHandle = document.createElement("div");
@@ -641,8 +704,6 @@ function enableRotate(textBox) {
   document.addEventListener("touchend", stopRotate);
 }
 
-
-
 // Khi click vào textbox, cập nhật currentTextBox
 function handleTextBoxSelection(e) {
   const box = e.target.closest(".text-box");
@@ -658,7 +719,6 @@ function handleTextBoxSelection(e) {
 
 document.addEventListener("click", handleTextBoxSelection);
 document.addEventListener("touchstart", handleTextBoxSelection, { passive: true });
-
 
 document.getElementById("boldBtn").addEventListener("click", () => {
   if (currentTextBox) {
@@ -682,7 +742,6 @@ document.getElementById("deleteTextBtn").addEventListener("click", () => {
   }
 });
 
-
 const imageSelect = document.getElementById("imageSelect");
 
 function updateSelectStyle() {
@@ -693,12 +752,10 @@ function updateSelectStyle() {
 imageSelect.addEventListener("change", updateSelectStyle);
 window.addEventListener("DOMContentLoaded", updateSelectStyle);
 
-
 imageSelect.addEventListener("change", () => {
   imageSelect.classList.add("pop");
   setTimeout(() => imageSelect.classList.remove("pop"), 200);
 });
-
 
 window.addEventListener("DOMContentLoaded", initMenuButton);
 window.onload = () => {
@@ -715,6 +772,8 @@ window.onload = () => {
       canvas.height = imgFromUrl.height;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(imgFromUrl, 0, 0);
+      // ✅ chụp viền đen gốc
+      captureLineArt();
       undoStack = [];
       redoStack = [];
       originalImageName = imageUrl.split("/").pop();
@@ -724,5 +783,3 @@ window.onload = () => {
 };
 
 window.initMenuButton = initMenuButton;
-
-
