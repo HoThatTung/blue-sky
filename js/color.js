@@ -14,12 +14,14 @@ let redoStack = [];
 
 let originalImageName = "";
 
-// ===== bảo vệ viền đen (thêm mới) =====
-let lineArtMask = null;     // Uint8Array đánh dấu pixel gần đen
-let lineArtPixels = null;   // Uint8ClampedArray lưu RGBA gốc ở vị trí viền
+// ===== bảo vệ viền đen =====
+let lineArtMask = null;     // Uint8Array đánh dấu pixel thuộc viền gốc
+let lineArtPixels = null;   // Uint8ClampedArray lưu RGBA gốc để phục hồi
 const LINE_PROTECT = {
   enabled: true,
-  blackThreshold: 40 // tăng lên 50–60 nếu viền hơi xám
+  blackThreshold: 40,       // kênh R,G,B < 40 coi là gần đen
+  luminanceThreshold: 65,   // Y = 0.2126R + 0.7152G + 0.0722B < 65 coi là tối
+  maskGrow: 1               // nở mask thêm 1px (8-neighbors). Tăng 2 nếu còn rò
 };
 
 const colors = [
@@ -58,18 +60,11 @@ document.getElementById("fillModeBtn").addEventListener("click", () => {
 
 function updateModeButtons(newMode = null) {
   mode = newMode;
-
   document.querySelectorAll(".mode-btn").forEach(btn => btn.classList.remove("active"));
-
-  if (mode === "fill") {
-    document.getElementById("fillModeBtn").classList.add("active");
-  } else if (mode === "brush") {
-    document.getElementById("brushModeBtn").classList.add("active");
-  } else if (mode === "eraser") {
-    document.getElementById("eraserModeBtn").classList.add("active");
-  } else if (mode === "text") {
-    document.getElementById("textModeBtn").classList.add("active");
-  }
+  if (mode === "fill")   document.getElementById("fillModeBtn").classList.add("active");
+  else if (mode === "brush")  document.getElementById("brushModeBtn").classList.add("active");
+  else if (mode === "eraser") document.getElementById("eraserModeBtn").classList.add("active");
+  else if (mode === "text")   document.getElementById("textModeBtn").classList.add("active");
 }
 
 document.getElementById("textModeBtn").addEventListener("click", () => {
@@ -79,11 +74,11 @@ document.getElementById("textModeBtn").addEventListener("click", () => {
 });
 
 document.getElementById("brushModeBtn").addEventListener("click", () => {
-  updateModeButtons("brush"); // ✅ Truyền đúng mode
+  updateModeButtons("brush");
 });
 
 document.getElementById("eraserModeBtn").addEventListener("click", () => {
-  updateModeButtons("eraser"); // ✅ Truyền đúng mode
+  updateModeButtons("eraser");
 });
 
 document.getElementById("brushSizeSelect").addEventListener("change", function () {
@@ -98,7 +93,7 @@ document.getElementById("imageSelect").addEventListener("change", function () {
     canvas.height = img.height;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
-    // ✅ chụp viền đen gốc
+    // ✅ chụp viền gốc
     captureLineArt();
   };
   img.src = selectedImage;
@@ -123,7 +118,7 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
       canvas.height = img.height;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
-      // ✅ chụp viền đen gốc
+      // ✅ chụp viền gốc
       captureLineArt();
       undoStack = [];
       redoStack = [];
@@ -177,7 +172,7 @@ canvas.addEventListener("mousemove", (e) => {
 });
 canvas.addEventListener("mouseup", () => {
   isDrawing = false;
-  // ✅ phục hồi viền đen sau khi vẽ/erase
+  // ✅ phục hồi viền sau thao tác vẽ/erase
   reapplyLineArt();
 });
 canvas.addEventListener("mouseleave", () => isDrawing = false);
@@ -198,7 +193,7 @@ canvas.addEventListener("touchmove", (e) => {
 }, { passive: false });
 canvas.addEventListener("touchend", () => {
   isDrawing = false;
-  // ✅ phục hồi viền đen
+  // ✅ phục hồi viền
   reapplyLineArt();
 });
 
@@ -207,7 +202,7 @@ canvas.addEventListener("click", (e) => {
     const { x, y } = getCanvasCoords(e);
     saveState();
     floodFill(x, y, hexToRgba(currentColor));
-    // ✅ phục hồi viền đen sau khi fill
+    // ✅ phục hồi viền sau khi fill
     reapplyLineArt();
   }
 });
@@ -217,23 +212,24 @@ function hexToRgba(hex) {
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
 
-// helper bảo vệ viền
-function isNearBlack(r, g, b, thr) {
-  return r < thr && g < thr && b < thr;
-}
-
+// ===== Fill (Bucket) — bảo vệ viền bằng mask gốc =====
 function floodFill(x, y, fillColor) {
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const w = canvas.width, h = canvas.height;
+  const startIdx = y * w + x;
+
+  // 🔒 Nếu click trúng viền gốc → bỏ qua để không fill tràn theo viền
+  if (LINE_PROTECT.enabled && lineArtMask && lineArtMask[startIdx]) {
+    return;
+  }
+
+  const imageData = ctx.getImageData(0, 0, w, h);
   const data = imageData.data;
-  const width = imageData.width;
-  const height = imageData.height;
-  const stack = [[x, y]];
-  const baseIdx = (y * width + x) * 4;
-  const startColor = data.slice(baseIdx, baseIdx + 4);
-  const tolerance = 45;
+
+  const base = (y * w + x) * 4;
+  const startColor = data.slice(base, base + 4);
+  const tolerance = 48;
 
   const sameAsStart = (p) => {
-    // So màu theo tolerance với màu tại điểm click ban đầu
     for (let j = 0; j < 4; j++) {
       if (Math.abs(data[p + j] - startColor[j]) > tolerance) return false;
     }
@@ -241,65 +237,92 @@ function floodFill(x, y, fillColor) {
   };
 
   const colorPixel = (p) => {
-    for (let j = 0; j < 4; j++) {
-      data[p + j] = fillColor[j];
-    }
+    for (let j = 0; j < 4; j++) data[p + j] = fillColor[j];
   };
 
-  const visited = new Uint8Array(width * height);
+  const stack = [[x, y]];
+  const visited = new Uint8Array(w * h);
 
   while (stack.length) {
     const [cx, cy] = stack.pop();
-    if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
+    if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
 
-    const idx1d = cy * width + cx;     // chỉ số theo pixel
-    const p = idx1d * 4;
+    const i1d = cy * w + cx;
+    const p = i1d * 4;
 
-    if (visited[idx1d]) continue;
-    visited[idx1d] = 1;
+    if (visited[i1d]) continue;
+    visited[i1d] = 1;
 
-    // 🔒 Chỉ chặn pixel thuộc viền gốc (lineArtMask), không chặn “mọi pixel gần đen”
-    if (LINE_PROTECT.enabled && lineArtMask && lineArtMask[idx1d]) {
-      continue;
-    }
+    // 🔒 chỉ chặn pixel thuộc viền gốc (mask), KHÔNG chặn mọi pixel gần đen
+    if (LINE_PROTECT.enabled && lineArtMask && lineArtMask[i1d]) continue;
 
     if (!sameAsStart(p)) continue;
 
     colorPixel(p);
 
     if (cx > 0)        stack.push([cx - 1, cy]);
-    if (cx < width-1)  stack.push([cx + 1, cy]);
+    if (cx < w - 1)    stack.push([cx + 1, cy]);
     if (cy > 0)        stack.push([cx, cy - 1]);
-    if (cy < height-1) stack.push([cx, cy + 1]);
+    if (cy < h - 1)    stack.push([cx, cy + 1]);
   }
 
   ctx.putImageData(imageData, 0, 0);
 }
-
 
 function saveState() {
   undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
   redoStack = [];
 }
 
-// ===== chụp & phục hồi lineart (thêm mới) =====
+// ===== Chụp & phục hồi lineart (luminance + dilate) =====
 function captureLineArt() {
   if (!LINE_PROTECT.enabled) return;
   try {
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const w = canvas.width, h = canvas.height;
+    const imageData = ctx.getImageData(0, 0, w, h);
     const d = imageData.data;
-    const N = canvas.width * canvas.height;
+    const N = w * h;
 
-    lineArtMask = new Uint8Array(N);
+    // Lưu toàn bộ pixel gốc
     lineArtPixels = new Uint8ClampedArray(d.length);
     lineArtPixels.set(d);
 
+    // Tạo mask ban đầu theo RGB-threshold & luminance
+    let mask = new Uint8Array(N);
     const thr = LINE_PROTECT.blackThreshold;
+    const lthr = LINE_PROTECT.luminanceThreshold;
+
     for (let i = 0; i < N; i++) {
       const p = i * 4;
       const r = d[p], g = d[p+1], b = d[p+2];
-      if (isNearBlack(r, g, b, thr)) lineArtMask[i] = 1;
+      const nearBlack = (r < thr && g < thr && b < thr);
+      const Y = 0.2126*r + 0.7152*g + 0.0722*b;
+      if (nearBlack || Y < lthr) mask[i] = 1;
     }
+
+    // Dilate (8-neighbors) để bắt cả anti-alias vùng rìa
+    const grow = Math.max(0, LINE_PROTECT.maskGrow | 0);
+    for (let iter = 0; iter < grow; iter++) {
+      const m2 = new Uint8Array(N);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i1 = y * w + x;
+          if (mask[i1]) { m2[i1] = 1; continue; }
+          for (let dy = -1; dy <= 1 && !m2[i1]; dy++) {
+            for (let dx = -1; dx <= 1 && !m2[i1]; dx++) {
+              if (!dx && !dy) continue;
+              const nx = x + dx, ny = y + dy;
+              if (nx >= 0 && ny >= 0 && nx < w && ny < h) {
+                if (mask[ny * w + nx]) m2[i1] = 1;
+              }
+            }
+          }
+        }
+      }
+      mask = m2;
+    }
+
+    lineArtMask = mask;
   } catch (e) {
     console.warn("captureLineArt failed:", e);
     lineArtMask = null;
@@ -310,9 +333,11 @@ function captureLineArt() {
 function reapplyLineArt() {
   if (!LINE_PROTECT.enabled || !lineArtMask || !lineArtPixels) return;
   try {
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const w = canvas.width, h = canvas.height;
+    const imageData = ctx.getImageData(0, 0, w, h);
     const d = imageData.data;
-    const N = canvas.width * canvas.height;
+    const N = w * h;
+
     for (let i = 0; i < N; i++) {
       if (lineArtMask[i]) {
         const p = i * 4;
@@ -779,7 +804,7 @@ window.onload = () => {
       canvas.height = imgFromUrl.height;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(imgFromUrl, 0, 0);
-      // ✅ chụp viền đen gốc
+      // ✅ chụp viền gốc
       captureLineArt();
       undoStack = [];
       redoStack = [];
