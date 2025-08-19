@@ -22,7 +22,7 @@ const UPSCALE_LIMIT_MP = 12_000_000;// giới hạn số pixel sau upsample (~12
 // ---------- Flood-fill kín mép ----------
 const FILL_TOLERANCE      = 48;     // so màu (RGB) khi BFS
 const WHITE_LUMA          = 238;    // near-white >= ngưỡng
-const FILL_GROW_RADIUS    = 0;      // nở mép sau fill (0..2)
+const FILL_GROW_RADIUS    = 1;      // nở mép sau fill (0..2)
 const FILL_BARRIER_RADIUS = 2;      // barrier chặn tràn = nở lineMask 1px
 
 // ---------- State ----------
