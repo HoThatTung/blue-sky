@@ -637,7 +637,7 @@ function enableResize(textBox) {
     const clientY = e.clientY || e.touches?.[0]?.clientY;
 
     const dx = clientX - startX;
-    the dy = clientY - startY;
+    const dy = clientY - startY;   // <-- FIX tại đây (thay vì "the dy = ...")
 
     const angleRad = rotation * Math.PI / 180;
 
@@ -656,9 +656,7 @@ function enableResize(textBox) {
     applyTransform(textBox);
   };
 
-  const onResizeEnd = () => {
-    isResizing = false;
-  };
+  const onResizeEnd = () => { isResizing = false; };
 
   resizer.addEventListener("mousedown", onResizeStart);
   document.addEventListener("mousemove", onResizeMove);
