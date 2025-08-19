@@ -11,7 +11,7 @@ if (canvas && canvas.style) {
 // ---------- Config cho chuẩn hoá & bảo vệ nét ----------
 const T_HIGH = 190;      // pixel tối hơn => chắc chắn là "đen"
 const T_LOW  = 235;      // pixel sáng hơn => chắc chắn là "trắng"
-const DILATE_RADIUS = 1; // nở nét 0..2 (1 thường là ổn)
+const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 
 // ✅ Làm mảnh nét (mask erosion). 0=tắt, 1=ăn mòn ~1px, 2=mảnh hơn nữa.
 const ERODE_RADIUS = 0;
