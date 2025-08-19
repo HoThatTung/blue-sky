@@ -1,19 +1,14 @@
-// ====================== Canvas Coloring (1-layer, fixed stroke width) ======================
+// ====================== Canvas Coloring (1-layer, finalized) ======================
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// ---------- Config cho chuẩn hoá, bảo vệ nét & độ dày nét cố định ----------
-const T_HIGH = 180;        // pixel tối hơn => chắc chắn là "đen"
-const T_LOW  = 230;        // pixel sáng hơn => chắc chắn là "trắng"
-const DILATE_RADIUS = 1;   // nở nét 0..2 (1 thường là ổn, có thể 0 nếu muốn mảnh hơn trước skeleton)
-const BLACK_THR = 10;      // ngưỡng "gần đen" để skip khi tô/brush/eraser
+// ---------- Config cho chuẩn hoá & bảo vệ nét ----------
+const T_HIGH = 180;      // pixel tối hơn => chắc chắn là "đen"
+const T_LOW  = 230;      // pixel sáng hơn => chắc chắn là "trắng"
+const DILATE_RADIUS = 1; // nở nét 0..2 (1 thường là ổn)
+const BLACK_THR = 10;    // ngưỡng "gần đen" để skip khi tô/brush/eraser
 
-// ĐỘ DÀY NÉT CỐ ĐỊNH (px): skeletonize → dilate theo kích thước này
-const TARGET_STROKE_PX   = 2;   // ví dụ: 2, 3, 4...
-const MAX_SKELETON_ITER  = 50;  // giới hạn vòng lặp làm mảnh (hiệu năng)
-
-// ---------- State ----------
 let currentColor = "#000000";
 let img = new Image();
 let isDrawing = false;
@@ -27,7 +22,6 @@ let redoStack = [];
 
 let originalImageName = "";
 
-// ---------- Palette ----------
 const colors = [
   "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
   "#FFFF00", "#000000", "#808080", "#C0C0C0", "#FFFFFF",
@@ -180,6 +174,7 @@ function drawAt(e) {
   const isErase = (mode === "eraser");
   const rgba = isErase ? [255, 255, 255, 255] : hexToRgba(currentColor);
   paintCircleOnMain(x, y, brushSize, rgba, isErase);
+  // Không cần composite vì 1 layer
 }
 
 canvas.addEventListener("mousedown", (e) => {
@@ -794,7 +789,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// ======================  Helpers: chuẩn hoá, skeleton & init  ======================
+// ======================  Helpers: chuẩn hoá & init  ======================
 
 // Khởi tạo nền trắng nếu chưa có kích thước
 function ensureInitialized() {
@@ -817,7 +812,7 @@ function ensureInitialized() {
   }
 }
 
-// Vẽ ảnh vào canvas chính và chuẩn hoá thành đen/trắng + độ dày nét cố định
+// Vẽ ảnh vào canvas chính và chuẩn hoá thành đen/trắng
 function loadImageToMainCanvas(image) {
   canvas.width = image.width;
   canvas.height = image.height;
@@ -826,11 +821,7 @@ function loadImageToMainCanvas(image) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, 0, 0);
 
-  // 1) Chuẩn hoá lineart: gom xám sát viền vào đen, (tuỳ chọn) nở nét nhỏ
   normalizeLineartBW(ctx, canvas.width, canvas.height);
-
-  // 2) Đưa nét về độ dày cố định mong muốn
-  normalizeStrokeWidthFixed(ctx, canvas.width, canvas.height, TARGET_STROKE_PX);
 }
 
 // Chuẩn hoá: gom xám sát viền vào đen, rồi (tuỳ chọn) nở nét, xuất đen/trắng tuyệt đối
@@ -893,141 +884,4 @@ function normalizeLineartBW(ctx, w, h) {
     d[i + 3] = 255;
   }
   ctx.putImageData(id, 0, 0);
-}
-
-// === Helpers chuyển canvas <-> nhị phân (1 = đen, 0 = trắng) ===
-function getBinaryFromCanvas(ctx, w, h) {
-  const id = ctx.getImageData(0, 0, w, h);
-  const d  = id.data;
-  const bin = new Uint8Array(w * h);
-  for (let p=0, i=0; p<w*h; p++, i+=4) {
-    // ảnh đã là đen/trắng tuyệt đối => chỉ cần kiểm r kênh đỏ
-    bin[p] = (d[i] === 0) ? 1 : 0;
-  }
-  return bin;
-}
-
-function putBinaryToCanvas(ctx, w, h, bin) {
-  const id = ctx.createImageData(w, h);
-  const d  = id.data;
-  for (let p=0, i=0; p<w*h; p++, i+=4) {
-    const isBlack = bin[p] === 1;
-    d[i] = d[i+1] = d[i+2] = isBlack ? 0 : 255;
-    d[i+3] = 255;
-  }
-  ctx.putImageData(id, 0, 0);
-}
-
-// === Làm mảnh (thinning) Zhang–Suen về 1 px ===
-function zhangSuenThinning(bin, w, h) {
-  // bin: Uint8Array (1=đen, 0=trắng)
-  const N = (x,y)=>bin[y*w+x];
-  const nbCount = (x,y)=>{
-    let c=0;
-    for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
-      if(dx===0 && dy===0) continue;
-      const nx=x+dx, ny=y+dy;
-      if(nx<0||ny<0||nx>=w||ny>=h) continue;
-      if (N(nx,ny)) c++;
-    }
-    return c;
-  };
-  const transCount = (x,y)=>{
-    // P9 P2 P3
-    // P8 P1 P4
-    // P7 P6 P5
-    const P = (dx,dy)=>((x+dx)<0||(y+dy)<0||(x+dx)>=w||(y+dy)>=h)?0:N(x+dx,y+dy);
-    const p2=P(0,-1), p3=P(1,-1), p4=P(1,0), p5=P(1,1);
-    const p6=P(0,1),  p7=P(-1,1), p8=P(-1,0), p9=P(-1,-1);
-    const seq = [p2,p3,p4,p5,p6,p7,p8,p9,p2];
-    let t=0;
-    for (let i=0;i<seq.length-1;i++) if (seq[i]===0 && seq[i+1]===1) t++;
-    return t;
-  };
-
-  let changed=true, iter=0;
-  const toDel = [];
-  while (changed && iter++ < MAX_SKELETON_ITER) {
-    changed = false;
-
-    // sub-iteration 1
-    toDel.length = 0;
-    for (let y=1;y<h-1;y++) for (let x=1;x<w-1;x++) {
-      if (!bin[y*w+x]) continue;
-      const n = nbCount(x,y);
-      if (n < 2 || n > 6) continue;
-      if (transCount(x,y) !== 1) continue;
-
-      // (P2 * P4 * P6 == 0) && (P4 * P6 * P8 == 0)
-      const p2=bin[(y-1)*w + x];
-      const p4=bin[y*w + (x+1)];
-      const p6=bin[(y+1)*w + x];
-      const p8=bin[y*w + (x-1)];
-      if (p2 && p4 && p6) continue;
-      if (p4 && p6 && p8) continue;
-
-      toDel.push(y*w+x);
-    }
-    if (toDel.length) { changed = true; for (const idx of toDel) bin[idx]=0; }
-
-    // sub-iteration 2
-    toDel.length = 0;
-    for (let y=1;y<h-1;y++) for (let x=1;x<w-1;x++) {
-      if (!bin[y*w+x]) continue;
-      const n = nbCount(x,y);
-      if (n < 2 || n > 6) continue;
-      if (transCount(x,y) !== 1) continue;
-
-      // (P2 * P4 * P8 == 0) && (P2 * P6 * P8 == 0)
-      const p2=bin[(y-1)*w + x];
-      const p4=bin[y*w + (x+1)];
-      const p6=bin[(y+1)*w + x];
-      const p8=bin[y*w + (x-1)];
-      if (p2 && p4 && p8) continue;
-      if (p2 && p6 && p8) continue;
-
-      toDel.push(y*w+x);
-    }
-    if (toDel.length) { changed = true; for (const idx of toDel) bin[idx]=0; }
-  }
-  return bin; // đã mảnh còn ~1px
-}
-
-// === Nở nét (dilate) theo bán kính R (8-neighbor, lặp R lần) ===
-function dilateBinary(bin, w, h, R) {
-  if (R <= 0) return bin;
-  let cur = bin;
-  for (let r=0; r<R; r++) {
-    const out = new Uint8Array(cur);
-    for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
-      if (cur[y*w+x]) continue;
-      let touch = false;
-      for (let dy=-1; dy<=1 && !touch; dy++) {
-        for (let dx=-1; dx<=1 && !touch; dx++) {
-          const nx=x+dx, ny=y+dy;
-          if (nx<0||ny<0||nx>=w||ny>=h) continue;
-          if (cur[ny*w+nx]) touch = true;
-        }
-      }
-      if (touch) out[y*w+x] = 1;
-    }
-    cur = out;
-  }
-  return cur;
-}
-
-// === Chuẩn hoá độ dày nét về giá trị cố định ===
-function normalizeStrokeWidthFixed(ctx, w, h, targetPx) {
-  // 1) Lấy nhị phân (đã là đen/trắng tuyệt đối)
-  let bin = getBinaryFromCanvas(ctx, w, h);
-
-  // 2) Làm mảnh về 1px
-  bin = zhangSuenThinning(bin, w, h);
-
-  // 3) Nở lại theo bán kính ~ target/2
-  const R = Math.max(0, Math.round(targetPx / 2));
-  bin = dilateBinary(bin, w, h, R);
-
-  // 4) Đưa lại lên canvas (đen/trắng tuyệt đối)
-  putBinaryToCanvas(ctx, w, h, bin);
 }
