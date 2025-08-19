@@ -20,7 +20,7 @@ const HYSTERESIS_MIN_NEIGHBORS = 2; // 1=dày, 2=mảnh hơn, 3=mảnh nữa
 
 // ✅ cấu hình mịn nét (anti-alias)
 const AA_SCALE   = 1;    // 2 hoặc 3 (2 thường là đủ mịn)
-const AA_BLUR_PX = 0.5;  // 0.4–0.6 là đẹp; 0 = tắt blur tinh chỉnh
+const AA_BLUR_PX = 0.3;  // 0.4–0.6 là đẹp; 0 = tắt blur tinh chỉnh
 
 // ---------- State ----------
 let currentColor = "#000000";
@@ -932,16 +932,20 @@ function normalizeLineartBW(ctx, w, h) {
   let outBlack = new Uint8Array(hardBlack);
   const N = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
   for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const p = y * w + x;
-      if (hardBlack[p] || hardWhite[p]) continue;
-      for (const [dx, dy] of N) {
-        const nx = x + dx, ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        if (hardBlack[ny * w + nx]) { outBlack[p] = 1; break; }
-      }
+  for (let x = 0; x < w; x++) {
+    const p = y * w + x;
+    if (hardBlack[p] || hardWhite[p]) continue;
+
+    let cnt = 0;
+    for (const [dx, dy] of N) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      if (hardBlack[ny * w + nx]) { cnt++; if (cnt >= HYSTERESIS_MIN_NEIGHBORS) break; }
     }
+    if (cnt >= HYSTERESIS_MIN_NEIGHBORS) outBlack[p] = 1;
   }
+}
+
 
   // 3a) (tuỳ chọn) nở nét 1px để bịt khe cực nhỏ
   if (DILATE_RADIUS > 0) {
