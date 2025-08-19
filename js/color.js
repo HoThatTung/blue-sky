@@ -1,4 +1,4 @@
-// ====================== Canvas Coloring (2-layer, keep features) ======================
+// ====================== Canvas Coloring (2-layer, finalized) ======================
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -41,8 +41,7 @@ colors.forEach((color, i) => {
   div.dataset.color = color;
   if (i === 0) {
     div.classList.add("selected");
-    // dùng hàm setCurrentColor để chặn đen tuyệt đối
-    setCurrentColor(color);
+    setCurrentColor(color); // dùng hàm chặn đen tuyệt đối
   }
   palette.appendChild(div);
 });
@@ -175,6 +174,7 @@ function getCanvasCoords(e) {
 
 // ----------------- Drawing (brush / eraser) -----------------
 function drawAt(e) {
+  ensureLayersInitialized(); // đảm bảo layer có kích thước
   const { x, y } = getCanvasCoords(e);
   paintCtx.save();
   if (mode === "eraser") {
@@ -225,6 +225,7 @@ canvas.addEventListener("touchend", () => isDrawing = false);
 // ----------------- Fill -----------------
 canvas.addEventListener("click", (e) => {
   if (mode === "fill") {
+    ensureLayersInitialized(); // đảm bảo layer đã sẵn sàng
     const { x, y } = getCanvasCoords(e);
     saveState(); // lưu paint layer
     floodFillMasked(x, y, hexToRgba(currentColor)); // fill vào paint, bỏ qua nét đen
@@ -238,11 +239,21 @@ function hexToRgba(hex) {
 
 // Flood-fill trên paint layer, dựa trên màu composite và KHÔNG tô vào pixel đen của base
 function floodFillMasked(x, y, fillColor) {
+  ensureLayersInitialized();
+
   const w = paintCanvas.width, h = paintCanvas.height;
   if (w === 0 || h === 0) return;
 
-  const baseID = baseCtx.getImageData(0, 0, w, h);
-  const paintID = paintCtx.getImageData(0, 0, w, h);
+  let baseID, paintID;
+  try {
+    baseID = baseCtx.getImageData(0, 0, w, h);
+    paintID = paintCtx.getImageData(0, 0, w, h);
+  } catch (err) {
+    console.error(err);
+    alert("Không thể tô màu do ảnh bị chặn đọc pixel (CORS). Hãy dùng ảnh cùng domain hoặc bật CORS/crossOrigin='anonymous'.");
+    return;
+  }
+
   const baseData = baseID.data;
   const pData = paintID.data;
 
@@ -304,12 +315,12 @@ function floodFillMasked(x, y, fillColor) {
 
 // ----------------- Undo / Redo (lưu paint layer) -----------------
 function saveState() {
+  ensureLayersInitialized();
   if (paintCanvas.width === 0 || paintCanvas.height === 0) return;
   try {
     undoStack.push(paintCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height));
     redoStack = [];
   } catch (e) {
-    // có thể bị SecurityError nếu ảnh cross-origin không cho phép
     console.warn("saveState failed:", e);
   }
 }
@@ -752,6 +763,9 @@ function initMenuButton() {
 window.addEventListener("DOMContentLoaded", () => {
   initMenuButton();
 
+  // đảm bảo có layer trắng để vẽ ngay cả khi chưa load ảnh
+  ensureLayersInitialized();
+
   const params = new URLSearchParams(window.location.search);
   const imageUrl = params.get("img");
 
@@ -777,6 +791,31 @@ function composite() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(paintCanvas, 0, 0);
   ctx.drawImage(baseCanvas, 0, 0);
+}
+
+// NEW: đảm bảo layer đã khởi tạo kích thước để vẽ/fill được ngay
+function ensureLayersInitialized() {
+  if (paintCanvas.width === 0 || paintCanvas.height === 0) {
+    const w = +(
+      canvas.width ||
+      canvas.getAttribute('width') ||
+      canvas.clientWidth ||
+      1024
+    );
+    const h = +(
+      canvas.height ||
+      canvas.getAttribute('height') ||
+      canvas.clientHeight ||
+      768
+    );
+    resizeLayers(w, h);
+
+    // Base trắng tuyệt đối
+    baseCtx.fillStyle = "#FFFFFF";
+    baseCtx.fillRect(0, 0, w, h);
+
+    composite();
+  }
 }
 
 function loadImageIntoLayers(image) {
