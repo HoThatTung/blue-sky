@@ -9,12 +9,14 @@ if (canvas && canvas.style) {
 }
 
 // ---------- Config cho chuẩn hoá & bảo vệ nét ----------
-const T_HIGH = 190;      // pixel tối hơn => chắc chắn là "đen"
+const T_HIGH = 175;      // pixel tối hơn => chắc chắn là "đen"
 const T_LOW  = 235;      // pixel sáng hơn => chắc chắn là "trắng"
 const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 
 // ✅ Làm mảnh nét (mask erosion). 0=tắt, 1=ăn mòn ~1px, 2=mảnh hơn nữa.
 const ERODE_RADIUS = 0;
+// Hysteresis: số hàng xóm đen tối thiểu để xám nhập vào đen
+const HYSTERESIS_MIN_NEIGHBORS = 2; // 1=dày, 2=mảnh hơn, 3=mảnh nữa
 
 // ✅ cấu hình mịn nét (anti-alias)
 const AA_SCALE   = 1;    // 2 hoặc 3 (2 thường là đủ mịn)
