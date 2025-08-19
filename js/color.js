@@ -22,6 +22,9 @@ let redoStack = [];
 
 let originalImageName = "";
 
+// ✅ mới: lưu điểm trước đó để nội suy nét
+let lastPt = null;
+
 const colors = [
   "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
   "#FFFF00", "#000000", "#808080", "#C0C0C0", "#FFFFFF",
@@ -167,20 +170,50 @@ function getCanvasCoords(e) {
   return { x, y };
 }
 
-// ----------------- Drawing (brush / eraser) – bảo vệ nét đen -----------------
+// ----------------- Brush / Eraser – nội suy để không hở nét -----------------
+
+// ✅ mới: nội suy các dấu giữa 2 điểm để liền mạch khi vẽ nhanh
+function strokeFromTo(x0, y0, x1, y1, radius, rgba, isErase=false) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const dist = Math.hypot(dx, dy);
+  if (dist === 0) {
+    paintCircleOnMain(x1, y1, radius, rgba, isErase);
+    return;
+  }
+  // bước nội suy: nhỏ hơn => mượt hơn (0.4–0.6*radius là hợp lý)
+  const step = Math.max(1, radius * 0.5);
+  const n = Math.ceil(dist / step);
+  for (let i = 1; i <= n; i++) {
+    const t = i / n;
+    const x = x0 + dx * t;
+    const y = y0 + dy * t;
+    paintCircleOnMain(x, y, radius, rgba, isErase);
+  }
+}
+
 function drawAt(e) {
   ensureInitialized();
   const { x, y } = getCanvasCoords(e);
   const isErase = (mode === "eraser");
   const rgba = isErase ? [255, 255, 255, 255] : hexToRgba(currentColor);
-  paintCircleOnMain(x, y, brushSize, rgba, isErase);
-  // Không cần composite vì 1 layer
+
+  if (!lastPt) {
+    // chấm đầu nét
+    paintCircleOnMain(x, y, brushSize, rgba, isErase);
+    lastPt = { x, y };
+  } else {
+    // nội suy giữa điểm trước và điểm hiện tại
+    strokeFromTo(lastPt.x, lastPt.y, x, y, brushSize, rgba, isErase);
+    lastPt = { x, y };
+  }
 }
 
+// Handlers vẽ (reset lastPt để bắt đầu nét mới)
 canvas.addEventListener("mousedown", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
     saveState();
+    lastPt = null; // reset
     drawAt(e);
   }
 });
@@ -189,13 +222,14 @@ canvas.addEventListener("mousemove", (e) => {
     drawAt(e);
   }
 });
-canvas.addEventListener("mouseup", () => isDrawing = false);
-canvas.addEventListener("mouseleave", () => isDrawing = false);
+canvas.addEventListener("mouseup", () => { isDrawing = false; lastPt = null; });
+canvas.addEventListener("mouseleave", () => { isDrawing = false; lastPt = null; });
 
 canvas.addEventListener("touchstart", (e) => {
   if (mode === "brush" || mode === "eraser") {
     isDrawing = true;
     saveState();
+    lastPt = null; // reset
     drawAt(e);
     e.preventDefault();
   }
@@ -206,7 +240,7 @@ canvas.addEventListener("touchmove", (e) => {
     e.preventDefault();
   }
 }, { passive: false });
-canvas.addEventListener("touchend", () => isDrawing = false);
+canvas.addEventListener("touchend", () => { isDrawing = false; lastPt = null; });
 
 // ----------------- Fill – bảo vệ nét đen -----------------
 canvas.addEventListener("click", (e) => {
