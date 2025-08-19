@@ -339,3 +339,27 @@ function submitOrder(card) {
   })
   .catch(() => alert("❌ Có lỗi xảy ra khi gửi đơn hàng."));
 }
+function updateToggleButtons() {
+  toggleContainer.innerHTML = "";
+
+  if (renderedCount < productList.length) {
+    const showMoreBtn = document.createElement("button");
+    showMoreBtn.className = "toggle-btn show-more"; // mặc định là nút đặc (primary)
+    showMoreBtn.textContent = "Xem thêm";
+    showMoreBtn.onclick = renderProducts;
+    toggleContainer.appendChild(showMoreBtn);
+  }
+
+  if (renderedCount > MAX_VISIBLE) {
+    const collapseBtn = document.createElement("button");
+    // ✅ thêm biến thể ghost cho Thu gọn
+    collapseBtn.className = "toggle-btn toggle-btn--ghost collapse";
+    collapseBtn.textContent = "🔼 Thu gọn";
+    collapseBtn.onclick = () => {
+      container.innerHTML = "";
+      renderedCount = 0;
+      renderProducts();
+    };
+    toggleContainer.appendChild(collapseBtn);
+  }
+}
