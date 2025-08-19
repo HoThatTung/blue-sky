@@ -18,6 +18,7 @@ const AA_EDGE_HARDEN_THR = 0.55; // mép > ngưỡng => coi như alpha=1 (đậm
 const FILL_TOLERANCE = 48;       // ngưỡng so màu khi flood-fill
 const FILL_GROW_RADIUS = 1;      // nở kết quả fill vào lòng 0..1 px
 const FILL_BARRIER_RADIUS = 1;   // nở mask chặn để che khe nhỏ
+const ERODE_RADIUS = 1; // 0..2 | 1 = mảnh đi ~1px quanh viền
 
 // Ràng buộc fill theo nét (alpha của line layer)
 const BARRIER_ALPHA_THR    = 1;  // >0 coi là “tường”
@@ -705,6 +706,32 @@ function loadImageToLayers(image) {
 
   // Chuẩn hoá thành line mask nhị phân
   lineMask = buildLineMaskFromImage(image);
+if (ERODE_RADIUS > 0) {
+  lineMask = erodeMask(lineMask, lineCanvas.width, lineCanvas.height, ERODE_RADIUS);
+}
+
+  function erodeMask(mask, w, h, r = 1) {
+  if (!mask || r <= 0) return mask;
+  const out = new Uint8Array(mask); // copy
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (mask[p] !== 1) { out[p] = 0; continue; }
+      // pixel biên: nếu có hàng xóm 0 trong phạm vi r => xóa (mòn)
+      let keep = true;
+      for (let dy = -r; dy <= r && keep; dy++) {
+        for (let dx = -r; dx <= r && keep; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) { keep = false; break; }
+          if (mask[ny * w + nx] === 0) keep = false;
+        }
+      }
+      out[p] = keep ? 1 : 0;
+    }
+  }
+  return out;
+}
+
   // Render line layer mượt (alpha chỉ ở mép, nền alpha=0, lõi alpha=1)
   renderLineLayerFromMask(lineMask, lineCanvas.width, lineCanvas.height, 3);
 
