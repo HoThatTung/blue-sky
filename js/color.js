@@ -1,5 +1,17 @@
+// ====================== Canvas Coloring (2-layer, keep features) ======================
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+
+// ---------- NEW: 2 offscreen layers ----------
+const baseCanvas = document.createElement("canvas");      // lineart (black/white)
+const baseCtx = baseCanvas.getContext("2d");
+const paintCanvas = document.createElement("canvas");     // painting layer
+const paintCtx = paintCanvas.getContext("2d");
+
+// ---------- Config for binarize & stroke ----------
+const THRESH = 200;        // 0..255: lower => more black. Tùy chỉnh theo ảnh nguồn
+const STROKE_DILATE = 1;   // 0 = không nở nét; 1..2 thường là ổn
 
 let currentColor = "#000000";
 let img = new Image();
@@ -29,19 +41,30 @@ colors.forEach((color, i) => {
   div.dataset.color = color;
   if (i === 0) {
     div.classList.add("selected");
-    currentColor = color;
+    // dùng hàm setCurrentColor để chặn đen tuyệt đối
+    setCurrentColor(color);
   }
   palette.appendChild(div);
 });
+
+// Không cho màu tô là đen tuyệt đối
+function setCurrentColor(hex) {
+  const val = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (/^0{6}$/i.test(val)) {
+    currentColor = "#111111"; // thay thế an toàn
+  } else {
+    currentColor = "#" + val.toUpperCase();
+  }
+}
 
 // Gán click cho mỗi ô màu trong palette
 document.querySelectorAll(".color").forEach(el => {
   el.addEventListener("click", () => {
     document.querySelectorAll(".color").forEach(c => c.classList.remove("selected"));
     el.classList.add("selected");
-    currentColor = el.dataset.color;
+    setCurrentColor(el.dataset.color);
 
-    // Nếu đang ở mode text và có text-box đang chọn, đổi màu ngay (vá nhanh)
+    // Nếu đang ở mode text và có text-box đang chọn, đổi màu ngay
     if (mode === "text" && currentTextBox) {
       const content = currentTextBox.querySelector(".text-content");
       if (content) content.style.color = currentColor;
@@ -49,13 +72,13 @@ document.querySelectorAll(".color").forEach(el => {
   });
 });
 
+// ----------------- Mode buttons -----------------
 document.getElementById("fillModeBtn").addEventListener("click", () => {
   updateModeButtons("fill");
 });
 
 function updateModeButtons(newMode = null) {
   mode = newMode;
-
   document.querySelectorAll(".mode-btn").forEach(btn => btn.classList.remove("active"));
 
   if (mode === "fill") {
@@ -76,36 +99,39 @@ document.getElementById("textModeBtn").addEventListener("click", () => {
 });
 
 document.getElementById("brushModeBtn").addEventListener("click", () => {
-  updateModeButtons("brush"); // ✅ Truyền đúng mode
+  updateModeButtons("brush");
 });
 
 document.getElementById("eraserModeBtn").addEventListener("click", () => {
-  updateModeButtons("eraser"); // ✅ Truyền đúng mode
+  updateModeButtons("eraser");
 });
 
 document.getElementById("brushSizeSelect").addEventListener("change", function () {
   brushSize = parseFloat(this.value);
 });
 
+// ----------------- Image select / upload -----------------
+const imageSelect = document.getElementById("imageSelect");
+
 document.getElementById("imageSelect").addEventListener("change", function () {
   const selectedImage = this.value;
-  img = new Image();
-  img.onload = () => {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0);
-  };
-  img.src = selectedImage;
-  document.getElementById("uploadInput").value = "";
-  undoStack = [];
-  redoStack = [];
-  originalImageName = selectedImage.split('/').pop();
-  updateSelectStyle();
+  if (!selectedImage) return;
 
-  // 👉 Vá nhanh: chỉ show nếu tồn tại phần tử
-  const kiteLabel = document.getElementById("kite-label-input");
-  if (kiteLabel) kiteLabel.style.display = "block";
+  const localImg = new Image();
+  localImg.onload = () => {
+    loadImageIntoLayers(localImg);
+    undoStack = [];
+    redoStack = [];
+    originalImageName = selectedImage.split('/').pop();
+    updateSelectStyle();
+
+    // show optional label if exists
+    const kiteLabel = document.getElementById("kite-label-input");
+    if (kiteLabel) kiteLabel.style.display = "block";
+  };
+  localImg.src = selectedImage;
+
+  document.getElementById("uploadInput").value = "";
 });
 
 document.getElementById("uploadInput").addEventListener("change", function (e) {
@@ -113,23 +139,21 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function (event) {
-    img = new Image();
-    img.onload = function () {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
+    const upImg = new Image();
+    upImg.onload = function () {
+      loadImageIntoLayers(upImg);
       undoStack = [];
       redoStack = [];
       originalImageName = file.name;
       document.getElementById("imageSelect").selectedIndex = 0;
       updateSelectStyle();
     };
-    img.src = event.target.result;
+    upImg.src = event.target.result;
   };
   reader.readAsDataURL(file);
 });
 
+// ----------------- Coordinate helpers -----------------
 function getCanvasCoords(e) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
@@ -149,12 +173,22 @@ function getCanvasCoords(e) {
   return { x, y };
 }
 
+// ----------------- Drawing (brush / eraser) -----------------
 function drawAt(e) {
   const { x, y } = getCanvasCoords(e);
-  ctx.fillStyle = mode === "eraser" ? "#ffffff" : currentColor;
-  ctx.beginPath();
-  ctx.arc(x, y, brushSize, 0, Math.PI * 2);
-  ctx.fill();
+  paintCtx.save();
+  if (mode === "eraser") {
+    paintCtx.globalCompositeOperation = "destination-out";
+    paintCtx.fillStyle = "rgba(0,0,0,1)";
+  } else {
+    paintCtx.globalCompositeOperation = "source-over";
+    paintCtx.fillStyle = currentColor;
+  }
+  paintCtx.beginPath();
+  paintCtx.arc(x, y, brushSize, 0, Math.PI * 2);
+  paintCtx.fill();
+  paintCtx.restore();
+  composite();
 }
 
 canvas.addEventListener("mousedown", (e) => {
@@ -188,11 +222,12 @@ canvas.addEventListener("touchmove", (e) => {
 }, { passive: false });
 canvas.addEventListener("touchend", () => isDrawing = false);
 
+// ----------------- Fill -----------------
 canvas.addEventListener("click", (e) => {
   if (mode === "fill") {
     const { x, y } = getCanvasCoords(e);
-    saveState();
-    floodFill(x, y, hexToRgba(currentColor));
+    saveState(); // lưu paint layer
+    floodFillMasked(x, y, hexToRgba(currentColor)); // fill vào paint, bỏ qua nét đen
   }
 });
 
@@ -201,73 +236,114 @@ function hexToRgba(hex) {
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
 
-function floodFill(x, y, fillColor) {
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-  const width = imageData.width;
-  const height = imageData.height;
-  const stack = [[x, y]];
-  const baseIdx = (y * width + x) * 4;
-  const startColor = data.slice(baseIdx, baseIdx + 4);
+// Flood-fill trên paint layer, dựa trên màu composite và KHÔNG tô vào pixel đen của base
+function floodFillMasked(x, y, fillColor) {
+  const w = paintCanvas.width, h = paintCanvas.height;
+  if (w === 0 || h === 0) return;
+
+  const baseID = baseCtx.getImageData(0, 0, w, h);
+  const paintID = paintCtx.getImageData(0, 0, w, h);
+  const baseData = baseID.data;
+  const pData = paintID.data;
+
+  const idx0 = (y * w + x) * 4;
+
+  // Nếu click ngay trên nét đen (base) thì bỏ qua
+  if (baseData[idx0] === 0 && baseData[idx0 + 1] === 0 && baseData[idx0 + 2] === 0) return;
+
+  // Lấy màu gốc từ composite-like: ưu tiên paint nếu có alpha
+  function getCompositeRGB(i) {
+    const pa = pData[i + 3];
+    if (pa > 0) return [pData[i], pData[i + 1], pData[i + 2], pa];
+    return [baseData[i], baseData[i + 1], baseData[i + 2], baseData[i + 3]];
+  }
+
+  const startColor = getCompositeRGB(idx0);
   const tolerance = 48;
 
   const matchColor = (i) => {
-    for (let j = 0; j < 4; j++) {
-      if (Math.abs(data[i + j] - startColor[j]) > tolerance) return false;
+    // Không tô vào pixel có nét đen ở base
+    if (baseData[i] === 0 && baseData[i + 1] === 0 && baseData[i + 2] === 0) return false;
+
+    const c = getCompositeRGB(i);
+    for (let k = 0; k < 3; k++) {
+      if (Math.abs(c[k] - startColor[k]) > tolerance) return false;
     }
     return true;
   };
 
-  const colorPixel = (i) => {
-    for (let j = 0; j < 4; j++) {
-      data[i + j] = fillColor[j];
-    }
-  };
-
-  const visited = new Uint8Array(width * height);
+  const visited = new Uint8Array(w * h);
+  const stack = [[x, y]];
 
   while (stack.length) {
     const [cx, cy] = stack.pop();
-    const idx = (cy * width + cx) * 4;
-    const visitedIdx = cy * width + cx;
+    if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
 
-    if (visited[visitedIdx]) continue;
-    visited[visitedIdx] = 1;
+    const idx = (cy * w + cx) * 4;
+    const vi = cy * w + cx;
+
+    if (visited[vi]) continue;
+    visited[vi] = 1;
     if (!matchColor(idx)) continue;
-    colorPixel(idx);
 
-    if (cx > 0) stack.push([cx - 1, cy]);
-    if (cx < width - 1) stack.push([cx + 1, cy]);
-    if (cy > 0) stack.push([cx, cy - 1]);
-    if (cy < height - 1) stack.push([cx, cy + 1]);
+    // tô vào paint layer
+    pData[idx] = fillColor[0];
+    pData[idx + 1] = fillColor[1];
+    pData[idx + 2] = fillColor[2];
+    pData[idx + 3] = 255;
+
+    stack.push([cx - 1, cy]);
+    stack.push([cx + 1, cy]);
+    stack.push([cx, cy - 1]);
+    stack.push([cx, cy + 1]);
   }
 
-  ctx.putImageData(imageData, 0, 0);
+  paintCtx.putImageData(paintID, 0, 0);
+  composite();
 }
 
+// ----------------- Undo / Redo (lưu paint layer) -----------------
 function saveState() {
-  undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-  redoStack = [];
+  if (paintCanvas.width === 0 || paintCanvas.height === 0) return;
+  try {
+    undoStack.push(paintCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height));
+    redoStack = [];
+  } catch (e) {
+    // có thể bị SecurityError nếu ảnh cross-origin không cho phép
+    console.warn("saveState failed:", e);
+  }
 }
 
 document.getElementById("undoBtn").addEventListener("click", () => {
   if (undoStack.length > 0) {
-    redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    const prev = undoStack.pop();
-    ctx.putImageData(prev, 0, 0);
+    try {
+      const current = paintCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height);
+      redoStack.push(current);
+      const prev = undoStack.pop();
+      paintCtx.putImageData(prev, 0, 0);
+      composite();
+    } catch (e) {
+      console.warn("undo failed:", e);
+    }
   }
 });
 
 document.getElementById("redoBtn").addEventListener("click", () => {
   if (redoStack.length > 0) {
-    undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    const next = redoStack.pop();
-    ctx.putImageData(next, 0, 0);
+    try {
+      const current = paintCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height);
+      undoStack.push(current);
+      const next = redoStack.pop();
+      paintCtx.putImageData(next, 0, 0);
+      composite();
+    } catch (e) {
+      console.warn("redo failed:", e);
+    }
   }
 });
 
+// ----------------- Download (re-composite + text + logo) -----------------
 document.getElementById("downloadBtn").addEventListener("click", () => {
-  // ✅ Vá nhanh: chỉ khai báo isIOS 1 lần (không lồng thêm bên dưới)
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const logo = new Image();
   logo.src = "images/logo.webp";
@@ -279,10 +355,11 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
 
-    // 1. Vẽ nền chính
-    tempCtx.drawImage(canvas, 0, 0);
+    // 1) Re-composite: paint dưới, base trên
+    tempCtx.drawImage(paintCanvas, 0, 0);
+    tempCtx.drawImage(baseCanvas, 0, 0);
 
-    // 2. Vẽ các text-box
+    // 2) Vẽ text-box DOM lên
     document.querySelectorAll(".text-box").forEach(box => {
       const content = box.querySelector(".text-content");
       const text = content.innerText;
@@ -318,7 +395,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
       tempCtx.restore();
     });
 
-    // 3. Vẽ logo
+    // 3) Vẽ logo
     const logoHeight = 30;
     const scale = logoHeight / logo.height;
     const logoWidth = logo.width * scale;
@@ -326,7 +403,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     const y = canvas.height - logoHeight - 10;
     tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-    // 4. Tải về
+    // 4) Tải về
     if (isIOS) {
       const win = window.open("about:blank", "_blank");
       win.document.write(`<img src="${tempCanvas.toDataURL("image/png")}" style="max-width:100%;"/>`);
@@ -348,6 +425,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   logo.onerror = () => alert("Không thể tải logo từ images/logo.webp");
 });
 
+// ----------------- Text box DOM (giữ nguyên tính năng) -----------------
 function addTextBoxCentered() {
   if (!canvas) return;
 
@@ -362,7 +440,7 @@ function addTextBoxCentered() {
   content.className = "text-content";
   content.contentEditable = "true";
   content.spellcheck = false;
-  content.style.minWidth = "1ch"; // tránh co rút
+  content.style.minWidth = "1ch";
   content.style.width = "100%";
 
   box.appendChild(content);
@@ -372,12 +450,11 @@ function addTextBoxCentered() {
   content.style.color = currentColor;
   makeTextBoxDraggable(box);
   enableResize(box);
-  enableRotate(box); 
+  enableRotate(box);
 
   currentTextBox = box;
   box.addEventListener("click", () => {
     currentTextBox = box;
-
     if (mode === "text" && currentTextBox) {
       const content = currentTextBox.querySelector(".text-content");
       if (content) content.style.color = currentColor;
@@ -420,7 +497,7 @@ function makeTextBoxDraggable(box) {
     e.preventDefault();
   }, { passive: false });
 
-  // Di chuyển (cả desktop + mobile)
+  // Move
   function handleMove(clientX, clientY) {
     const wrapperRect = document.querySelector(".canvas-wrapper").getBoundingClientRect();
     box.style.left = `${clientX - wrapperRect.left - offsetX}px`;
@@ -526,17 +603,6 @@ function enableResize(textBox) {
   document.addEventListener("touchend", onResizeEnd);
 }
 
-function initMenuButton() {
-  const menuBtn = document.getElementById("menuToggle");
-  const nav = document.getElementById("mainNav");
-  if (menuBtn && nav && !menuBtn.dataset.bound) {
-    menuBtn.addEventListener("click", () => {
-      nav.classList.toggle("open");
-    });
-    menuBtn.dataset.bound = "true";
-  }
-}
-
 function applyTransform(box) {
   const angle = parseFloat(box.dataset.rotation || "0");
   const scaleX = parseFloat(box.dataset.scaleX || "1");
@@ -618,11 +684,8 @@ function handleTextBoxSelection(e) {
   const box = e.target.closest(".text-box");
   if (box) {
     currentTextBox = box;
-
     const content = currentTextBox.querySelector(".text-content");
-    if (content) {
-      content.style.color = currentColor;
-    }
+    if (content) content.style.color = currentColor;
   }
 }
 
@@ -651,9 +714,7 @@ document.getElementById("deleteTextBtn").addEventListener("click", () => {
   }
 });
 
-const imageSelect = document.getElementById("imageSelect");
-
-// ✅ Vá nhanh: gộp 1 bản duy nhất & an toàn (tự lấy phần tử theo id)
+// ----------------- Select style (1 bản duy nhất) -----------------
 function updateSelectStyle() {
   const el = document.getElementById("imageSelect");
   if (!el) return;
@@ -661,7 +722,6 @@ function updateSelectStyle() {
   el.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
   el.style.fontStyle = isPlaceholder ? "italic" : "normal";
 
-  // nếu dùng class hiệu ứng chọn
   if (!isPlaceholder) {
     el.classList.add("selected-kite");
   } else {
@@ -677,7 +737,18 @@ imageSelect.addEventListener("change", () => {
   setTimeout(() => imageSelect.classList.remove("pop"), 200);
 });
 
-// Khởi tạo 1 lần khi DOM sẵn sàng: menu + nạp ảnh từ ?img=...
+// ----------------- Menu init + load by ?img= -----------------
+function initMenuButton() {
+  const menuBtn = document.getElementById("menuToggle");
+  const nav = document.getElementById("mainNav");
+  if (menuBtn && nav && !menuBtn.dataset.bound) {
+    menuBtn.addEventListener("click", () => {
+      nav.classList.toggle("open");
+    });
+    menuBtn.dataset.bound = "true";
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   initMenuButton();
 
@@ -688,10 +759,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const imgFromUrl = new Image();
     imgFromUrl.crossOrigin = "anonymous"; // cần nếu ảnh từ ngoài domain
     imgFromUrl.onload = () => {
-      canvas.width = imgFromUrl.width;
-      canvas.height = imgFromUrl.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(imgFromUrl, 0, 0);
+      loadImageIntoLayers(imgFromUrl);
       undoStack = [];
       redoStack = [];
       originalImageName = imageUrl.split("/").pop();
@@ -699,3 +767,79 @@ window.addEventListener("DOMContentLoaded", () => {
     imgFromUrl.src = imageUrl;
   }
 });
+
+// ======================  Helpers cho 2-layer & binarize  ======================
+function resizeLayers(w, h) {
+  [canvas, baseCanvas, paintCanvas].forEach(c => { c.width = w; c.height = h; });
+}
+
+function composite() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(paintCanvas, 0, 0);
+  ctx.drawImage(baseCanvas, 0, 0);
+}
+
+function loadImageIntoLayers(image) {
+  resizeLayers(image.width, image.height);
+
+  // tắt smoothing để không làm mềm mép
+  baseCtx.imageSmoothingEnabled = false;
+  paintCtx.imageSmoothingEnabled = false;
+
+  paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+
+  baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
+  baseCtx.drawImage(image, 0, 0);
+  toPureBWAndThicken(baseCtx, baseCanvas.width, baseCanvas.height);
+
+  composite();
+}
+
+// Biến ảnh thành nền trắng tuyệt đối & nét đen tuyệt đối; có thể nở nét
+function toPureBWAndThicken(ctxSrc, w, h) {
+  const id = ctxSrc.getImageData(0, 0, w, h);
+  const d = id.data;
+
+  // 1) Binarize: trắng #FFFFFF hoặc đen #000000
+  for (let i = 0; i < d.length; i += 4) {
+    const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    if (y < THRESH) {
+      d[i] = d[i + 1] = d[i + 2] = 0;
+      d[i + 3] = 255;
+    } else {
+      d[i] = d[i + 1] = d[i + 2] = 255;
+      d[i + 3] = 255;
+    }
+  }
+
+  // 2) Dilate nét đen (8-neighbor)
+  if (STROKE_DILATE > 0) {
+    const bin = new Uint8Array(w * h);
+    for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+      bin[p] = (d[i] === 0) ? 1 : 0;
+    }
+    const out = new Uint8Array(bin);
+    const R = STROKE_DILATE;
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        if (bin[idx]) continue;
+        let touch = false;
+        for (let dy = -R; dy <= R && !touch; dy++) {
+          for (let dx = -R; dx <= R && !touch; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            if (bin[ny * w + nx]) touch = true;
+          }
+        }
+        if (touch) out[idx] = 1;
+      }
+    }
+    for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+      if (out[p]) { d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = 255; }
+    }
+  }
+
+  ctxSrc.putImageData(id, 0, 0);
+}
