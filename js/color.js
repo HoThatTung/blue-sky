@@ -14,7 +14,13 @@ const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
 const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 
 // ✅ cấu hình mịn nét (anti-alias)
-const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
+// ✅ cấu hình mịn nét (anti-alias)
+const AA_SCALE = 2;           // 2 hoặc 3 (3 mịn hơn nhưng nặng hơn)
+const AA_BLUR_PX = 0.7;       // độ blur ở không gian upsample (0.5–1.2 là hợp lý)
+const AA_ALPHA_GAMMA = 0.55;  // <1 tăng alpha mép (0.5–0.7)
+const AA_EDGE_MIN = 96;       // alpha tối thiểu cho mép (≈ 96/255 ~ 38%)
+const AA_EDGE_HARDEN_THR = 0.80; // >0.8 coi như alpha=1 (lõi đậm)
+
 
 // ---------- State ----------
 let currentColor = "#000000";
@@ -943,8 +949,9 @@ function normalizeLineartBW(ctx, w, h) {
 }
 
 // === Vẽ mịn từ lineMask: upsample (no smoothing) -> downsample (smoothing) ===
-function renderLineartAAFromMask(mask, w, h, scale = 2) {
-  // temp canvas ở kích thước gốc để đổ mask nhị phân
+// === Vẽ mịn từ lineMask: upsample -> blur -> downsample (gamma/harden mép) ===
+function renderLineartAAFromMask(mask, w, h, scale = AA_SCALE) {
+  // 1) mask -> canvas nhị phân (đen/trắng)
   const src = document.createElement('canvas');
   src.width = w; src.height = h;
   const sctx = src.getContext('2d');
@@ -957,21 +964,51 @@ function renderLineartAAFromMask(mask, w, h, scale = 2) {
   }
   sctx.putImageData(id, 0, 0);
 
-  // phóng to không làm mượt
+  // 2) Upsample KHÔNG smoothing (giữ rìa chính xác theo mask)
   const up = document.createElement('canvas');
-  up.width = w * scale;
-  up.height = h * scale;
+  up.width = w * scale; up.height = h * scale;
   const uctx = up.getContext('2d');
   uctx.imageSmoothingEnabled = false;
   uctx.drawImage(src, 0, 0, up.width, up.height);
 
-  // vẽ về kích thước gốc có smoothing => cạnh mịn
-  ctx.imageSmoothingEnabled = true;
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.fillRect(0, 0, w, h);
-  ctx.drawImage(up, 0, 0, w, h);
+  // 3) Blur nhẹ ở không gian upsample để tạo subpixel coverage mượt
+  const bl = document.createElement('canvas');
+  bl.width = up.width; bl.height = up.height;
+  const bctx = bl.getContext('2d');
+  bctx.filter = `blur(${Math.max(0.4, AA_BLUR_PX * scale)}px)`;
+  bctx.drawImage(up, 0, 0);
 
-  // 🔧 reset smoothing để các thao tác sau không bị ảnh hưởng
+  // 4) Downsample về kích thước gốc với chất lượng cao
+  ctx.imageSmoothingEnabled = true;
+  if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(bl, 0, 0, w, h);
+
+  // 5) Hậu xử lý: gamma/harden để lõi đậm, mép mịn (không “bạc màu”)
+  let out;
+  try { out = ctx.getImageData(0, 0, w, h); } catch { return; }
+  const d = out.data;
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    // Luminance 0..255 rồi đổi thành "coverage" (alpha 0..1)
+    const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    let a = 1 - lum / 255;
+
+    if (mask[p] === 1) {
+      a = 1; // lõi mask luôn đen tuyệt đối
+    } else {
+      a = Math.pow(a, AA_ALPHA_GAMMA);                  // boost alpha mép
+      if (a > AA_EDGE_HARDEN_THR) a = 1;               // mép đủ đậm -> chốt đen
+      else if (a < AA_EDGE_MIN / 255) a = 0;           // mép quá nhạt -> trắng
+    }
+    const c = Math.round((1 - a) * 255);               // chuyển alpha về xám đen
+    d[i] = d[i+1] = d[i+2] = c;
+    d[i+3] = 255;
+  }
+  ctx.putImageData(out, 0, 0);
+
+  // 6) Reset để các thao tác tô/vẽ sau không bị làm mượt ngoài ý muốn
   ctx.imageSmoothingEnabled = false;
 }
+
