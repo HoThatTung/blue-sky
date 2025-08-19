@@ -14,7 +14,7 @@ const DILATE_RADIUS = 0;            // nở nét (0..2) ở mask gốc (không b
 // AA (anti-alias) cho lineLayer
 const AA_BLUR_PX       = 0.9;       // blur nhẹ ở không gian upsample
 const AA_ALPHA_GAMMA   = 0.60;      // <1 làm alpha đậm hơn (nét đen hơn, biên vẫn mượt)
-const AA_ALPHA_MIN     = 22;        // alpha tối thiểu (0..255) để tránh xám quá
+const AA_EDGE_MIN      = 8; 
 const UPSCALE_LIMIT_MP = 12_000_000;// giới hạn số pixel sau upsample (~12MP)
 
 // ---------- Flood-fill kín mép ----------
@@ -761,49 +761,69 @@ function dilateMask(src, w, h, R=1) {
 }
 
 // === Dựng lineLayer: upsample -> blur -> downsample -> grayscale->alpha (gamma) ===
-function renderLineLayerFromMask(mask, w, h, scale=3){
-  // mask -> canvas nhị phân (đen/ trắng)
-  const src = document.createElement('canvas'); src.width=w; src.height=h;
+function renderLineLayerFromMask(mask, w, h, scale = 3) {
+  // 1) mask -> canvas nhị phân (đen/trắng)
+  const src = document.createElement('canvas');
+  src.width = w; src.height = h;
   const sctx = src.getContext('2d');
-  const id = sctx.createImageData(w,h); const dd = id.data;
-  for(let p=0,i=0;p<w*h;p++,i+=4){
-    const black = mask[p]===1;
-    dd[i]=dd[i+1]=dd[i+2]= black?0:255;
-    dd[i+3]=255;
+  const id = sctx.createImageData(w, h);
+  const dd = id.data;
+  for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+    const black = mask[p] === 1;
+    dd[i] = dd[i + 1] = dd[i + 2] = black ? 0 : 255;
+    dd[i + 3] = 255;
   }
-  sctx.putImageData(id,0,0);
+  sctx.putImageData(id, 0, 0);
 
-  // upsample không smoothing
-  const up = document.createElement('canvas'); up.width=w*scale; up.height=h*scale;
+  // 2) Upsample không smoothing
+  const up = document.createElement('canvas');
+  up.width = w * scale; up.height = h * scale;
   const uctx = up.getContext('2d');
   uctx.imageSmoothingEnabled = false;
-  uctx.drawImage(src,0,0,up.width,up.height);
+  uctx.drawImage(src, 0, 0, up.width, up.height);
 
-  // blur nhẹ
-  const bl = document.createElement('canvas'); bl.width=up.width; bl.height=up.height;
+  // 3) Blur nhẹ
+  const bl = document.createElement('canvas');
+  bl.width = up.width; bl.height = up.height;
   const bctx = bl.getContext('2d');
-  bctx.filter = `blur(${Math.max(0.6, AA_BLUR_PX*scale)}px)`;
-  bctx.drawImage(up,0,0);
+  bctx.filter = `blur(${Math.max(0.6, AA_BLUR_PX * scale)}px)`;
+  bctx.drawImage(up, 0, 0);
 
-  // downsample về lineCanvas
-  lineCtx.clearRect(0,0,w,h);
+  // 4) Downsample về lineCanvas (có smoothing chất lượng cao)
+  lineCtx.clearRect(0, 0, w, h);
   lineCtx.imageSmoothingEnabled = true;
-  if ('imageSmoothingQuality' in lineCtx) lineCtx.imageSmoothingQuality='high';
-  lineCtx.drawImage(bl,0,0,w,h);
+  if ('imageSmoothingQuality' in lineCtx) lineCtx.imageSmoothingQuality = 'high';
+  lineCtx.drawImage(bl, 0, 0, w, h);
 
-  // grayscale -> alpha (gamma)
+  // 5) Grayscale -> Alpha (gamma), NỀN = alpha 0, LÕI NÉT = alpha 1
   let lid;
-  try { lid = lineCtx.getImageData(0,0,w,h); }
-  catch(e){ console.error(e); return; }
+  try { lid = lineCtx.getImageData(0, 0, w, h); }
+  catch (e) { console.error(e); return; }
   const ld = lid.data;
-  for(let i=0;i<ld.length;i+=4){
-    const lum = 0.299*ld[i] + 0.587*ld[i+1] + 0.114*ld[i+2]; // 0..255
+
+  for (let i = 0; i < ld.length; i += 4) {
+    const p = (i >> 2);
+    const lum = 0.299 * ld[i] + 0.587 * ld[i + 1] + 0.114 * ld[i + 2]; // 0..255
+    // a thô dựa trên “đen” (đen -> 1, trắng -> 0)
     let a = 1 - (lum / 255);
-    a = Math.pow(a, AA_ALPHA_GAMMA);
-    a = Math.max(AA_ALPHA_MIN/255, Math.min(1, a));
-    ld[i]=ld[i+1]=ld[i+2]=0;           // nét đen
-    ld[i+3]=Math.round(a*255);         // alpha mượt, giữa nét đậm
+
+    if (mask && mask[p] === 1) {
+      // lõi nét từ mask gốc => alpha 1 (đen đặc), tránh bị nhuộm khi tô
+      a = 1;
+    } else {
+      // vùng nền/mép: nếu rất trắng thì alpha = 0, còn lại gamma + min rất nhỏ
+      if (a <= 0.02) {           // ~5/255, coi như trắng tuyệt đối
+        a = 0;
+      } else {
+        a = Math.pow(a, AA_ALPHA_GAMMA);
+        a = Math.max(AA_EDGE_MIN / 255, Math.min(1, a));
+      }
+    }
+
+    ld[i] = ld[i + 1] = ld[i + 2] = 0;          // nét đen
+    ld[i + 3] = Math.round(a * 255);            // alpha mượt
   }
-  lineCtx.putImageData(lid,0,0);
+  lineCtx.putImageData(lid, 0, 0);
   lineCtx.imageSmoothingEnabled = false; // reset
 }
+
