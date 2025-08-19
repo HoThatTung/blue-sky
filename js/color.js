@@ -25,7 +25,7 @@ const LINE_PROTECT = {
 };
 
 // ===== tinh chỉnh fill để lấp khe trắng sát viền =====
-const FILL_TOLERANCE = 80;          // trước là 48 → tăng để ăn hết dải anti-alias
+const FILL_TOLERANCE = 70;          // trước là 48 → tăng để ăn hết dải anti-alias
 const EDGE_GROW_AFTER_FILL = 2;     // nở vùng đã tô thêm 2 vòng (1–3 tuỳ ảnh)
 
 const colors = [
