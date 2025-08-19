@@ -17,7 +17,7 @@ const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 const ERODE_RADIUS = 0;
 
 // ✅ cấu hình mịn nét (anti-alias)
-const AA_SCALE   = 2;    // 2 hoặc 3 (2 thường là đủ mịn)
+const AA_SCALE   = 1;    // 2 hoặc 3 (2 thường là đủ mịn)
 const AA_BLUR_PX = 0.5;  // 0.4–0.6 là đẹp; 0 = tắt blur tinh chỉnh
 
 // ---------- State ----------
