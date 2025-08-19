@@ -40,13 +40,14 @@ document.querySelectorAll(".color").forEach(el => {
     document.querySelectorAll(".color").forEach(c => c.classList.remove("selected"));
     el.classList.add("selected");
     currentColor = el.dataset.color;
-    // ❌ Không đổi màu ở đây nữa
+
+    // Nếu đang ở mode text và có text-box đang chọn, đổi màu ngay (vá nhanh)
+    if (mode === "text" && currentTextBox) {
+      const content = currentTextBox.querySelector(".text-content");
+      if (content) content.style.color = currentColor;
+    }
   });
 });
-
-
-
-
 
 document.getElementById("fillModeBtn").addEventListener("click", () => {
   updateModeButtons("fill");
@@ -66,10 +67,7 @@ function updateModeButtons(newMode = null) {
   } else if (mode === "text") {
     document.getElementById("textModeBtn").classList.add("active");
   }
-
-  
 }
-
 
 document.getElementById("textModeBtn").addEventListener("click", () => {
   mode = "text";
@@ -84,8 +82,6 @@ document.getElementById("brushModeBtn").addEventListener("click", () => {
 document.getElementById("eraserModeBtn").addEventListener("click", () => {
   updateModeButtons("eraser"); // ✅ Truyền đúng mode
 });
-
-
 
 document.getElementById("brushSizeSelect").addEventListener("change", function () {
   brushSize = parseFloat(this.value);
@@ -107,10 +103,10 @@ document.getElementById("imageSelect").addEventListener("change", function () {
   originalImageName = selectedImage.split('/').pop();
   updateSelectStyle();
 
-  // 👉 THÊM VÀO ĐÂY:
-  document.getElementById("kite-label-input").style.display = "block";
+  // 👉 Vá nhanh: chỉ show nếu tồn tại phần tử
+  const kiteLabel = document.getElementById("kite-label-input");
+  if (kiteLabel) kiteLabel.style.display = "block";
 });
-
 
 document.getElementById("uploadInput").addEventListener("change", function (e) {
   const file = e.target.files[0];
@@ -271,86 +267,83 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 });
 
 document.getElementById("downloadBtn").addEventListener("click", () => {
+  // ✅ Vá nhanh: chỉ khai báo isIOS 1 lần (không lồng thêm bên dưới)
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const logo = new Image();
   logo.src = "images/logo.webp";
   logo.crossOrigin = "anonymous";
 
   logo.onload = () => {
-  const tempCanvas = document.createElement("canvas");
-  const tempCtx = tempCanvas.getContext("2d");
-  tempCanvas.width = canvas.width;
-  tempCanvas.height = canvas.height;
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
 
-  // 1. Vẽ nền chính
-  tempCtx.drawImage(canvas, 0, 0);
+    // 1. Vẽ nền chính
+    tempCtx.drawImage(canvas, 0, 0);
 
-  // 2. Vẽ các text-box
-  document.querySelectorAll(".text-box").forEach(box => {
-    const content = box.querySelector(".text-content");
-    const text = content.innerText;
-    if (!text.trim()) return;
+    // 2. Vẽ các text-box
+    document.querySelectorAll(".text-box").forEach(box => {
+      const content = box.querySelector(".text-content");
+      const text = content.innerText;
+      if (!text.trim()) return;
 
-    const wrapperRect = document.querySelector(".canvas-wrapper").getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-    const boxRect = box.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      const boxRect = box.getBoundingClientRect();
 
-    // Tính toạ độ tương ứng trên canvas gốc
-    const scaleX = canvas.width / canvasRect.width;
-    const scaleY = canvas.height / canvasRect.height;
+      const scaleX = canvas.width / canvasRect.width;
+      const scaleY = canvas.height / canvasRect.height;
 
-    const centerX = (boxRect.left + boxRect.width / 2 - canvasRect.left) * scaleX;
-    const centerY = (boxRect.top + boxRect.height / 2 - canvasRect.top) * scaleY;
+      const centerX = (boxRect.left + boxRect.width / 2 - canvasRect.left) * scaleX;
+      const centerY = (boxRect.top + boxRect.height / 2 - canvasRect.top) * scaleY;
 
-    const fontSize = parseFloat(getComputedStyle(content).fontSize) * scaleY;
-    const fontFamily = getComputedStyle(content).fontFamily;
-    const fontWeight = getComputedStyle(content).fontWeight;
-    const textColor = getComputedStyle(content).color;
+      const fontSize = parseFloat(getComputedStyle(content).fontSize) * scaleY;
+      const fontFamily = getComputedStyle(content).fontFamily;
+      const fontWeight = getComputedStyle(content).fontWeight;
+      const textColor = getComputedStyle(content).color;
 
-    const rotation = parseFloat(box.dataset.rotation || "0");
-    const scaleBoxX = parseFloat(box.dataset.scaleX || "1");
-    const scaleBoxY = parseFloat(box.dataset.scaleY || "1");
+      const rotation = parseFloat(box.dataset.rotation || "0");
+      const scaleBoxX = parseFloat(box.dataset.scaleX || "1");
+      const scaleBoxY = parseFloat(box.dataset.scaleY || "1");
 
-    tempCtx.save();
-    tempCtx.translate(centerX, centerY);
-    tempCtx.rotate(rotation * Math.PI / 180);
-    tempCtx.scale(scaleBoxX, scaleBoxY);
-    tempCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-    tempCtx.fillStyle = textColor;
-    tempCtx.textAlign = "center";
-    tempCtx.textBaseline = "middle";
-    tempCtx.fillText(text, 0, 0);
-    tempCtx.restore();
-  });
+      tempCtx.save();
+      tempCtx.translate(centerX, centerY);
+      tempCtx.rotate(rotation * Math.PI / 180);
+      tempCtx.scale(scaleBoxX, scaleBoxY);
+      tempCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+      tempCtx.fillStyle = textColor;
+      tempCtx.textAlign = "center";
+      tempCtx.textBaseline = "middle";
+      tempCtx.fillText(text, 0, 0);
+      tempCtx.restore();
+    });
 
-  // 3. Vẽ logo như cũ
-  const logoHeight = 30;
-  const scale = logoHeight / logo.height;
-  const logoWidth = logo.width * scale;
-  const x = canvas.width - logoWidth - 10;
-  const y = canvas.height - logoHeight - 10;
-  tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
+    // 3. Vẽ logo
+    const logoHeight = 30;
+    const scale = logoHeight / logo.height;
+    const logoWidth = logo.width * scale;
+    const x = canvas.width - logoWidth - 10;
+    const y = canvas.height - logoHeight - 10;
+    tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
 
-  // 4. Tải về
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isIOS) {
-    const win = window.open("about:blank", "_blank");
-    win.document.write(`<img src="${tempCanvas.toDataURL("image/png")}" style="max-width:100%;"/>`);
-    win.document.close();
-  } else {
-    tempCanvas.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = originalImageName || "to_mau.png";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, "image/png");
-  }
-};
-
+    // 4. Tải về
+    if (isIOS) {
+      const win = window.open("about:blank", "_blank");
+      win.document.write(`<img src="${tempCanvas.toDataURL("image/png")}" style="max-width:100%;"/>`);
+      win.document.close();
+    } else {
+      tempCanvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = originalImageName || "to_mau.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    }
+  };
 
   logo.onerror = () => alert("Không thể tải logo từ images/logo.webp");
 });
@@ -383,14 +376,13 @@ function addTextBoxCentered() {
 
   currentTextBox = box;
   box.addEventListener("click", () => {
-  currentTextBox = box;
+    currentTextBox = box;
 
-if (mode === "text" && currentTextBox) {
-  const content = currentTextBox.querySelector(".text-content");
-  if (content) content.style.color = currentColor;
-}
-
-});
+    if (mode === "text" && currentTextBox) {
+      const content = currentTextBox.querySelector(".text-content");
+      if (content) content.style.color = currentColor;
+    }
+  });
 
   isTyping = true;
 
@@ -398,7 +390,6 @@ if (mode === "text" && currentTextBox) {
     if (e.key === "Enter") e.preventDefault();
   });
 }
-
 
 function makeTextBoxDraggable(box) {
   let isDragging = false;
@@ -460,7 +451,6 @@ function makeTextBoxDraggable(box) {
     isDragging = false;
   });
 }
-
 
 function enableResize(textBox) {
   const resizer = document.createElement("div");
@@ -536,22 +526,6 @@ function enableResize(textBox) {
   document.addEventListener("touchend", onResizeEnd);
 }
 
-
-
-function updateSelectStyle() {
-  const isPlaceholder = imageSelect.selectedIndex === 0;
-
-  imageSelect.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
-  imageSelect.style.fontStyle = isPlaceholder ? "italic" : "normal";
-
-  if (!isPlaceholder) {
-    imageSelect.classList.add("selected-kite");
-  } else {
-    imageSelect.classList.remove("selected-kite");
-  }
-}
-
-
 function initMenuButton() {
   const menuBtn = document.getElementById("menuToggle");
   const nav = document.getElementById("mainNav");
@@ -569,8 +543,6 @@ function applyTransform(box) {
   const scaleY = parseFloat(box.dataset.scaleY || "1");
   box.style.transform = `rotate(${angle}deg) scale(${scaleX}, ${scaleY})`;
 }
-
-
 
 function enableRotate(textBox) {
   const rotateHandle = document.createElement("div");
@@ -641,8 +613,6 @@ function enableRotate(textBox) {
   document.addEventListener("touchend", stopRotate);
 }
 
-
-
 // Khi click vào textbox, cập nhật currentTextBox
 function handleTextBoxSelection(e) {
   const box = e.target.closest(".text-box");
@@ -658,7 +628,6 @@ function handleTextBoxSelection(e) {
 
 document.addEventListener("click", handleTextBoxSelection);
 document.addEventListener("touchstart", handleTextBoxSelection, { passive: true });
-
 
 document.getElementById("boldBtn").addEventListener("click", () => {
   if (currentTextBox) {
@@ -682,34 +651,42 @@ document.getElementById("deleteTextBtn").addEventListener("click", () => {
   }
 });
 
-
 const imageSelect = document.getElementById("imageSelect");
 
+// ✅ Vá nhanh: gộp 1 bản duy nhất & an toàn (tự lấy phần tử theo id)
 function updateSelectStyle() {
-  const isPlaceholder = imageSelect.selectedIndex === 0;
-  imageSelect.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
-  imageSelect.style.fontStyle = isPlaceholder ? "italic" : "normal";
+  const el = document.getElementById("imageSelect");
+  if (!el) return;
+  const isPlaceholder = el.selectedIndex === 0;
+  el.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
+  el.style.fontStyle = isPlaceholder ? "italic" : "normal";
+
+  // nếu dùng class hiệu ứng chọn
+  if (!isPlaceholder) {
+    el.classList.add("selected-kite");
+  } else {
+    el.classList.remove("selected-kite");
+  }
 }
+
 imageSelect.addEventListener("change", updateSelectStyle);
 window.addEventListener("DOMContentLoaded", updateSelectStyle);
-
 
 imageSelect.addEventListener("change", () => {
   imageSelect.classList.add("pop");
   setTimeout(() => imageSelect.classList.remove("pop"), 200);
 });
 
-
-window.addEventListener("DOMContentLoaded", initMenuButton);
-window.onload = () => {
-  initMenuButton(); // Gọi lại init nếu cần thiết
+// Khởi tạo 1 lần khi DOM sẵn sàng: menu + nạp ảnh từ ?img=...
+window.addEventListener("DOMContentLoaded", () => {
+  initMenuButton();
 
   const params = new URLSearchParams(window.location.search);
   const imageUrl = params.get("img");
 
   if (imageUrl) {
     const imgFromUrl = new Image();
-    imgFromUrl.crossOrigin = "anonymous"; // Bắt buộc nếu ảnh từ Cloudinary hoặc ngoài domain
+    imgFromUrl.crossOrigin = "anonymous"; // cần nếu ảnh từ ngoài domain
     imgFromUrl.onload = () => {
       canvas.width = imgFromUrl.width;
       canvas.height = imgFromUrl.height;
@@ -721,8 +698,4 @@ window.onload = () => {
     };
     imgFromUrl.src = imageUrl;
   }
-};
-
-window.initMenuButton = initMenuButton;
-
-
+});
