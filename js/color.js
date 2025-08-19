@@ -1,4 +1,4 @@
-// ====================== Canvas Coloring (1-layer, finalized) ======================
+// ====================== Canvas Coloring (1-layer, finalized + anti-aliased lines) ======================
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -7,8 +7,12 @@ const ctx = canvas.getContext("2d");
 const T_HIGH = 165;      // pixel tối hơn => chắc chắn là "đen"
 const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
 const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
-const BLACK_THR = 10;    // ngưỡng "gần đen" để skip khi tô/brush/eraser
+const BLACK_THR = 10;    // fallback: "gần đen" nếu chưa có lineMask
 
+// ✅ cấu hình mịn nét (anti-alias)
+const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
+
+// ---------- State ----------
 let currentColor = "#000000";
 let img = new Image();
 let isDrawing = false;
@@ -22,7 +26,10 @@ let redoStack = [];
 
 let originalImageName = "";
 
-// ✅ mới: lưu điểm trước đó để nội suy nét
+// ✅ mặt nạ nét (1 = pixel thuộc đường nét; 0 = nền/vùng tô)
+let lineMask = null;
+
+// ✅ lưu điểm trước đó để nội suy nét brush
 let lastPt = null;
 
 const colors = [
@@ -172,7 +179,6 @@ function getCanvasCoords(e) {
 
 // ----------------- Brush / Eraser – nội suy để không hở nét -----------------
 
-// ✅ mới: nội suy các dấu giữa 2 điểm để liền mạch khi vẽ nhanh
 function strokeFromTo(x0, y0, x1, y1, radius, rgba, isErase=false) {
   const dx = x1 - x0, dy = y1 - y0;
   const dist = Math.hypot(dx, dy);
@@ -180,8 +186,7 @@ function strokeFromTo(x0, y0, x1, y1, radius, rgba, isErase=false) {
     paintCircleOnMain(x1, y1, radius, rgba, isErase);
     return;
   }
-  // bước nội suy: nhỏ hơn => mượt hơn (0.4–0.6*radius là hợp lý)
-  const step = Math.max(1, radius * 0.4);
+  const step = Math.max(1, radius * 0.5); // giảm xuống 0.4*radius nếu muốn mượt hơn
   const n = Math.ceil(dist / step);
   for (let i = 1; i <= n; i++) {
     const t = i / n;
@@ -198,11 +203,9 @@ function drawAt(e) {
   const rgba = isErase ? [255, 255, 255, 255] : hexToRgba(currentColor);
 
   if (!lastPt) {
-    // chấm đầu nét
     paintCircleOnMain(x, y, brushSize, rgba, isErase);
     lastPt = { x, y };
   } else {
-    // nội suy giữa điểm trước và điểm hiện tại
     strokeFromTo(lastPt.x, lastPt.y, x, y, brushSize, rgba, isErase);
     lastPt = { x, y };
   }
@@ -242,7 +245,7 @@ canvas.addEventListener("touchmove", (e) => {
 }, { passive: false });
 canvas.addEventListener("touchend", () => { isDrawing = false; lastPt = null; });
 
-// ----------------- Fill – bảo vệ nét đen -----------------
+// ----------------- Fill – bảo vệ nét bằng lineMask -----------------
 canvas.addEventListener("click", (e) => {
   if (mode === "fill") {
     ensureInitialized();
@@ -261,7 +264,13 @@ function isNearBlack(r, g, b, thr = BLACK_THR) {
   return (r < thr && g < thr && b < thr);
 }
 
-// Flood-fill trực tiếp trên canvas chính, KHÔNG tô vào pixel đen
+function isLinePixel(x, y, w, h) {
+  if (!lineMask) return false;
+  if (x < 0 || y < 0 || x >= w || y >= h) return false;
+  return lineMask[y * w + x] === 1;
+}
+
+// Flood-fill trực tiếp trên canvas chính, KHÔNG tô vào pixel thuộc lineMask
 function floodFillSingleLayer(x, y, fillColor) {
   const w = canvas.width, h = canvas.height;
   if (w === 0 || h === 0) return;
@@ -276,19 +285,18 @@ function floodFillSingleLayer(x, y, fillColor) {
   }
   const data = imageData.data;
 
+  if (isLinePixel(x, y, w, h)) return; // click trên nét -> bỏ
+
   const idx0 = (y * w + x) * 4;
   const startR = data[idx0], startG = data[idx0 + 1], startB = data[idx0 + 2];
-
-  // Nếu click ngay trên nét đen -> bỏ
-  if (isNearBlack(startR, startG, startB)) return;
 
   const tolerance = 48;
   const visited = new Uint8Array(w * h);
   const stack = [[x, y]];
 
-  const match = (i) => {
+  const match = (cx, cy, i) => {
+    if (isLinePixel(cx, cy, w, h)) return false; // bảo vệ nét dù đã anti-aliased
     const r = data[i], g = data[i + 1], b = data[i + 2];
-    if (isNearBlack(r, g, b)) return false; // chặn đen
     return (Math.abs(r - startR) <= tolerance &&
             Math.abs(g - startG) <= tolerance &&
             Math.abs(b - startB) <= tolerance);
@@ -303,7 +311,7 @@ function floodFillSingleLayer(x, y, fillColor) {
 
     if (visited[vi]) continue;
     visited[vi] = 1;
-    if (!match(i)) continue;
+    if (!match(cx, cy, i)) continue;
 
     data[i] = fillColor[0];
     data[i + 1] = fillColor[1];
@@ -316,7 +324,7 @@ function floodFillSingleLayer(x, y, fillColor) {
   ctx.putImageData(imageData, 0, 0);
 }
 
-// Brush/Eraser theo pixel trên canvas chính, KHÔNG đè lên pixel đen
+// Brush/Eraser theo pixel trên canvas chính, KHÔNG đè lên lineMask
 function paintCircleOnMain(x, y, radius, rgba, isErase = false) {
   const w = canvas.width, h = canvas.height;
   const x0 = Math.max(0, Math.floor(x - radius));
@@ -340,12 +348,10 @@ function paintCircleOnMain(x, y, radius, rgba, isErase = false) {
       const dx = xx - x, dy = yy - y;
       if (dx * dx + dy * dy > rr) continue;
 
+      // Bảo vệ nét theo mask
+      if (isLinePixel(xx, yy, w, h)) continue;
+
       const i = ((yy - y0) * (x1 - x0 + 1) + (xx - x0)) * 4;
-      const R = d[i], G = d[i + 1], B = d[i + 2];
-
-      // Bảo vệ nét đen
-      if (isNearBlack(R, G, B)) continue;
-
       if (isErase) {
         // Eraser = trả về trắng tuyệt đối
         d[i] = 255; d[i + 1] = 255; d[i + 2] = 255; d[i + 3] = 255;
@@ -846,19 +852,19 @@ function ensureInitialized() {
   }
 }
 
-// Vẽ ảnh vào canvas chính và chuẩn hoá thành đen/trắng
+// Vẽ ảnh vào canvas chính và chuẩn hoá thành đen/trắng + mịn nét
 function loadImageToMainCanvas(image) {
   canvas.width = image.width;
   canvas.height = image.height;
 
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = false; // không mượt khi lấy pixel nguồn
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, 0, 0);
 
   normalizeLineartBW(ctx, canvas.width, canvas.height);
 }
 
-// Chuẩn hoá: gom xám sát viền vào đen, rồi (tuỳ chọn) nở nét, xuất đen/trắng tuyệt đối
+// Chuẩn hoá: gom xám sát viền vào đen, (tuỳ chọn) nở nét, tạo lineMask, rồi vẽ mịn (AA)
 function normalizeLineartBW(ctx, w, h) {
   const id = ctx.getImageData(0, 0, w, h);
   const d = id.data;
@@ -911,11 +917,38 @@ function normalizeLineartBW(ctx, w, h) {
     outBlack.set(out);
   }
 
-  // 4) ghi kết quả: đen/ trắng tuyệt đối
+  // 4) lưu lineMask & vẽ nét mịn bằng supersampling
+  lineMask = outBlack;
+  renderLineartAAFromMask(lineMask, w, h, AA_SCALE);
+}
+
+// === Vẽ mịn từ lineMask: upsample (no smoothing) -> downsample (smoothing) ===
+function renderLineartAAFromMask(mask, w, h, scale = 2) {
+  // temp canvas ở kích thước gốc để đổ mask nhị phân
+  const src = document.createElement('canvas');
+  src.width = w; src.height = h;
+  const sctx = src.getContext('2d');
+  const id = sctx.createImageData(w, h);
+  const dd = id.data;
   for (let p = 0, i = 0; p < w * h; p++, i += 4) {
-    const isBlack = outBlack[p] === 1;
-    d[i] = d[i + 1] = d[i + 2] = isBlack ? 0 : 255;
-    d[i + 3] = 255;
+    const black = mask[p] === 1;
+    dd[i] = dd[i+1] = dd[i+2] = black ? 0 : 255;
+    dd[i+3] = 255;
   }
-  ctx.putImageData(id, 0, 0);
+  sctx.putImageData(id, 0, 0);
+
+  // phóng to không làm mượt
+  const up = document.createElement('canvas');
+  up.width = w * scale;
+  up.height = h * scale;
+  const uctx = up.getContext('2d');
+  uctx.imageSmoothingEnabled = false;
+  uctx.drawImage(src, 0, 0, up.width, up.height);
+
+  // vẽ về kích thước gốc có smoothing => cạnh mịn
+  ctx.imageSmoothingEnabled = true;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(up, 0, 0, w, h);
 }
