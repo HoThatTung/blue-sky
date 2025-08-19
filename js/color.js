@@ -1,23 +1,25 @@
-// ====================== Canvas Coloring (1-layer, finalized + anti-aliased lines) ======================
+// ====================== Canvas Coloring (1-layer, finalized + anti-aliased lines, mobile/desktop optimized) ======================
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+
+// Ngăn cuộn/zoom mặc định trên mobile khi vẽ
+if (canvas && canvas.style) {
+  canvas.style.touchAction = "none";
+}
 
 // ---------- Config cho chuẩn hoá & bảo vệ nét ----------
 const T_HIGH = 165;      // pixel tối hơn => chắc chắn là "đen"
 const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
 const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
-const BLACK_THR = 10;    // fallback: "gần đen" nếu chưa có lineMask
 
 // ✅ cấu hình mịn nét (anti-alias)
 const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
 
 // ---------- State ----------
 let currentColor = "#000000";
-let img = new Image();
 let isDrawing = false;
 let mode = "fill"; // fill | brush | eraser | text
-let isTyping = false;
 let currentTextBox = null;
 let brushSize = 7.5;
 
@@ -179,6 +181,10 @@ function getCanvasCoords(e) {
 
 // ----------------- Brush / Eraser – nội suy để không hở nét -----------------
 
+function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|Windows Phone|BlackBerry/i.test(navigator.userAgent);
+}
+
 function strokeFromTo(x0, y0, x1, y1, radius, rgba, isErase=false) {
   const dx = x1 - x0, dy = y1 - y0;
   const dist = Math.hypot(dx, dy);
@@ -186,7 +192,8 @@ function strokeFromTo(x0, y0, x1, y1, radius, rgba, isErase=false) {
     paintCircleOnMain(x1, y1, radius, rgba, isErase);
     return;
   }
-  const step = Math.max(1, radius * 0.5); // giảm xuống 0.4*radius nếu muốn mượt hơn
+  const STEP_FACTOR = isMobile() ? 0.6 : 0.5; // mobile đi bước xa hơn chút để nhẹ CPU
+  const step = Math.max(1, radius * STEP_FACTOR);
   const n = Math.ceil(dist / step);
   for (let i = 1; i <= n; i++) {
     const t = i / n;
@@ -260,10 +267,7 @@ function hexToRgba(hex) {
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255, 255];
 }
 
-function isNearBlack(r, g, b, thr = BLACK_THR) {
-  return (r < thr && g < thr && b < thr);
-}
-
+// ✅ KHÔNG bảo vệ mép 1px — chỉ kiểm tra đúng pixel trong mask
 function isLinePixel(x, y, w, h) {
   if (!lineMask) return false;
   if (x < 0 || y < 0 || x >= w || y >= h) return false;
@@ -518,8 +522,6 @@ function addTextBoxCentered() {
       if (content) content.style.color = currentColor;
     }
   });
-
-  isTyping = true;
 
   content.addEventListener("keydown", (e) => {
     if (e.key === "Enter") e.preventDefault();
@@ -854,19 +856,37 @@ function ensureInitialized() {
 
 // Vẽ ảnh vào canvas chính và chuẩn hoá thành đen/trắng + mịn nét
 function loadImageToMainCanvas(image) {
-  canvas.width = image.width;
-  canvas.height = image.height;
+  // Giới hạn kích thước làm việc để thao tác pixel mượt hơn trên mobile
+  const MAX_EDGE = isMobile() ? 1600 : 3000;
+  const srcW = image.width, srcH = image.height;
+  const scale = Math.min(1, MAX_EDGE / Math.max(srcW, srcH));
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
 
-  ctx.imageSmoothingEnabled = false; // không mượt khi lấy pixel nguồn
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(image, 0, 0);
+  canvas.width = w;
+  canvas.height = h;
 
-  normalizeLineartBW(ctx, canvas.width, canvas.height);
+  // Downscale ảnh đầu vào có smoothing để đẹp
+  ctx.imageSmoothingEnabled = true;
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(image, 0, 0, srcW, srcH, 0, 0, w, h);
+
+  // Tắt smoothing cho các phép đọc/ghi pixel tiếp theo
+  ctx.imageSmoothingEnabled = false;
+
+  normalizeLineartBW(ctx, w, h);
 }
 
 // Chuẩn hoá: gom xám sát viền vào đen, (tuỳ chọn) nở nét, tạo lineMask, rồi vẽ mịn (AA)
 function normalizeLineartBW(ctx, w, h) {
-  const id = ctx.getImageData(0, 0, w, h);
+  let id;
+  try {
+    id = ctx.getImageData(0, 0, w, h);
+  } catch (err) {
+    console.error(err);
+    alert("Không thể xử lý ảnh (CORS). Hãy dùng ảnh cùng domain hoặc bật CORS/crossOrigin='anonymous'.");
+    return;
+  }
   const d = id.data;
 
   // 1) phân loại sơ bộ: đen chắc / trắng chắc
@@ -951,4 +971,7 @@ function renderLineartAAFromMask(mask, w, h, scale = 2) {
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(up, 0, 0, w, h);
+
+  // 🔧 reset smoothing để các thao tác sau không bị ảnh hưởng
+  ctx.imageSmoothingEnabled = false;
 }
