@@ -230,7 +230,7 @@ function floodFill(x, y, fillColor) {
   const stack = [[x, y]];
   const baseIdx = (y * width + x) * 4;
   const startColor = data.slice(baseIdx, baseIdx + 4);
-  const tolerance = 50;
+  const tolerance = 45;
 
   const sameAsStart = (p) => {
     // So màu theo tolerance với màu tại điểm click ban đầu
