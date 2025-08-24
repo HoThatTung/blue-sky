@@ -1,56 +1,142 @@
-/* === Section Giới thiệu === */
-.about-section {
-  padding: 40px 20px;
+/* ===========================================================
+   ABOUT.CSS – Hero (About), Nội dung & Gallery
+   (Cách A: khoảng cách từ hero, gọn & không trùng code)
+   =========================================================== */
+
+/* ========= HERO ABOUT ========= */
+.hero.hero--sub{
+  /* Biến chỉnh nhanh */
+  --about-min: clamp(220px, 46vh, 400px);      /* cao độ hero */
+  --about-gap-b: 56px;                          /* khoảng cách dưới hero -> content */
+  --about-dim: .32;                              /* độ tối overlay: ↑ = tối hơn */
+  --about-blur: 0px;                             /* blur overlay kính */
+  --hero-img: url('../images/html/hero-about.webp'); /* ảnh hero */
+
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: var(--about-min);
+  text-align: center;
+  color: #fff;
+
+  /* Nền + overlay tối + parallax qua --bg-offset (set trong main.js) */
+  background:
+    linear-gradient(180deg,
+      rgba(0,0,0,var(--about-dim)),
+      rgba(0,0,0,calc(var(--about-dim) - .10))
+    ),
+    var(--hero-img) center calc(var(--bg-offset, 0px)) / cover no-repeat;
+
+  border-radius: 0 0 36px 36px;
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,.08));
+  overflow: hidden;
+
+  /* Cách A: khoảng cách bằng chính hero */
+  margin-bottom: var(--about-gap-b);
+}
+
+/* Lớp highlight phụ + tuỳ chọn blur kính */
+.hero.hero--sub::before{
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 80% at 50% 20%, rgba(255,255,255,.06), transparent 60%),
+    radial-gradient(100% 70% at 50% 100%, rgba(0,0,0,.18), transparent 60%);
+  backdrop-filter: blur(var(--about-blur));
+  -webkit-backdrop-filter: blur(var(--about-blur));
+  pointer-events: none;
+}
+
+/* Nội dung trong hero – mặc định luôn hiện (không phụ thuộc JS) */
+.hero.hero--sub .hero-inner{
+  max-width: 900px;
+  padding: clamp(28px, 5vw, 64px) 16px;
+  opacity: 1;
+  transform: none;
   text-align: center;
 }
 
-.about-section h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1a73e8;
-  margin-bottom: 24px;
+/* Khi có JS (đã thêm <html class="js">): bật fade-in mượt */
+.js .hero.hero--sub .hero-inner{
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .6s ease, transform .6s ease;
+}
+.js .hero.hero--sub .hero-inner.is-ready{
+  opacity: 1;
+  transform: none;
 }
 
-.about-section p {
-  font-size: 1.05rem;
-  color: #444;
-  line-height: 1.7;
-  margin-bottom: 20px;
+.hero.hero--sub h1{
+  margin: 0 0 10px;
+  font-size: clamp(26px, 2.6vw + 14px, 44px);
+  letter-spacing: .2px;
+  line-height: 1.25;
+}
+.hero.hero--sub p{
+  margin: 0 auto;
+  max-width: 780px;
+  font-size: clamp(14px, 1.2vw + 10px, 18px);
+  color: #f5f7fb;
+  opacity: .95;
+  line-height: 1.6;
 }
 
-/* === Gallery ảnh === */
-.gallery {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  justify-content: center;
-  margin-top: 30px;
+/* ========= NỘI DUNG GIỚI THIỆU ========= */
+/* Cách A: bỏ margin-top để không cộng dồn với hero */
+.about-section{
+  margin: 0 auto 56px; /* top=0 */
+  padding: clamp(16px, 2.5vw, 28px);
+  background: var(--card-bg, #fff);
+  border-radius: var(--radius, 12px);
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,.08));
+}
+.about-section p{
+  margin: 0 0 14px;
+  color: #2b2f36;
+  line-height: 1.75;
 }
 
-.gallery img {
+/* ========= GALLERY ========= */
+.gallery{
+  margin-top: 18px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, 1fr);
+}
+.gallery img{
   width: 100%;
-  max-width: 320px;
-  flex: 1 1 100%;
-  border-radius: 12px;
+  height: 100%;
   object-fit: cover;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
+  border-radius: calc(var(--radius, 12px) - 4px);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  transition: transform .35s ease, box-shadow .35s ease;
+  will-change: transform;
+}
+.gallery img:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,.14);
 }
 
-.gallery img:hover {
-  transform: scale(1.02);
+/* ========= RESPONSIVE ========= */
+@media (max-width: 920px){
+  .gallery{ grid-template-columns: 1fr 1fr; }
 }
-
-/* === Responsive cho tablet === */
-@media (min-width: 768px) {
-  .gallery img {
-    flex: 1 1 45%;
+@media (max-width: 560px){
+  .gallery{ grid-template-columns: 1fr; }
+}
+@media (max-width: 767px){
+  .hero.hero--sub{
+    --about-min: 28vh;   /* thấp hơn cho gọn trên mobile */
+    --about-gap-b: 56px; /* khoảng cách dưới hero nhỏ lại */
   }
 }
+@media (hover: none) and (pointer: coarse){
+  .hero.hero--sub{ --about-min: 36vh; } /* cảm ứng nhỉnh hơn chút */
+}
 
-/* === Responsive cho desktop === */
-@media (min-width: 1024px) {
-  .gallery img {
-    flex: 1 1 30%;
-  }
+/* ========= Reduce motion ========= */
+@media (prefers-reduced-motion: reduce){
+  .js .hero.hero--sub .hero-inner{ transition: none !important; }
+  *{ animation: none !important; transition: none !important; }
 }

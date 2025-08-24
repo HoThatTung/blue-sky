@@ -1,142 +1,267 @@
-/* ======== BASE LAYOUT ======== */
-body {
-  margin: 0;
+/* ===========================================================
+   BASE.CSS – Styles dùng chung cho toàn site
+   (Header, Footer, Layout cơ bản, Reset, Helpers)
+   =========================================================== */
+
+/* ===== Reset cơ bản ===== */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
   font-family: "Inter", sans-serif;
-  background: #f7f7f7;
-  color: #222;
+  line-height: 1.6;
+  color: var(--text, #222);
+  background: #f9f9fb;
+}
+img { max-width: 100%; display: block; }
+
+/* Scrollbar ổn định */
+html { scrollbar-gutter: stable both-edges; }
+@supports not (scrollbar-gutter: stable) { html { overflow-y: scroll; } }
+
+/* ===== Biến dùng chung ===== */
+:root{
+  --footer-accent: #42a5f5;
+  --footer-bg: #222;
+  --footer-glass: rgba(255,255,255,.06);
+  --footer-br: 14px;
+
+  --radius: 16px;
+  --shadow-sm: 0 6px 16px rgba(0,0,0,.08);
+  --shadow-md: 0 10px 28px rgba(0,0,0,.14);
+  --primary-dark: #0f58b3;
+  --t: all .25s ease;
 }
 
+/* ===== Container chung ===== */
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
+  width: 100%; max-width: 1200px;
+  margin: 0 auto; padding: 0 16px;
 }
 
-* {
-  box-sizing: border-box;
-  font-family: "Inter", sans-serif;
-}
-
-/* ======== HEADER ======== */
-.header {
-  background-color: #1976d2;
-  color: white;
-}
-
-.header-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0; /* bỏ padding ngang */
-  max-width: 1200px;
-  margin: 0 auto; /* căn giữa giống canvas */
-}
-
-.logo {
-  height: 25px;
-  transition: height 0.3s ease;
-  margin-left: 10px;
-  margin-right: 20px;
-}
-
-.nav {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  background-color: #1976d2;
-}
-
-.nav a {
-  color: white;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 15px;
-  padding: 8px 12px;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.nav a:hover,
-.nav a.active {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.menu-toggle {
-  display: none;
-  font-size: 24px;
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-/* ======== FOOTER ======== */
-.footer {
-  background-color: #1976d2;
-  color: white;
-  text-align: center;
-  padding: 10px 0;
-  font-size: 14px;
-}
-
-.footer a {
+/* ===========================================================
+   HEADER
+   =========================================================== */
+.header{
+  background: linear-gradient(180deg, rgba(25,118,210,.92), rgba(25,118,210,.86));
   color: #fff;
-  text-decoration: underline;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,.10);
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  position: sticky; top: 0; z-index: 1000;
+  transition: transform .35s ease, background .25s ease, box-shadow .25s ease;
+  will-change: transform;
 }
-
-/* ======== RESPONSIVE ======== */
-@media (max-width: 767px) {
-  .header-inner {
-    flex-direction: row-reverse; /* ✅ Logo bên phải, menu bên trái */
-    justify-content: space-between;
-    align-items: center;
-    position: relative;
-    z-index: 1001;
-  }
-
-  .menu-toggle {
-    display: block;
-    margin-right: 10px; /* ⬅ đẩy menu icon sang trái một chút */
-    position: relative;
-    z-index: 1002;
-    order: 1; /* menu icon bên trái */
-  }
-
-  .logo {
-    height: 30px;
-    margin-left: 10px; /* ⬅ tạo khoảng cách với mép phải */
-    position: relative;
-    z-index: 1002;
-    order: 2; /* logo bên phải */
-  }
+.header > .header-inner,
+.footer > .footer-inner {
+  max-width: 1200px; width: 100%;
+  margin: 0 auto; padding-inline: 16px;
+}
+.header-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-block: 8px;
+}
+.logo { height: 30px; flex: 0 0 auto; order: 1; }
+.menu-toggle {
+  display: none; background: none; border: none; color: #fff;
+  font-size: 26px; cursor: pointer; margin-right: 12px; order: 0;
+  transition: transform .25s ease, opacity .25s ease;
+}
+.menu-toggle.is-open{ transform: rotate(90deg) scale(1.05); }
 
 .nav {
-  position: absolute;
-  top: 100%;
-  right: 10px;        /* 👈 dropdown nằm bên phải */
-  left: auto;         /* 👈 hủy canh trái */
-  width: 200px;
-  background-color: #1565c0;
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 10px 0;
-  display: none;
-  z-index: 1000;
-  border-radius: 0 0 8px 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  display: flex; gap: 14px; margin-left: auto; order: 2;
 }
+.nav a {
+  color: #fff; text-decoration: none; font-weight: 600;
+  padding: 6px 10px; border-radius: 8px;
+  transition: background .2s ease;
+  position: relative;
+}
+.nav a:hover { background: rgba(255,255,255,.15); }
+.nav a::after{
+  content:""; position: absolute;
+  left: 10px; right: 10px; bottom: 2px;
+  height: 2px; background: currentColor;
+  opacity: 0; transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .25s ease, opacity .25s ease;
+}
+.nav a:hover::after{ opacity: 1; transform: scaleX(1); }
+.nav a[aria-current="page"]{
+  background: rgba(255,255,255,.14);
+}
+.nav a[aria-current="page"]::after{
+  opacity: 1; transform: scaleX(1);
+}
+
+/* Hiệu ứng nổi header khi cuộn */
+.header.scrolled {
+  box-shadow: 0 6px 18px rgba(0,0,0,.16);
+  background: #1668bf;
+}
+/* Auto-hide khi kéo xuống */
+.header.header--hidden{ transform: translateY(-100%); }
+
+/* Mobile menu */
+@media (max-width: 1024px) {
+  .menu-toggle { display: block; }
+  .header .header-inner { position: relative; }
+  .header .nav { right: 16px; }
+
+  .nav {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0;
+    width: min(90vw, 280px); background: #0f58b3; padding: 10px;
+    border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    flex-direction: column; align-items: stretch; gap: 6px;
+    z-index: 1001; transform: translateY(-6px) scale(.98);
+    opacity: 0; pointer-events: none;
+  }
   .nav.show {
-    display: flex;
-  }
-
-  .nav a {
-    width: 100%;
-    padding: 10px 16px;
-    text-align: left;
-    font-size: 15px;
+    display: flex; opacity: 1; transform: none;
+    transition: transform .2s ease, opacity .2s ease;
+    pointer-events: auto;
   }
 }
+@keyframes fadeDown { from {opacity:0; transform:translateY(-6px);} to {opacity:1; transform:translateY(0);} }
 
+/* Thanh tiến trình cuộn trang */
+.scroll-progress{
+  position: fixed; top: 0; left: 0;
+  height: 3px; width: 0%;
+  background: linear-gradient(90deg, #42a5f5, #80d6ff);
+  box-shadow: 0 0 8px rgba(66,165,245,.7);
+  z-index: 1200; transform-origin: left center;
+}
 
+/* Giảm chuyển động */
+@media (prefers-reduced-motion: reduce){
+  .header, .nav, .menu-toggle, .scroll-progress{ transition: none !important; }
+}
 
+/* ===========================================================
+   FOOTER
+   =========================================================== */
+.footer {
+  background: var(--footer-bg);
+  color: #fff;
+  padding: 28px 16px;
+  margin-top: 60px;
+}
+.footer p { margin: 0; font-size: 14px; }
+.footer-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.footer .social-links{
+  display:flex; gap:12px; flex-wrap:wrap;
+  align-items:center; justify-content:center;
+  touch-action: none;
+}
+.footer .social-icon{
+  --accent: var(--footer-accent); --near: 0;
+  position: relative;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  color: var(--accent); background: var(--footer-glass);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: var(--footer-br);
+  text-decoration: none;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  overflow: visible;
+  transition: transform .25s ease, box-shadow .25s ease, background .25s ease,
+             border-color .25s ease, color .25s ease, opacity .25s ease;
+  box-shadow: 0 6px 16px rgba(0,0,0,.25),
+              0 calc(10px * var(--near)) calc(24px * var(--near)) color-mix(in oklab, var(--accent), #000 60%),
+              inset 0 0 0 1px rgba(255,255,255,.08);
+  transform: translateY(calc(-2px * var(--near)));
+}
+.footer .social-icon::after{
+  content:""; position:absolute; inset:-1px; border-radius:inherit; z-index:1;
+  background: conic-gradient(from 180deg at 50% 50%,
+    transparent 0 25%,
+    color-mix(in oklab, var(--accent), white 10%) 30% 40%,
+    transparent 45% 100%);
+  filter: blur(10px); opacity: clamp(0, var(--near), 1);
+  transition: opacity .25s ease; pointer-events:none;
+}
+.footer .social-icon:hover,
+.footer .social-icon:focus-visible{
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
+  border-color: color-mix(in oklab, var(--accent), #000 20%);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 10px 24px color-mix(in oklab, var(--accent), #000 60%),
+              inset 0 0 0 1px rgba(255,255,255,.1);
+}
+.footer .social-icon:hover::after,
+.footer .social-icon:focus-visible::after{ opacity:.95; }
+.footer .social-icon:active{
+  transform: translateY(0) scale(1.0);
+  box-shadow: 0 4px 12px rgba(0,0,0,.3),
+              inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.footer .social-icon > svg{
+  transform: scale(calc(1 + .06 * var(--near)));
+  transition: transform .25s ease;
+}
+.footer .social-icon:hover > svg,
+.footer .social-icon:focus-visible > svg{ transform: scale(1.08); }
+.footer .social-icon[data-tooltip]::before{
+  content: attr(data-tooltip);
+  position:absolute; bottom: calc(100% + 8px); left:50%;
+  transform: translate(-50%, -4px);
+  background: rgba(30,30,30,.95); color:#fff;
+  font-size:12px; line-height:1; padding:6px 8px; border-radius:8px; white-space:nowrap;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+  opacity:0; pointer-events:none; z-index:2;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.footer .social-icon:hover::before,
+.footer .social-icon:focus-visible::before{ opacity:1; transform: translate(-50%, 0); }
+.footer .social-icon[data-near="1"]::before{ opacity:.85; transform: translate(-50%, 0); }
 
+/* Thương hiệu */
+.footer .social-icon.phone     { --accent:#00e676; }
+.footer .social-icon.zalo      { --accent:#ffffff; color:#ffffff !important; }
+.footer .social-icon.facebook  { --accent:#1877f2; }
+.footer .social-icon.instagram { --accent:#e1306c; }
+.footer .social-icon svg,
+.footer .social-icon svg * { fill: currentColor !important; stroke: currentColor !important; }
+.footer .social-icon.facebook > svg { transform: scale(1.1); }
+
+@media (max-width: 480px){
+  .footer .social-links{ gap:10px; }
+  .footer .social-icon{ width:42px; height:42px; }
+}
+
+/* ===========================================================
+   HELPERS
+   =========================================================== */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+.btn {
+  display: inline-block; padding: 12px 24px; font-size: 15px; font-weight: 600;
+  border: none; border-radius: 8px; color: #fff;
+  background: linear-gradient(135deg, #1976d2, #42a5f5);
+  box-shadow: 0 4px 10px rgba(25,118,210,.25);
+  cursor: pointer; text-decoration: none;
+  transition: transform .25s ease, box-shadow .25s ease, background .25s ease;
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(25,118,210,.35);
+  background: linear-gradient(135deg, #1565c0, #2196f3);
+}
+.btn:active { transform: scale(.97); box-shadow: 0 2px 6px rgba(25,118,210,.2); }
+
+/* ===========================================================
+   PATCH: Header layout cho thiết bị cảm ứng
+   =========================================================== */
+@media (hover: none) and (pointer: coarse) {
+  .header .header-inner { gap: 10px; }
+  .logo { order: 0; margin-right: auto; height: 28px; }
+  .menu-toggle { order: 2; margin-left: auto; font-size: 24px; }
+}

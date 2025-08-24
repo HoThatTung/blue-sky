@@ -1,100 +1,92 @@
-/* home.css */
-
-/* Mục giới thiệu chính */
-.hero {
+/* ===== HERO (full width, overlay, parallax-friendly) ===== */
+.hero:not(.hero--sub) {
+  position: relative;
   text-align: center;
-  padding: 40px 20px;
-}
-
-.hero h1 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-bottom: 16px;
-  color: #222;
-}
-
-.hero p {
-  font-size: 1rem;
-  color: #555;
-  line-height: 1.6;
-  max-width: 700px;
-  margin: 0 auto;
-}
-
-/* Các khối chức năng */
-.features {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  margin-top: 40px;
-}
-
-.feature-card {
-  background: #f9f9f9;
-  border-radius: 12px;
-  padding: 20px;
-  text-align: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.feature-card h3 {
-  font-size: 1.2rem;
-  margin-bottom: 12px;
-  color: #1a73e8;
-}
-
-.feature-card p {
-  font-size: 0.95rem;
-  color: #333;
-  margin-bottom: 16px;
-}
-
-.feature-card .btn {
-  display: inline-block;
-  background-color: #1a73e8;
+  padding: 110px 20px 80px;
   color: #fff;
-  padding: 10px 20px;
-  border-radius: 6px;
-  text-decoration: none;
-  font-weight: 600;
-  transition: background-color 0.3s;
+  background: url("../images/html/hero-bg.webp") center/cover no-repeat;
+  background-position: center calc(var(--bg-offset, 0px));
+  border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: var(--t);
+  overflow: hidden;
+}
+.hero:not(.hero--sub)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.38);
+  z-index: 0;
+}
+.hero:not(.hero--sub) .hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 800px;
+  margin: 0 auto;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity .6s ease, transform .6s ease;
+}
+.hero:not(.hero--sub) .hero-inner.is-ready { opacity: 1; transform: translateY(0); }
+.hero:not(.hero--sub) h1 {
+  font-size: clamp(2rem, 2.6vw + 0.6rem, 2.6rem);
+  font-weight: 800;
+  letter-spacing: .2px;
+  margin: 0 0 16px;
+  line-height: 1.3;
+}
+.hero:not(.hero--sub) p {
+  font-size: clamp(1rem, 1.2vw + .4rem, 1.15rem);
+  opacity: .95;
+  max-width: 720px;
+  margin: 0 auto;
+  line-height: 1.6;
 }
 
-.feature-card .btn:hover {
-  background-color: #0d5dc5;
-}
-
-/* Media queries */
-@media (min-width: 600px) {
-  .features {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: space-between;
-  }
-
-  .feature-card {
-    flex: 1 1 45%;
-  }
-}
-
-@media (min-width: 900px) {
-  .feature-card {
-    flex: 1 1 30%;
-  }
-
-  .hero h1 {
-    font-size: 2.2rem;
-  }
-
-  .hero p {
-    font-size: 1.1rem;
-  }
-}
+/* ===== FEATURES ===== */
 .features {
-  align-items: center;
+  margin: 60px 0; /* chỉ top/bottom, không chạm căn giữa của container */
 }
-.feature-card {
-  width: 100%;
-  max-width: 400px;
+.features .container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
 }
 
+.feature-card {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 26px 22px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    transform .25s ease,
+    box-shadow .25s ease,
+    background .25s ease,
+    opacity .4s ease;
+}
+.feature-card.is-inview { opacity: 1; transform: translateY(0); }
+.feature-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+
+.feature-card h3 { font-size: 1.25rem; margin: 0 0 10px; color: var(--primary-dark); }
+.feature-card p  { margin: 0 0 16px; color: #444; }
+
+/* Giữ nguyên nút */
+.feature-card .btn { margin-top: 6px; }
+
+/* ===== SMALL TWEAKS ===== */
+@media (max-width: 767px) {
+  .hero:not(.hero--sub) { padding: 70px 16px 60px; }
+}
+@media (hover: hover) {
+  .hero:not(.hero--sub):hover { filter: saturate(1.03); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero:not(.hero--sub),
+  .hero:not(.hero--sub) .hero-inner,
+  .feature-card,
+  .feature-card .btn { transition: none; }
+  .feature-card { opacity: 1; transform: none; }
+}

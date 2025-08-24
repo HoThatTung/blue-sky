@@ -1,98 +1,187 @@
-/* contact.css */
+/* contact.css — cleaned & de-duplicated */
 
-.contact-section {
-  padding: 40px 20px;
-  max-width: 800px;
-  margin: 0 auto;
+/* ===== Tokens (đặt giá trị thực, tránh vòng lặp) ===== */
+:root{
+  /* Chỉnh theo brand của bạn */
+  --primary: #1976d2;
+  --primary-strong: #0f58b3;
+  --radius: 12px;
+  --shadow-sm: 0 4px 12px rgba(0,0,0,.06);
+  --text: #222;
 }
 
-.contact-section h1 {
+/* ========== Section chính ========== */
+.contact-section{
+  /* Giữ khung container 1200px từ base.css */
+  padding: 40px 0;              /* chỉ top/bottom, không phá padding ngang */
+}
+
+.contact-section h1{
+  margin: 0 0 16px;
+  text-align: center;
   font-size: 2rem;
   font-weight: 700;
-  color: #1a73e8;
-  margin-bottom: 16px;
-  text-align: center;
+  color: var(--primary);
 }
 
-.contact-section p {
+.contact-section p{
+  margin: 0 0 30px;
   text-align: center;
-  margin-bottom: 30px;
   color: #555;
   font-size: 1.05rem;
   line-height: 1.6;
 }
 
-.contact-form {
-  background: #fff;
+/* ========== Form ========== */
+.contact-form{
+  max-width: 800px;
+  margin: 0 auto 40px;
   padding: 24px;
-  border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-  margin-bottom: 40px;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
 }
 
-.form-group {
-  margin-bottom: 20px;
-}
+.form-group{ margin-bottom: 20px; }
 
-.form-group label {
-  font-weight: 600;
+.form-group label{
   display: block;
   margin-bottom: 6px;
+  font-weight: 600;
   color: #333;
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea{
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #ccc;
   border-radius: 6px;
+  font: inherit;
   font-size: 1rem;
   resize: vertical;
-  font-family: "Inter", sans-serif;
+  transition: border-color .3s ease, box-shadow .3s ease;
 }
 
-.btn-submit {
+.form-group input:focus,
+.form-group textarea:focus{
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+/* Nút gửi */
+.btn-submit{
   display: inline-block;
-  background-color: #1a73e8;
-  color: #fff;
   padding: 12px 24px;
-  border: none;
+  border: 0;
   border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color .25s ease, transform .05s ease, box-shadow .25s ease;
 }
+.btn-submit:hover{ background: var(--primary-strong); }
+.btn-submit:active{ transform: scale(.985); }
 
-.btn-submit:hover {
-  background-color: #0d5dc5;
-}
-
-.contact-info {
+/* ========== Thông tin liên hệ ========== */
+.contact-info{
+  max-width: 800px;
+  margin: 0 auto;
   text-align: center;
   font-size: 1rem;
   color: #444;
 }
-
-.contact-info h2 {
+.contact-info h2{
+  margin: 0 0 12px;
   font-size: 1.3rem;
-  color: #1a73e8;
-  margin-bottom: 12px;
+  color: var(--primary);
 }
-
-.contact-info a {
-  color: #1a73e8;
+.contact-info a{
+  color: var(--primary);
   text-decoration: none;
+  font-weight: 600;
+}
+.contact-info a:hover{ text-decoration: underline; }
+
+/* ========== Thông báo ========== */
+.success-message{
+  margin-top: 16px;
+  text-align: center;
+  color: #2e7d32;
+}
+.error-message{
+  margin-top: 16px;
+  text-align: center;
+  color: #d32f2f;
 }
 
-.contact-info a:hover {
-  text-decoration: underline;
+/* ========== Responsive ========== */
+@media (max-width: 600px){
+  .contact-section{ padding: 20px 0; }
+  .contact-section h1{ font-size: 1.5rem; }
+  .contact-info p{ font-size: .95rem; }
+  .btn-submit{ width: 100%; }
 }
 
-/* Responsive */
-@media (max-width: 600px) {
-  .btn-submit {
-    width: 100%;
+/* ===== HERO trang Liên hệ ===== */
+.hero.hero--sub{
+  /* có thể chỉnh nhanh cao độ: */
+  --hero-min: 35vh;
+
+  position: relative;
+  text-align: center;
+  padding: 110px 20px 80px;
+  color: #fff;
+  background: url("../images/html/hero-contact.webp") center/cover no-repeat; /* đổi sang hero-contact.webp nếu muốn */
+  background-position: center calc(50% + var(--bg-offset, 0px));
+  border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  min-height: var(--hero-min);
+}
+
+/* Overlay giúp chữ nổi bật */
+.hero.hero--sub::before{
+  content: "";
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.38);
+  z-index: 0;
+}
+
+.hero.hero--sub .hero-inner{
+  position: relative; z-index: 1;
+  max-width: 800px; margin: 0 auto;
+  /* fallback: hiện ngay nếu không có JS */
+  opacity: 1; transform: none;
+}
+
+/* Chỉ kích hoạt fade-in khi có JS (thêm <script>…add('js')</script> trong <head>) */
+.js .hero.hero--sub .hero-inner{
+  opacity: 0; transform: translateY(14px);
+  transition: opacity .6s ease, transform .6s ease;
+}
+.js .hero.hero--sub .hero-inner.is-ready{
+  opacity: 1; transform: none;
+}
+
+.hero.hero--sub h1{
+  font-size: clamp(2rem, 2.2vw + 1rem, 2.4rem);
+  font-weight: 800; letter-spacing: .2px; line-height: 1.25;
+  margin: 0 0 12px;
+}
+.hero.hero--sub p{
+  font-size: clamp(1rem, .8vw + .6rem, 1.08rem);
+  max-width: 780px; margin: 0 auto;
+  line-height: 1.6; opacity: .95;
+}
+
+/* Mobile: chỉnh chiều cao hero liên hệ */
+@media (max-width: 767px){
+  .hero.hero--sub{
+    --hero-min: 28vh;         /* ↓ thay đổi cao độ tại đây */
+    padding: 64px 16px 48px;  /* ↓ giảm padding trên/dưới cho gọn */
   }
 }
