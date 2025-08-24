@@ -2,79 +2,157 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Trang chủ - Blue Sky</title>
+  <meta name="description" content="Giải pháp sáng tạo với diều nghệ thuật: thiết kế, tô màu, sự kiện. Tùy chỉnh chiếc diều của riêng bạn và để ước mơ bay cao!" />
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <!-- LCP: tải sớm ảnh nền hero -->
+  <link rel="preload" as="image" href="images/html/hero-bg.webp" fetchpriority="high" />
+
+  <!-- Prefetch tài nguyên trang Sản phẩm (ưu tiên thấp, không ảnh hưởng tab hiện tại) -->
+  <link rel="prefetch" href="shop.html" as="document">
+  <link rel="prefetch" href="css/shop.css" as="style">
+  
+  <link rel="prefetch" href="js/shop.js" as="script">
+ <link rel="prefetch" href="js/main.js" as="script">
+  <!-- Kết nối sớm đến nguồn dữ liệu/ảnh của trang Sản phẩm -->
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="dns-prefetch" href="//script.google.com">
+  <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
+  <link rel="dns-prefetch" href="//lh3.googleusercontent.com">
+
+  <!-- CSS dùng chung + trang chủ -->
   <link rel="stylesheet" href="css/base.css" />
+ 
   <link rel="stylesheet" href="css/index.css" />
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <script defer src="js/zoom.js"></script>
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
 </head>
 <body>
-  <header class="header">
-    <div class="container header-inner">
-      <img src="images/logo.webp" alt="Logo Blue Sky" class="logo" />
-      <button class="menu-toggle" id="menuToggle" aria-label="Mở menu">☰</button>
-      <nav class="nav" id="mainNav">
-        <a href="home.html" class="active">Trang chủ</a>
-        <a href="about.html">Giới thiệu</a>
-        <a href="shop.html">Sản phẩm</a>
-        <a href="color.html">Tô màu</a>
-        <a href="events.html">Sự kiện</a>
-        <a href="contact.html">Liên hệ</a>
-      </nav>
-    </div>
-  </header>
+  <!-- ==== HEADER ==== -->
 
+<header class="header">
+  <div class="header-inner">
+    <button class="menu-toggle" aria-label="Mở menu điều hướng" aria-controls="site-nav" aria-expanded="false">☰</button>
+    <img src="images/html/logo.png" alt="Logo Blue Sky" class="logo" />
+<nav class="nav" id="site-nav">
+  <a href="index.html" class="active" aria-current="page">Trang chủ</a>
+  <a href="about.html">Giới thiệu</a>
+  <a href="shop.html">Sản phẩm</a>
+  <a href="coloring.html">Tô màu</a>
+  <a href="events.html">Sự kiện</a>
+  <a href="contact.html">Liên hệ</a>
+</nav>
+
+  </div>
+</header>
+
+
+  <!-- ==== MAIN ==== -->
   <main>
-    <section class="hero container box">
+    <!-- Hero (full width, overlay) -->
+<section class="hero hero--main">
+  <div class="hero-inner">
       <h1>Khám phá thế giới diều nghệ thuật cùng Blue Sky</h1>
-      <p>Chúng tôi mang đến trải nghiệm sáng tạo với diều nghệ thuật độc đáo – từ thiết kế, trải nghiệm làm diều đến sự kiện thả diều sôi động. Tùy chỉnh chiếc diều của riêng bạn và để ước mơ bay cao!</p>
-    </section>
+      <p>
+        Chúng tôi mang đến trải nghiệm sáng tạo với diều nghệ thuật độc đáo – từ thiết kế, trải nghiệm làm diều đến sự kiện thả diều sôi động. Tùy chỉnh chiếc diều của riêng bạn và để ước mơ bay cao!
+      </p>
+    </div>
+  </section>
 
-    <section class="features container box">
-      <div class="feature-card">
-        <h3>🎨 Tô màu diều</h3>
-        <p>Thỏa sức sáng tạo với công cụ tô màu trực tuyến. Tùy chỉnh thiết kế của bạn trên những mẫu diều đẹp mắt chỉ bằng vài cú nhấp chuột.</p>
-        <a href="color.html" class="btn">Bắt đầu tô màu</a>
-      </div>
-      <div class="feature-card">
-        <h3>🪁 Mua sắm diều</h3>
-        <p>Khám phá bộ sưu tập diều nghệ thuật đa dạng với nhiều kích cỡ và phong cách. Chọn mẫu diều yêu thích và đặt hàng nhanh chóng.</p>
-        <a href="shop.html" class="btn">Xem sản phẩm</a>
-      </div>
-      <div class="feature-card">
-        <h3>🎉 Sự kiện</h3>
-        <p>Cập nhật các sự kiện thả diều, hội thi sáng tạo và hoạt động cộng đồng đầy cảm hứng cùng Blue Sky.</p>
-        <a href="events.html" class="btn">Xem sự kiện</a>
+    <!-- Features -->
+    <section class="features">
+      <div class="container">
+        <div class="feature-card">
+          <h3>Tô màu diều</h3>
+          <p>Thỏa sức sáng tạo với công cụ tô màu trực tuyến. Tùy chỉnh thiết kế của bạn trên những mẫu diều đẹp mắt chỉ bằng vài cú nhấp chuột.</p>
+          <a href="coloring.html" class="btn">Bắt đầu tô màu</a>
+        </div>
+        <div class="feature-card">
+          <h3>Mua sắm diều</h3>
+          <p>Khám phá bộ sưu tập diều nghệ thuật đa dạng với nhiều kích cỡ và phong cách. Chọn mẫu diều yêu thích và đặt hàng nhanh chóng.</p>
+          <a href="shop.html" class="btn">Khám phá</a>
+        </div>
+        <div class="feature-card">
+          <h3>Sự kiện</h3>
+          <p>Cập nhật các sự kiện thả diều, hội thi sáng tạo và hoạt động cộng đồng đầy cảm hứng cùng Blue Sky.</p>
+          <a href="events.html" class="btn">Xem sự kiện</a>
+        </div>
       </div>
     </section>
   </main>
 
-  <footer class="footer">
-    <div class="container footer-inner">
-      <p>
-        📞 Zalo: <a href="tel:+84903082089">+84 903 082 089</a> |
-        🌐 <a href="https://www.facebook.com/profile.php?id=100010250733315" target="_blank">Facebook: Tung Ho</a>
-      </p>
+  <!-- ==== FOOTER ==== -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="social-links">
+
+      <!-- Phone -->
+      <a href="tel:+84903082089"
+         class="social-icon phone"
+         data-tooltip="Gọi ngay cho chúng tôi"
+         aria-label="Điện thoại">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.3 
+                   1.2.4 2.5.7 3.8.7.6 0 1 .5 1 1v3.5c0 .6-.4 1-1 1C10.7 21 3 13.3 
+                   3 4.7c0-.6.5-1 1-1H7.5c.6 0 1 .4 1 1 0 1.3.3 2.6.7 3.8.1.4 0 
+                   .8-.3 1.1l-2.3 2.2z"/>
+        </svg>
+      </a>
+
+      <!-- Zalo (dùng icon chat để thay thế) -->
+      <a href="https://zalo.me/0903082089"
+         class="social-icon zalo"
+         data-tooltip="Chat với chúng tôi qua Zalo"
+         target="_blank" rel="noopener"
+         aria-label="Zalo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M20 2H4C2.9 2 2 2.9 2 4v18l4-4h14c1.1 0 2-.9 
+                   2-2V4c0-1.1-.9-2-2-2zm-9 11H7v-2h4v2zm6-4H7V7h10v2z"/>
+        </svg>
+      </a>
+
+      <!-- Facebook -->
+      <a href="https://www.facebook.com/profile.php?id=100010250733315"
+         class="social-icon facebook"
+         data-tooltip="Đến với trang Facebook của chúng tôi"
+         target="_blank" rel="noopener"
+         aria-label="Facebook">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M22 12a10 10 0 1 0-11.5 9.9v-7h-2v-3h2v-2c0-2 
+                   1.2-3.1 3-3.1.9 0 1.8.1 1.8.1v2h-1c-1 0-1.3.6-1.3 
+                   1.2v1.8h2.3l-.4 3h-1.9v7A10 10 0 0 0 22 12z"/>
+        </svg>
+      </a>
+
+      <!-- Instagram -->
+      <a href="https://www.instagram.com/"
+         class="social-icon instagram"
+         data-tooltip="Theo dõi chúng tôi trên Instagram"
+         target="_blank" rel="noopener"
+         aria-label="Instagram">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M7 2C4.2 2 2 4.2 2 7v10c0 2.8 2.2 5 5 
+                   5h10c2.8 0 5-2.2 5-5V7c0-2.8-2.2-5-5-5H7zm10 
+                   2c1.7 0 3 1.3 3 3v10c0 1.7-1.3 3-3 
+                   3H7c-1.7 0-3-1.3-3-3V7c0-1.7 1.3-3 
+                   3-3h10zm-5 3a5 5 0 1 0 0 10 
+                   5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 
+                   6 3 3 0 0 1 0-6zm4.8-.9a1.1 1.1 
+                   0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2z"/>
+        </svg>
+      </a>
     </div>
-  </footer>
 
-  <script>
-    const menuToggle = document.getElementById("menuToggle");
-    const navMenu = document.getElementById("mainNav");
+    <p class="footer-copy">
+      © 2025 Blue Sky. All rights reserved.
+    </p>
+  </div>
+</footer>
 
-    menuToggle.addEventListener("click", (e) => {
-      e.stopPropagation();
-      navMenu.classList.toggle("show");
-    });
 
-    document.addEventListener("click", (e) => {
-      if (!navMenu.contains(e.target) && !menuToggle.contains(e.target)) {
-        navMenu.classList.remove("show");
-      }
-    });
-  </script>
+  <!-- ==== SCRIPT ==== -->
+  <script src="js/main.js"></script>
 </body>
 </html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Tô màu – Blue Sky</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/color.css" />
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+
+  <!-- Prefetch trang Sản phẩm -->
+  <link rel="prefetch" href="shop.html" as="document">
+  <link rel="prefetch" href="css/shop.css" as="style">
+  <link rel="prefetch" href="js/shop.js" as="script">
+
+  <!-- JS -->
+  <script defer src="js/base.js"></script>
+  <script defer src="js/color.js"></script>
+
+  <!-- (tuỳ chọn) cuộn mượt -->
+  <style>
+    html { scroll-behavior: smooth; }
+  </style>
+</head>
+<body>
+
+  <!-- ==== HEADER ==== -->
+  <header class="header">
+    <div class="header-inner">
+      <button class="menu-toggle" aria-label="Mở menu điều hướng" aria-controls="site-nav" aria-expanded="false">&#9776;</button>
+      <img src="images/html/logo.png" alt="Logo Blue Sky" class="logo" />
+      <nav class="nav" id="site-nav">
+        <a href="index.html">Trang chủ</a>
+        <a href="about.html">Giới thiệu</a>
+        <a href="shop.html">Sản phẩm</a>
+        <a href="coloring.html" class="active" aria-current="page">Tô màu</a>
+        <a href="events.html">Sự kiện</a>
+        <a href="contact.html">Liên hệ</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ==== HERO COLOR (cố định chiều cao, parallax nhẹ qua base.js) ==== -->
+<!-- ==== HERO COLOR ==== -->
+<section class="hero hero-color" role="banner" aria-label="Color the Kite">
+  <div class="hero-inner">
+    <h1 class="hero-title">COLOR THE KITE</h1>
+    <p class="hero-sub">Tô màu cánh diều theo phong cách của bạn</p>
+    <!-- nút đã được bỏ -->
+  </div>
+</section>
+
+  <!-- ==== MAIN ==== -->
+  <main>
+    <!-- WORKSPACE: công cụ tô màu -->
+    <section class="container box" id="workspace">
+      <!-- Controls -->
+      <div class="controls-row">
+        <div class="select-area">
+          <label class="sr-only" for="imageSelect">Chọn mẫu</label>
+          <select id="imageSelect">
+            <option disabled selected hidden>Blue Sky Kite</option>
+            <option value="images/color/color/pilot.jpg">Pilot</option>
+            <option value="images/color/color/pilotlung.jpg">Pilot (lưng)</option>
+            <option value="images/color/color/cavang.jpg">Cá vàng</option>
+            <option value="images/color/color/cathulu.jpg">Cá thù lù 8m</option>
+            <option value="images/color/color/cathulu14.jpg">Cá thù lù 14m</option>
+            <option value="images/color/color/cabuom.jpg">Cá buồm</option>
+            <option value="images/color/color/canemo.jpg">Cá Nemo</option>
+            <option value="images/color/color/bohung.jpg">Bọ hung</option>
+            <option value="images/color/color/haicau.jpg">Hải cẩu</option>
+            <option value="images/color/color/caheo.jpg">Cá heo</option>
+          </select>
+        </div>
+
+        <div class="upload-area">
+          <label for="uploadInput" class="upload-label" title="Tải ảnh của bạn">⬆️ Upload</label>
+          <input type="file" id="uploadInput" accept="image/*" hidden>
+        </div>
+      </div>
+
+      <!-- Toolbars -->
+      <div class="tool-row">
+        <button id="fillModeBtn" class="mode-btn active" type="button" aria-pressed="true">🖌️ Fill</button>
+        <button id="brushModeBtn" class="mode-btn" type="button" aria-pressed="false">✍️ Brush</button>
+        <button id="eraserModeBtn" class="mode-btn" type="button" aria-pressed="false">🧼 Erase</button>
+
+        <select id="brushSizeSelect" class="brush-size-select">
+          <option value="1">Size 1x</option>
+          <option value="2">Size 2x</option>
+          <option value="3">Size 3x</option>
+          <option value="4">Size 4x</option>
+          <option value="5" selected>Size 5x</option>
+          <option value="6">Size 6x</option>
+          <option value="7">Size 7x</option>
+          <option value="8">Size 8x</option>
+          <option value="9">Size 9x</option>
+          <option value="10">Size 10x</option>
+        </select>
+      </div>
+
+      <div class="tool-row text-tools-row">
+        <button id="textModeBtn" class="mode-btn" type="button" aria-pressed="false">📝 Text</button>
+        <button id="boldBtn" type="button" title="In đậm">🔠 Bold text</button>
+        <button id="deleteTextBtn" type="button" title="Xoá khung chữ hiện tại">🗑️ Delete Text</button>
+      </div>
+
+      <div id="colorPalette" class="palette" aria-label="Bảng màu"></div>
+
+      <div class="canvas-container">
+        <div class="canvas-wrapper">
+          <canvas id="canvas" aria-label="Khu vực tô màu"></canvas>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <div class="action-left">
+          <button id="undoBtn" type="button" title="Hoàn tác">↩️ Undo</button>
+          <button id="redoBtn" type="button" title="Làm lại">↪️ Redo</button>
+        </div>
+        <div class="action-right">
+          <button id="downloadBtn" type="button" title="Tải ảnh đã tô">💾 Save Image</button>
+        </div>
+      </div>
+
+      <p class="note">
+        📌 <strong>Note:</strong> Please upload images with clear outlines and no blurring or overlapping colors to ensure accurate and effective coloring.
+      </p>
+    </section>
+  </main>
+
+  <!-- ==== FOOTER ==== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="social-links">
+        <!-- Phone -->
+        <a href="tel:+84903082089" class="social-icon phone" data-tooltip="Gọi ngay cho chúng tôi" aria-label="Điện thoại">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.3 
+                     1.2.4 2.5.7 3.8.7.6 0 1 .5 1 1v3.5c0 .6-.4 1-1 1C10.7 21 3 13.3 
+                     3 4.7c0-.6.5-1 1-1H7.5c.6 0 1 .4 1 1 0 1.3.3 2.6.7 3.8.1.4 0 
+                     .8-.3 1.1l-2.3 2.2z"/>
+          </svg>
+        </a>
+
+        <!-- Zalo -->
+        <a href="https://zalo.me/0903082089" class="social-icon zalo" data-tooltip="Chat với chúng tôi qua Zalo" target="_blank" rel="noopener" aria-label="Zalo">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20 2H4C2.9 2 2 2.9 2 4v18l4-4h14c1.1 0 2-.9 
+                     2-2V4c0-1.1-.9-2-2-2zm-9 11H7v-2h4v2zm6-4H7V7h10v2z"/>
+          </svg>
+        </a>
+
+        <!-- Facebook -->
+        <a href="https://www.facebook.com/profile.php?id=100010250733315" class="social-icon facebook" data-tooltip="Đến với trang Facebook của chúng tôi" target="_blank" rel="noopener" aria-label="Facebook">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M22 12a10 10 0 1 0-11.5 9.9v-7h-2v-3h2v-2c0-2 
+                     1.2-3.1 3-3.1.9 0 1.8.1 1.8.1v2h-1c-1 0-1.3.6-1.3 
+                     1.2v1.8h2.3l-.4 3h-1.9v7A10 10 0 0 0 22 12z"/>
+          </svg>
+        </a>
+
+        <!-- Instagram -->
+        <a href="https://www.instagram.com/" class="social-icon instagram" data-tooltip="Theo dõi chúng tôi trên Instagram" target="_blank" rel="noopener" aria-label="Instagram">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M7 2C4.2 2 2 4.2 2 7v10c0 2.8 2.2 5 5 
+                     5h10c2.8 0 5-2.2 5-5V7c0-2.8-2.2-5-5-5H7zm10 
+                     2c1.7 0 3 1.3 3 3v10c0 1.7-1.3 3-3 
+                     3H7c-1.7 0-3-1.3-3-3V7c0-1.7 1.3-3 
+                     3-3h10zm-5 3a5 5 0 1 0 0 10 
+                     5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 
+                     6 3 3 0 0 1 0-6zm4.8-.9a1.1 1.1 
+                     0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2z"/>
+          </svg>
+        </a>
+      </div>
+
+      <p class="footer-copy">© 2025 Blue Sky. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- ⚡️ In-app browser warning -->
+  <script>
+    (function () {
+      function detectInApp() {
+        const ua = navigator.userAgent || navigator.vendor || window.opera || "";
+        if (/FBAN|FBAV/i.test(ua)) return "Facebook";
+        if (/Instagram/i.test(ua)) return "Instagram";
+        if (/Zalo/i.test(ua)) return "Zalo";
+        if (/Line/i.test(ua)) return "Line";
+        if (/TikTok/i.test(ua)) return "TikTok";
+        if (/Android/i.test(ua) && /\bwv\b/i.test(ua)) return "App Android";
+        return null;
+      }
+      function isAndroid() { return /Android/i.test(navigator.userAgent); }
+      function isIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
+      function isSamsungDevice() { return /Samsung/i.test(navigator.userAgent); }
+
+      function copyToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(text);
+        }
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.top = "-1000px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand("copy"); } catch {}
+        document.body.removeChild(ta);
+        return ok ? Promise.resolve() : Promise.reject();
+      }
+      function showToast(msg) {
+        const toast = document.createElement("div");
+        toast.textContent = msg;
+        toast.style.cssText = "position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 14px;border-radius:12px;font-size:14px;z-index:10000;box-shadow:0 6px 20px rgba(0,0,0,.25);";
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .3s'; }, 1500);
+        setTimeout(() => { toast.remove(); }, 1900);
+      }
+      function buildButton(text, id, primary=false) {
+        const btn = document.createElement("button");
+        btn.id = id; btn.type = "button"; btn.textContent = text;
+        btn.style.cssText = `padding:12px 14px;font-size:15px;border:none;border-radius:10px;cursor:pointer;flex:1 1 auto;min-width:160px;${primary?"background:#1976d2;color:#fff;box-shadow:0 4px 12px rgba(25,118,210,.35);":"background:#f1f3f5;color:#111;border:1px solid #e5e7eb;"}`;
+        return btn;
+      }
+
+      function showInAppWarning() {
+        const appName = detectInApp();
+        if (!appName) return;
+
+        const overlay = document.createElement("div");
+        overlay.id = "inAppOverlay";
+        overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px;";
+
+        const card = document.createElement("div");
+        card.style.cssText = "width:min(640px,92vw);background:#fff;color:#000;border-radius:16px;padding:22px;text-align:center;box-shadow:0 12px 36px rgba(0,0,0,.26);";
+
+        const h2 = document.createElement("h2");
+        h2.textContent = `⚠️ Đang mở từ ${appName}`;
+        h2.style.cssText = "margin:0 0 8px;font-size:20px;";
+
+        const p1 = document.createElement("p");
+        p1.innerHTML = `Trình duyệt bên trong ứng dụng <b>${appName}</b> có thể <b>không hỗ trợ</b> chức năng <b>Lưu ảnh</b> của trang Tô màu.`;
+        p1.style.cssText = "margin:0 0 12px;font-size:14px;color:#333;";
+
+        const tip = document.createElement("div");
+        tip.style.cssText = "background:#f8fafc;border:1px solid #e5e7eb;color:#111;padding:12px;border-radius:12px;text-align:left;font-size:14px;margin:12px 0 16px;";
+
+        if (isAndroid()) {
+          tip.innerHTML = `
+            <div style="font-weight:600;margin-bottom:6px;">Cách 1 (đề xuất): Mở bằng trình duyệt ngoài</div>
+            <ol style="margin:0 0 6px 18px;padding:0;">
+              <li>Nhấn <b>Mở bằng Chrome</b> hoặc <b>Mở bằng Samsung Internet</b> bên dưới.</li>
+            </ol>
+            <div style="font-weight:600;margin:10px 0 6px;">Cách 2: Sao chép link và mở thủ công</div>
+            <ol style="margin:0 0 0 18px;padding:0;">
+              <li>Nhấn <b>Sao chép liên kết</b>.</li>
+              <li>Mở Chrome/Samsung Internet và dán liên kết để truy cập lại.</li>
+            </ol>
+          `;
+        } else if (isIOS()) {
+          tip.innerHTML = `
+            <div style="font-weight:600;margin-bottom:6px;">Cách mở bằng Safari/Chrome trên iPhone/iPad</div>
+            <ol style="margin:0 0 0 18px;padding:0;">
+              <li>Chạm vào biểu tượng <b>⋯</b> (hoặc <b>•••</b>) ở góc.</li>
+              <li>Chọn <b>Open in Safari</b> / <b>Mở trong Safari</b> (hoặc <b>Open in Browser</b>).</li>
+              <li>Nếu không thấy, hãy <b>Sao chép liên kết</b> rồi dán vào Safari/Chrome.</li>
+            </ol>
+          `;
+        } else {
+          tip.textContent = "Hãy mở trang bằng trình duyệt hệ thống để sử dụng đầy đủ tính năng Lưu ảnh.";
+        }
+
+        const btnRow = document.createElement("div");
+        btnRow.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px;";
+
+        const stayBtn = buildButton("Ở lại trang", "stayBtn");
+        const copyBtn = buildButton("Sao chép liên kết", "copyBtn");
+        const chromeBtn = buildButton("Mở bằng Chrome", "openChromeBtn", true);
+        const samsungBtn = buildButton("Mở bằng Samsung Internet", "openSamsungBtn", true);
+
+        if (isAndroid()) {
+          btnRow.appendChild(chromeBtn);
+          if (isSamsungDevice()) btnRow.appendChild(samsungBtn);
+          btnRow.appendChild(copyBtn);
+          btnRow.appendChild(stayBtn);
+        } else if (isIOS()) {
+          btnRow.appendChild(copyBtn);
+          btnRow.appendChild(stayBtn);
+        } else {
+          btnRow.appendChild(copyBtn);
+          btnRow.appendChild(stayBtn);
+        }
+
+        card.appendChild(h2);
+        card.appendChild(p1);
+        card.appendChild(tip);
+        card.appendChild(btnRow);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        stayBtn.addEventListener("click", () => overlay.remove());
+        copyBtn.addEventListener("click", async () => {
+          try { await copyToClipboard(location.href); showToast("Đã sao chép liên kết!"); }
+          catch { showToast("Không thể sao chép, vui lòng sao chép thủ công."); }
+        });
+
+        if (isAndroid()) {
+          chromeBtn.addEventListener("click", () => {
+            const intentUrl = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=${location.protocol.replace(':','')};package=com.android.chrome;end`;
+            window.location.href = intentUrl;
+          });
+          if (isSamsungDevice()) {
+            samsungBtn.addEventListener("click", () => {
+              const intentUrl = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=${location.protocol.replace(':','')};package=com.sec.android.app.sbrowser;end`;
+              window.location.href = intentUrl;
+            });
+          }
+        }
+      }
+
+      window.addEventListener("DOMContentLoaded", showInAppWarning);
+    })();
+  </script>
+
+</body>
+</html>

@@ -2,50 +2,82 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sự kiện - Blue Sky</title>
+  <meta name="description" content="Sự kiện nổi bật của Blue Sky: lễ hội thả diều, workshop sáng tạo, hoạt động cộng đồng." />
 
+  <!-- No-flash zoom (đặt biến sớm để tránh giật layout) -->
+
+  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Preload hero image để LCP tốt hơn -->
+  <link rel="preload" as="image" href="images/html/events-hero.webp" fetchpriority="high" />
+
+  <!-- CSS -->
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/events.css" />
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <script defer src="js/zoom.js"></script>
- </head>
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+
+  <!-- Prefetch asset trang Sản phẩm (ưu tiên thấp) -->
+  <link rel="prefetch" href="shop.html" as="document" />
+  <link rel="prefetch" href="css/shop.css" as="style" />
+  <link rel="prefetch" href="js/shop.js" as="script" />
+</head>
 <body>
-  <!-- Header -->
+  <!-- ==== HEADER (trong .container) ==== -->
   <header class="header">
-    <div class="container header-inner">
-      <img src="images/logo.webp" alt="Logo Blue Sky" class="logo" />
-      <button class="menu-toggle" id="menuToggle" aria-label="Mở menu">☰</button>
-      <nav class="nav" id="mainNav">
+    <div class="header-inner">
+      <button class="menu-toggle" aria-label="Mở menu điều hướng">&#9776;</button>
+      <img src="images/html/logo.png" alt="Logo Blue Sky" class="logo" />
+      <nav class="nav" id="site-nav">
         <a href="index.html">Trang chủ</a>
         <a href="about.html">Giới thiệu</a>
         <a href="shop.html">Sản phẩm</a>
-        <a href="color.html">Tô màu</a>
-        <a href="events.html" class="active">Sự kiện</a>
+        <a href="coloring.html">Tô màu</a>
+        <a href="events.html" class="active" aria-current="page">Sự kiện</a>
         <a href="contact.html">Liên hệ</a>
       </nav>
     </div>
   </header>
 
-  <!-- Nội dung chính -->
+  <!-- ==== HERO (full-width) ==== -->
+<section class="hero hero--sub hero--events" aria-labelledby="eventsTitle">
+  <div class="hero-inner">
+    <h1 id="eventsTitle">Sự kiện nổi bật 🪁</h1>
+    <p>Blue Sky thường xuyên tổ chức và tham gia nhiều sự kiện sôi động: từ lễ hội thả diều, hội thi thiết kế đến các buổi workshop sáng tạo.</p>
+  </div>
+</section>
+
+  <!-- ==== MAIN (các section trong .container) ==== -->
   <main>
     <section class="container box event-section">
-      <h1>Sự kiện nổi bật 🪁</h1>
-      <p>Blue Sky thường xuyên tổ chức và tham gia nhiều sự kiện sôi động: từ lễ hội thả diều, hội thi thiết kế đến các buổi workshop sáng tạo. Dưới đây là một số hoạt động tiêu biểu:</p>
-
       <div class="event-list">
         <div class="event-card">
-          <img src="images/events/dienkhanh2025.jpg" alt="Lễ hội diều 2025" class="event-img" />
+          <img
+            src="images/events/dienkhanh2025.jpg"
+            alt="Ngày hội thả diều Diên Khánh 2025"
+            class="event-img"
+            loading="lazy"
+            decoding="async"
+            sizes="(max-width: 768px) 100vw, 600px"
+          />
           <div class="event-info">
             <h3>Ngày hội thả diều Diên Khánh 2025</h3>
-            <p><strong>Ngày:</strong> 12/04/2025 • <strong>Địa điểm:</strong> Duyên Khánh, Khánh Hòa</p>
+            <p><strong>Ngày:</strong> 12/04/2025 • <strong>Địa điểm:</strong> Diên Khánh, Khánh Hòa</p>
             <p>Hơn 500 chiếc diều đủ sắc màu cùng trình diễn ánh sáng ngoạn mục và âm nhạc dân gian kết hợp hiện đại.</p>
           </div>
         </div>
 
         <div class="event-card">
-          <img src="images/events/workshopthienlong.jpg" alt="Workshop vẽ và thả diều" class="event-img" />
+          <img
+            src="images/events/workshopthienlong.jpg"
+            alt="Workshop: Vẽ và Thả diều cùng Bé"
+            class="event-img"
+            loading="lazy"
+            decoding="async"
+            sizes="(max-width: 768px) 100vw, 600px"
+          />
           <div class="event-info">
             <h3>Workshop: Vẽ và Thả diều cùng Bé</h3>
             <p><strong>Ngày:</strong> 26/05/2025 • <strong>Địa điểm:</strong> Công viên Global City</p>
@@ -54,7 +86,14 @@
         </div>
 
         <div class="event-card">
-          <img src="images/events/rachgia2025.jpg" alt="Lễ hội diều 2025" class="event-img" />
+          <img
+            src="images/events/rachgia2025.jpg"
+            alt="Lễ hội thả diều Rạch Giá 2025"
+            class="event-img"
+            loading="lazy"
+            decoding="async"
+            sizes="(max-width: 768px) 100vw, 600px"
+          />
           <div class="event-info">
             <h3>Lễ hội thả diều Rạch Giá 2025</h3>
             <p><strong>Ngày:</strong> 06/03/2025 • <strong>Địa điểm:</strong> Rạch Giá, Kiên Giang</p>
@@ -63,7 +102,14 @@
         </div>
 
         <div class="event-card">
-          <img src="images/events/caibe2025.jpg" alt="Cuộc thi online" class="event-img" />
+          <img
+            src="images/events/caibe2025.jpg"
+            alt='Cuộc thi "Bay cùng sắc màu"'
+            class="event-img"
+            loading="lazy"
+            decoding="async"
+            sizes="(max-width: 768px) 100vw, 600px"
+          />
           <div class="event-info">
             <h3>Cuộc thi "Bay cùng sắc màu"</h3>
             <p><strong>Ngày:</strong> 15/03/2025 • <strong>Hình thức:</strong> trực tiếp</p>
@@ -77,15 +123,15 @@
     <section class="event-videos container box">
       <h2>🎬 Video sự kiện nổi bật</h2>
       <div class="video-grid">
-        <video controls>
+        <video controls preload="metadata" playsinline>
           <source src="video/festival1.mp4" type="video/mp4" />
           Trình duyệt không hỗ trợ video.
         </video>
-        <video controls>
+        <video controls preload="metadata" playsinline>
           <source src="video/workshop1.mp4" type="video/mp4" />
           Trình duyệt không hỗ trợ video.
         </video>
-        <video controls>
+        <video controls preload="metadata" playsinline>
           <source src="video/family_day.mp4" type="video/mp4" />
           Trình duyệt không hỗ trợ video.
         </video>
@@ -93,30 +139,93 @@
     </section>
   </main>
 
-  <!-- Footer -->
+  <!-- ==== FOOTER ==== -->
   <footer class="footer">
-    <div class="container footer-inner">
-      <p>
-        📞 Zalo: <a href="tel:+84903082089">+84 903 082 089</a> |
-        🌐 <a href="https://www.facebook.com/profile.php?id=100010250733315" target="_blank">Facebook: Tung Ho</a>
+    <div class="footer-inner">
+      <div class="social-links">
+        <!-- Phone -->
+        <a href="tel:+84903082089"
+           class="social-icon phone"
+           data-tooltip="Gọi ngay cho chúng tôi"
+           aria-label="Điện thoại">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.3 
+                     1.2.4 2.5.7 3.8.7.6 0 1 .5 1 1v3.5c0 .6-.4 1-1 1C10.7 21 3 13.3 
+                     3 4.7c0-.6.5-1 1-1H7.5c.6 0 1 .4 1 1 0 1.3.3 2.6.7 3.8.1.4 0 
+                     .8-.3 1.1l-2.3 2.2z"/>
+          </svg>
+        </a>
+
+        <!-- Zalo -->
+        <a href="https://zalo.me/0903082089"
+           class="social-icon zalo"
+           data-tooltip="Chat với chúng tôi qua Zalo"
+           target="_blank" rel="noopener"
+           aria-label="Zalo">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20 2H4C2.9 2 2 2.9 2 4v18l4-4h14c1.1 0 2-.9 
+                     2-2V4c0-1.1-.9-2-2-2zm-9 11H7v-2h4v2zm6-4H7V7h10v2z"/>
+          </svg>
+        </a>
+
+        <!-- Facebook -->
+        <a href="https://www.facebook.com/profile.php?id=100010250733315"
+           class="social-icon facebook"
+           data-tooltip="Đến với trang Facebook của chúng tôi"
+           target="_blank" rel="noopener"
+           aria-label="Facebook">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M22 12a10 10 0 1 0-11.5 9.9v-7h-2v-3h2v-2c0-2 
+                     1.2-3.1 3-3.1.9 0 1.8.1 1.8.1v2h-1c-1 0-1.3.6-1.3 
+                     1.2v1.8h2.3l-.4 3h-1.9v7A10 10 0 0 0 22 12z"/>
+          </svg>
+        </a>
+
+        <!-- Instagram -->
+        <a href="https://www.instagram.com/"
+           class="social-icon instagram"
+           data-tooltip="Theo dõi chúng tôi trên Instagram"
+           target="_blank" rel="noopener"
+           aria-label="Instagram">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M7 2C4.2 2 2 4.2 2 7v10c0 2.8 2.2 5 5 
+                     5h10c2.8 0 5-2.2 5-5V7c0-2.8-2.2-5-5-5H7zm10 
+                     2c1.7 0 3 1.3 3 3v10c0 1.7-1.3 3-3 
+                     3H7c-1.7 0-3-1.3-3-3V7c0-1.7 1.3-3 
+                     3-3h10zm-5 3a5 5 0 1 0 0 10 
+                     5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 
+                     6 3 3 0 0 1 0-6zm4.8-.9a1.1 1.1 
+                     0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2z"/>
+          </svg>
+        </a>
+      </div>
+
+      <p class="footer-copy">
+        © 2025 Blue Sky. All rights reserved.
       </p>
     </div>
   </footer>
 
-  <!-- Dropdown menu JS -->
+  <!-- JS dùng chung: menu, header effect, v.v. -->
+  <script src="js/main.js"></script>
+
+  <!-- Reveal card mượt mà (nhẹ, độc lập) -->
   <script>
-    const menuToggle = document.getElementById("menuToggle");
-    const navMenu = document.getElementById("mainNav");
-
-    menuToggle.addEventListener("click", (e) => {
-      e.stopPropagation();
-      navMenu.classList.toggle("show");
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!navMenu.contains(e.target) && !menuToggle.contains(e.target)) {
-        navMenu.classList.remove("show");
+    document.addEventListener("DOMContentLoaded", () => {
+      const items = document.querySelectorAll(".event-card");
+      if (!("IntersectionObserver" in window)) {
+        items.forEach(el => el.classList.add("is-inview"));
+        return;
       }
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(en => {
+          if (en.isIntersecting) {
+            en.target.classList.add("is-inview");
+            io.unobserve(en.target);
+          }
+        });
+      }, { threshold: 0.15, rootMargin: "80px 0px" });
+      items.forEach(el => io.observe(el));
     });
   </script>
 </body>
