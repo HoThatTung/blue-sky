@@ -107,7 +107,7 @@ select:hover { background: #e3f2fd; border-color: #1565c0; }
 
 .brush-size-select{
   min-width: 0;          /* hoặc unset */
-  width: 70px;           /* tuỳ bạn: 70/65/60px */
+  width: 95px;           /* tuỳ bạn: 70/65/60px */
   padding: 4px 6px;
   font-size: 14px;
   display: inline-block; /* chắc chắn trình duyệt nhận width */
@@ -118,7 +118,7 @@ select:hover { background: #e3f2fd; border-color: #1565c0; }
 .palette {
   display: grid;
   grid-template-columns: repeat(10, 32px);
-  gap: 12px;
+  gap: 8px;
   justify-content: center;
   margin: 20px 0;
 }
