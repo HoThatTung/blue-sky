@@ -760,13 +760,6 @@ document.getElementById("boldBtn").addEventListener("click", () => {
   }
 });
 
-document.getElementById("fontSelect").addEventListener("change", (e) => {
-  if (currentTextBox) {
-    const content = currentTextBox.querySelector(".text-content");
-    content.style.fontFamily = e.target.value;
-  }
-});
-
 document.getElementById("deleteTextBtn").addEventListener("click", () => {
   if (currentTextBox) {
     currentTextBox.remove();
@@ -797,24 +790,13 @@ imageSelect.addEventListener("change", () => {
   setTimeout(() => imageSelect.classList.remove("pop"), 200);
 });
 
-// ----------------- Menu init + load by ?img= -----------------
-function initMenuButton() {
-  const menuBtn = document.getElementById("menuToggle");
-  const nav = document.getElementById("mainNav");
-  if (menuBtn && nav && !menuBtn.dataset.bound) {
-    menuBtn.addEventListener("click", () => {
-      nav.classList.toggle("open");
-    });
-    menuBtn.dataset.bound = "true";
-  }
-}
+// ====================== Init & Menu Toggle Fix ======================
 
 window.addEventListener("DOMContentLoaded", () => {
-  initMenuButton();
-
   // đảm bảo có nền trắng để vẽ ngay cả khi chưa load ảnh
   ensureInitialized();
 
+  // Query param ?img=...
   const params = new URLSearchParams(window.location.search);
   const imageUrl = params.get("img");
 
@@ -828,6 +810,28 @@ window.addEventListener("DOMContentLoaded", () => {
       originalImageName = imageUrl.split("/").pop();
     };
     imgFromUrl.src = imageUrl;
+  }
+
+  // ✅ Menu toggle fix cho Coloring page (không phụ thuộc base.js)
+  const toggle = document.querySelector(".menu-toggle");
+  const nav = document.getElementById("site-nav");
+  if (toggle && nav) {
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const expanded = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!expanded));
+      toggle.classList.toggle("is-open");
+      nav.classList.toggle("show");
+    });
+
+    // Đóng khi bấm ra ngoài
+    document.addEventListener("click", (e) => {
+      if (!nav.contains(e.target) && !toggle.contains(e.target)) {
+        nav.classList.remove("show");
+        toggle.classList.remove("is-open");
+        toggle.setAttribute("aria-expanded", "false");
+      }
+    });
   }
 });
 
