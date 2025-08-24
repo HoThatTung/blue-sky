@@ -118,7 +118,7 @@ select:hover { background: #e3f2fd; border-color: #1565c0; }
 .palette {
   display: grid;
   grid-template-columns: repeat(9, 32px);
-  gap: 12px;
+  gap: 10px;
   justify-content: center;
   margin: 20px 0;
 }
