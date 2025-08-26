@@ -53,7 +53,7 @@
   font-weight: 600;
   border: 0;
   border-radius: 12px;
-  padding: 5px 12px; /* chiều cao nhỏ gọn */
+  padding: 5px 14px; /* chiều cao nhỏ gọn */
   cursor: pointer;
   transition: all .25s ease;
   box-shadow: 0 4px 10px rgba(0,0,0,.15);
@@ -402,3 +402,84 @@ canvas {
 }
 .fs-option[data-placeholder="true"]:hover{ filter:brightness(0.98); }
 
+
+
+/* === Chỉ áp dụng cho thiết bị cảm ứng === */
+
+@media (hover: none) and (pointer: coarse) {
+  .fancy-select .fs-trigger {
+    width: 160px;        /* 👈 chiều dài bạn muốn */
+    min-width: 0;        /* 👈 gỡ min-width:200px của rule gốc */
+    height: 36px;        /* 👈 chiều cao khung */
+    padding: 0 10px;     /* giảm padding cho gọn */
+    box-sizing: border-box;
+    line-height: normal; /* dùng flex để căn giữa, không cần line-height */
+    font-size: 15px;
+    border-radius: 10px;
+  }
+
+  .fancy-select .fs-label {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .fs-option {
+    font-size: 15px;
+    padding: 10px 12px;
+    line-height: 1.2;
+    margin: 4px 0;
+  }
+}
+
+/* FALLBACK: nếu bạn đang test trên desktop/devtools, dùng thêm cái này */
+@media (max-width: 820px) {
+  .fancy-select .fs-trigger {
+    width: 160px;
+    min-width: 0;
+    height: 36px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    line-height: normal;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  /* Khung select */
+  .fancy-select .fs-trigger {
+    width: 160px;       /* hoặc 200px tuỳ bạn */
+    min-width: 0;
+    height: 36px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    font-size: 15px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center; /* chữ căn giữa dọc */
+  }
+
+  .fancy-select .fs-label {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  /* Nút upload — cho giống khung select */
+  .upload-label {
+    height: 32px;        /* giống .fs-trigger */
+    line-height: 36px;   /* căn chữ giữa nếu không dùng flex */
+    padding: 0 10px;     /* giống padding khung */
+    font-size: 15px;     /* chữ cùng size với Blue Sky Kite */
+    border-radius: 10px; /* đồng bộ bo góc */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  /* Popup options */
+  .fs-option {
+    font-size: 15px;
+    padding: 10px 12px;
+    line-height: 1.2;
+    margin: 4px 0;
+  }
+}
