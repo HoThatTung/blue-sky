@@ -939,7 +939,7 @@ const syncLabelStyle = () => {
     trigger.style.color = '#111';
     trigger.style.fontWeight = '400';
     trigger.style.fontStyle  = 'normal';
-    trigger.style.background = 'linear-gradient(135deg,#f0f7ff,#ffffff)';
+    trigger.style.background = 'linear-gradient(135deg,#3a7bd5,#00d2ff)';
     trigger.style.borderColor = '#1976d2';
   }
 };
