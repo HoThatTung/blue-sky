@@ -411,8 +411,8 @@ canvas {
 /* Mọi thiết bị cảm ứng: đổi cỡ chữ & padding nút Upload */
 @media (hover: none) and (pointer: coarse) {
   .upload-area .upload-label{
-    font-size: 12px;   /* ↓ chỉnh số tuỳ ý: 11–14 */
-    padding: 4px 10px; /* cân đối lại nút trên màn hình touch */
+    font-size: 11px;   /* ↓ chỉnh số tuỳ ý: 11–14 */
+    padding: 3.5px 10px; /* cân đối lại nút trên màn hình touch */
     line-height: 1.2;
   }
 }
