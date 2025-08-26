@@ -408,3 +408,19 @@ canvas {
     line-height: 1.2;
   }
 }
+/* Mọi thiết bị cảm ứng: đổi cỡ chữ & padding nút Upload */
+@media (hover: none) and (pointer: coarse) {
+  .upload-area .upload-label{
+    font-size: 12px;   /* ↓ chỉnh số tuỳ ý: 11–14 */
+    padding: 4px 10px; /* cân đối lại nút trên màn hình touch */
+    line-height: 1.2;
+  }
+}
+
+/* Tuỳ chọn: tách nhỏ cho phone và tablet */
+@media (hover: none) and (pointer: coarse) and (max-width: 599px){
+  .upload-area .upload-label{ font-size: 11px; }
+}
+@media (hover: none) and (pointer: coarse) and (min-width: 600px) and (max-width: 1024px){
+  .upload-area .upload-label{ font-size: 12px; }
+}
