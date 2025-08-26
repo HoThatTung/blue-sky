@@ -509,10 +509,15 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 
 // ----------------- Download (canvas + text + logo) -----------------
 document.getElementById("downloadBtn").addEventListener("click", () => {
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const logo = new Image();
-  logo.src = "images/html/logo.webp";
-  logo.crossOrigin = "anonymous";
+const logo = new Image();
+logo.crossOrigin = "anonymous";
+const logoCandidates = ["images/html/logo.webp", "images/html/logo.png", "images/logo.webp"];
+let logoTry = 0;
+logo.onerror = () => {
+  if (++logoTry < logoCandidates.length) { logo.src = logoCandidates[logoTry]; }
+  else { alert("Không thể tải logo. Kiểm tra đường dẫn."); }
+};
+logo.src = logoCandidates[0];
 
   logo.onload = () => {
     const tempCanvas = document.createElement("canvas");
@@ -874,15 +879,146 @@ function updateSelectStyle() {
   const el = document.getElementById("imageSelect");
   if (!el) return;
   const isPlaceholder = el.selectedIndex === 0;
-  el.style.color = isPlaceholder ? "rgba(0,0,0,0.5)" : "#000";
-  el.style.fontStyle = isPlaceholder ? "italic" : "normal";
 
-  if (!isPlaceholder) {
-    el.classList.add("selected-kite");
-  } else {
-    el.classList.remove("selected-kite");
-  }
+if (isPlaceholder) {
+  el.style.color = '#1565c0';   // xanh
+  el.style.fontWeight = '700';
+  el.style.fontStyle  = 'italic';
+} else {
+  el.style.color = '#111';
+  el.style.fontWeight = '400';
+  el.style.fontStyle  = 'normal';
 }
+
+
+  // (tuỳ chọn) thêm class để bạn còn muốn style viền/animation
+  if (!isPlaceholder) el.classList.add("selected-kite");
+  else el.classList.remove("selected-kite");
+}
+
+function enhanceImageSelect(){
+  const select = document.getElementById('imageSelect');
+  if (!select || select.dataset.enhanced) return;
+  select.dataset.enhanced = '1';
+
+  // Wrap & ẩn select native (vẫn giữ để lắng nghe change)
+  const wrapper = document.createElement('div');
+  wrapper.className = 'fancy-select';
+  select.parentNode.insertBefore(wrapper, select);
+  wrapper.appendChild(select);
+  select.classList.add('fs-native');
+
+  // Nút hiển thị giá trị
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'fs-trigger';
+  trigger.setAttribute('aria-haspopup','listbox');
+  trigger.setAttribute('aria-expanded','false');
+  const label = document.createElement('span');
+  label.className = 'fs-label';
+  trigger.appendChild(label);
+  wrapper.appendChild(trigger);
+
+  // Panel popup
+const panel = document.createElement('div');
+panel.className = 'fs-panel';
+panel.setAttribute('role','listbox');
+panel.setAttribute('tabindex','-1');   // ⬅️ THÊM DÒNG NÀY
+wrapper.appendChild(panel);
+
+const syncLabelStyle = () => {
+  const isPlaceholder = select.selectedIndex === 0;
+  if (isPlaceholder) {
+    trigger.style.color = '#fff';
+    trigger.style.fontWeight = '700';
+    trigger.style.fontStyle  = 'italic';
+    // ↓ đổi từ hồng sang xanh
+    trigger.style.background = 'linear-gradient(135deg,#00c6ff,#0072ff)';
+    trigger.style.borderColor = 'transparent';
+  } else {
+    trigger.style.color = '#111';
+    trigger.style.fontWeight = '400';
+    trigger.style.fontStyle  = 'normal';
+    trigger.style.background = 'linear-gradient(135deg,#f0f7ff,#ffffff)';
+    trigger.style.borderColor = '#1976d2';
+  }
+};
+
+
+  const buildOptions = () => {
+  panel.innerHTML = '';
+
+  [...select.options].forEach((opt, idx) => {
+    const isPlaceholder = opt.disabled && opt.hidden; // <option disabled selected hidden>
+    if (isPlaceholder) return; // ❌ KHÔNG tạo item cho popup
+
+    const item = document.createElement('div');
+    item.className = 'fs-option';
+    item.textContent = opt.textContent;
+    item.setAttribute('role','option');
+
+    if (idx === select.selectedIndex) item.setAttribute('aria-selected','true');
+
+    item.addEventListener('click', () => {
+      select.selectedIndex = idx;
+      select.dispatchEvent(new Event('change', { bubbles:true }));
+      label.textContent = opt.textContent;
+      [...panel.children].forEach(c => c.removeAttribute('aria-selected'));
+      item.setAttribute('aria-selected','true');
+      close();
+    });
+
+    panel.appendChild(item);
+  });
+
+  // Cập nhật nhãn hiển thị trên nút (vẫn cho phép hiện "Blue Sky Kite" nếu đang ở index 0)
+  label.textContent = select.options[select.selectedIndex]?.textContent || '';
+  syncLabelStyle();
+};
+
+
+const open = () => {
+  panel.classList.add('open');
+  trigger.classList.add('open');
+  trigger.setAttribute('aria-expanded','true');
+  const sel = panel.querySelector('.fs-option[aria-selected="true"]') || panel.firstChild;
+  sel?.scrollIntoView({ block:'nearest' });
+  panel.focus(); // <-- cho phép ArrowUp/Down, Escape hoạt động
+};
+
+  const close = () => {
+    panel.classList.remove('open');
+    trigger.classList.remove('open');
+    trigger.setAttribute('aria-expanded','false');
+  };
+
+  // Events
+  trigger.addEventListener('click', () => {
+    panel.classList.contains('open') ? close() : open();
+  });
+  document.addEventListener('click', (e) => {
+    if (!wrapper.contains(e.target)) close();
+  });
+  // Đồng bộ khi code khác đổi select
+  select.addEventListener('change', buildOptions);
+
+  // Keyboard cơ bản
+  trigger.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); open();
+    }
+  });
+  panel.addEventListener('keydown', (e) => {
+    const opts = [...panel.querySelectorAll('.fs-option')];
+    let i = opts.findIndex(o => o.getAttribute('aria-selected') === 'true');
+    if (e.key === 'ArrowDown') { e.preventDefault(); opts[Math.min(i+1, opts.length-1)]?.click(); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); opts[Math.max(i-1, 0)]?.click(); }
+    if (e.key === 'Escape')    { e.preventDefault(); close(); trigger.focus(); }
+  });
+
+  buildOptions();
+}
+
 
 imageSelect.addEventListener("change", updateSelectStyle);
 window.addEventListener("DOMContentLoaded", updateSelectStyle);
@@ -935,6 +1071,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+  enhanceImageSelect();   // ⬅️ gọi enhancer
 });
 
 // ======================  Helpers: chuẩn hoá & init  ======================
@@ -947,7 +1084,7 @@ function snapshotSmall(ctx, w, h, maxEdge = 768) {
   c.width = sw; c.height = sh;
   const sctx = c.getContext("2d");
   sctx.imageSmoothingEnabled = true;
-  sctx.drawImage(canvas, 0, 0, w, h, 0, 0, sw, sh);
+  sctx.drawImage(ctx.canvas, 0, 0, w, h, 0, 0, sw, sh);
   const id = sctx.getImageData(0, 0, sw, sh);
   return { sw, sh, data: id.data };
 }
