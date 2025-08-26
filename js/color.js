@@ -409,7 +409,7 @@ document.getElementById("redoBtn").addEventListener("click", () => {
 document.getElementById("downloadBtn").addEventListener("click", () => {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const logo = new Image();
-  logo.src = "images/logo.webp";
+  logo.src = "images/html/logo.webp";
   logo.crossOrigin = "anonymous";
 
   logo.onload = () => {
