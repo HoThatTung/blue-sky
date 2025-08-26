@@ -419,8 +419,8 @@ canvas {
 
 /* Tuỳ chọn: tách nhỏ cho phone và tablet */
 @media (hover: none) and (pointer: coarse) and (max-width: 599px){
-  .upload-area .upload-label{ font-size: 11px; }
+  .upload-area .upload-label{ font-size: 14px; }
 }
 @media (hover: none) and (pointer: coarse) and (min-width: 600px) and (max-width: 1024px){
-  .upload-area .upload-label{ font-size: 12px; }
+  .upload-area .upload-label{ font-size: 14px; }
 }
