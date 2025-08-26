@@ -929,6 +929,7 @@ wrapper.appendChild(panel);
 const syncLabelStyle = () => {
   const isPlaceholder = select.selectedIndex === 0;
   if (isPlaceholder) {
+    trigger.style.fontSize = '15px';   // Blue Sky Kite
     trigger.style.color = '#fff';
     trigger.style.fontWeight = '700';
     trigger.style.fontStyle  = 'italic';
@@ -936,6 +937,7 @@ const syncLabelStyle = () => {
     trigger.style.background = 'linear-gradient(135deg,#00c6ff,#0072ff)';
     trigger.style.borderColor = 'transparent';
   } else {
+    trigger.style.fontSize = '14px';   // tên ảnh
     trigger.style.color = '#111';
     trigger.style.fontWeight = '400';
     trigger.style.fontStyle  = 'normal';
