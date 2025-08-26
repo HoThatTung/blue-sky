@@ -404,6 +404,6 @@ canvas {
 @media (max-width: 480px){
   .upload-label{
     font-size: 12px;
-    padding: 5px 12px;
+    padding: 4px 12px;
   }
 }
