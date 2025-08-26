@@ -401,47 +401,4 @@ canvas {
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
 }
 .fs-option[data-placeholder="true"]:hover{ filter:brightness(0.98); }
-@media (hover: hover) and (pointer: fine) {
-  .upload-area .upload-label{
-    font-size: 14px;
-    padding: 6px 14px;
-    line-height: 1.2;
-  }
-}
-/* Mọi thiết bị cảm ứng: đổi cỡ chữ & padding nút Upload */
-@media (hover: none) and (pointer: coarse) {
-  .upload-area .upload-label{
-    font-size: 14px;   /* ↓ chỉnh số tuỳ ý: 11–14 */
-    padding: 6px 14px; /* cân đối lại nút trên màn hình touch */
-    line-height: 1.2;
-  }
-}
 
-/* Tuỳ chọn: tách nhỏ cho phone và tablet */
-@media (hover: none) and (pointer: coarse) and (max-width: 599px){
-  .upload-area .upload-label{ font-size: 14px; }
-}
-@media (hover: none) and (pointer: coarse) and (min-width: 600px) and (max-width: 1024px){
-  .upload-area .upload-label{ font-size: 14px; }
-}
-/* Kích thước chữ mặc định trên nút */
-.fs-trigger .fs-label{
-  font-size: 14px;      /* đổi tuỳ ý */
-  line-height: 1.0;
-}
-
-/* Riêng khi đang hiển thị “Blue Sky Kite” */
-.fs-trigger.is-placeholder .fs-label{
-  font-size: 14px;      /* ↑ tăng/giảm cho Blue Sky Kite */
-}
-/* Font & khoảng đệm cho item trong popup */
-.fs-panel{ --fs-option-font: 12px; --fs-option-py: 10px; }
-
-.fs-option{
-  font-size: var(--fs-option-font);
-  padding-top: var(--fs-option-py);
-  padding-bottom: var(--fs-option-py);
-}
-
-/* Nếu trước đó bạn muốn ẩn “Blue Sky Kite” trong popup, giữ nguyên rule này */
-.fs-option[data-placeholder="true"]{ display: none; }
