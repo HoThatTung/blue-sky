@@ -403,16 +403,16 @@ canvas {
 .fs-option[data-placeholder="true"]:hover{ filter:brightness(0.98); }
 @media (hover: hover) and (pointer: fine) {
   .upload-area .upload-label{
-    font-size: 12px;
-    padding: 4px 10px;
+    font-size: 14px;
+    padding: 5px 12px;
     line-height: 1.2;
   }
 }
 /* Mọi thiết bị cảm ứng: đổi cỡ chữ & padding nút Upload */
 @media (hover: none) and (pointer: coarse) {
   .upload-area .upload-label{
-    font-size: 11px;   /* ↓ chỉnh số tuỳ ý: 11–14 */
-    padding: 4px 10px; /* cân đối lại nút trên màn hình touch */
+    font-size: 14px;   /* ↓ chỉnh số tuỳ ý: 11–14 */
+    padding: 5px 12px; /* cân đối lại nút trên màn hình touch */
     line-height: 1.2;
   }
 }
