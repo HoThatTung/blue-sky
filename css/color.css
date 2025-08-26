@@ -412,7 +412,7 @@ canvas {
 @media (hover: none) and (pointer: coarse) {
   .upload-area .upload-label{
     font-size: 11px;   /* ↓ chỉnh số tuỳ ý: 11–14 */
-    padding: 3.5px 10px; /* cân đối lại nút trên màn hình touch */
+    padding: 4px 10px; /* cân đối lại nút trên màn hình touch */
     line-height: 1.2;
   }
 }
