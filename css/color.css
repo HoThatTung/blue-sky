@@ -435,7 +435,7 @@ canvas {
   font-size: 14px;      /* ↑ tăng/giảm cho Blue Sky Kite */
 }
 /* Font & khoảng đệm cho item trong popup */
-.fs-panel{ --fs-option-font: 8px; --fs-option-py: 8px; }
+.fs-panel{ --fs-option-font: 10px; --fs-option-py: 10px; }
 
 .fs-option{
   font-size: var(--fs-option-font);
