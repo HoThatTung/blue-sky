@@ -432,10 +432,10 @@ canvas {
 
 /* Riêng khi đang hiển thị “Blue Sky Kite” */
 .fs-trigger.is-placeholder .fs-label{
-  font-size: 16px;      /* ↑ tăng/giảm cho Blue Sky Kite */
+  font-size: 14px;      /* ↑ tăng/giảm cho Blue Sky Kite */
 }
 /* Font & khoảng đệm cho item trong popup */
-.fs-panel{ --fs-option-font: 14px; --fs-option-py: 10px; }
+.fs-panel{ --fs-option-font: 10px; --fs-option-py: 10px; }
 
 .fs-option{
   font-size: var(--fs-option-font);
