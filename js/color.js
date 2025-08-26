@@ -17,6 +17,12 @@ const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
 
 // ---------- State ----------
+// === Recolor mode (tự động, không thêm UI) ===
+let imageProcessingMode = "lineart"; // "lineart" | "recolor"
+let fillTolerance = 70;              // 10..80 (dung sai giống màu)
+let edgeStop = 22;                   // 10..40 (độ nhạy biên Sobel)
+const PRESERVE_LIGHTNESS = true;     // giữ sáng/tối khi đổi màu
+
 let currentColor = "#000000";
 let isDrawing = false;
 let mode = "fill"; // fill | brush | eraser | text
@@ -254,13 +260,22 @@ canvas.addEventListener("touchend", () => { isDrawing = false; lastPt = null; })
 
 // ----------------- Fill – bảo vệ nét bằng lineMask -----------------
 canvas.addEventListener("click", (e) => {
-  if (mode === "fill") {
-    ensureInitialized();
-    const { x, y } = getCanvasCoords(e);
-    saveState();
-    floodFillSingleLayer(x, y, hexToRgba(currentColor));
+  if (mode !== "fill") return;
+  ensureInitialized();
+  const { x, y } = getCanvasCoords(e);
+  saveState();
+  const color = hexToRgba(currentColor);
+
+  if (imageProcessingMode === "lineart") {
+    // như cũ: flood-fill có bảo vệ lineMask
+    floodFillSingleLayer(x, y, color);
+  } else {
+    // ảnh đã tô: recolor có chặn biên + giữ sáng-tối
+    floodFillWithEdgeGuard(x, y, color, fillTolerance, edgeStop, PRESERVE_LIGHTNESS);
   }
 });
+
+
 
 function hexToRgba(hex) {
   const bigint = parseInt(hex.slice(1), 16);
@@ -294,7 +309,7 @@ function floodFillSingleLayer(x, y, fillColor) {
   const idx0 = (y * w + x) * 4;
   const startR = data[idx0], startG = data[idx0 + 1], startB = data[idx0 + 2];
 
-  const tolerance = 48;
+  const tolerance = fillTolerance;
   const visited = new Uint8Array(w * h);
   const stack = [[x, y]];
 
@@ -326,6 +341,93 @@ function floodFillSingleLayer(x, y, fillColor) {
   }
 
   ctx.putImageData(imageData, 0, 0);
+}
+// === Recolor theo biên (edge-guard flood) ===
+function floodFillWithEdgeGuard(x, y, newColor, tolerance=48, edgeStop=22, preserveLightness=true){
+  const w = canvas.width, h = canvas.height;
+  let id;
+  try { id = ctx.getImageData(0, 0, w, h); }
+  catch { alert("Không thể tô (CORS). Hãy dùng ảnh cùng domain hoặc upload file."); return; }
+  const d = id.data;
+
+  const seed = (y*w + x) * 4;
+  const sR = d[seed], sG = d[seed+1], sB = d[seed+2];
+
+  // Kênh Y để đo biên Sobel
+  const Y = new Float32Array(w*h);
+  for (let p=0, i=0; p<w*h; p++, i+=4) {
+    Y[p] = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+  }
+  const sobelMag=(cx,cy)=>{
+    if (cx<=0||cy<=0||cx>=w-1||cy>=h-1) return 999;
+    const i = cy*w+cx;
+    const gx = -Y[i-w-1]-2*Y[i-1]-Y[i+w-1] + Y[i-w+1]+2*Y[i+1]+Y[i+w+1];
+    const gy = -Y[i-w-1]-2*Y[i-w]-Y[i-w+1] + Y[i+w-1]+2*Y[i+w]+Y[i+w+1];
+    return Math.hypot(gx, gy) / 4;
+  };
+
+  const visited = new Uint8Array(w*h);
+  const stack = [[x,y]];
+
+  while (stack.length){
+    const [cx, cy] = stack.pop();
+    if (cx<0||cy<0||cx>=w||cy>=h) continue;
+    const pi = cy*w + cx;
+    if (visited[pi]) continue;
+    visited[pi] = 1;
+
+    if (sobelMag(cx,cy) > edgeStop) continue;
+
+    const i4 = pi*4;
+    const r=d[i4], g=d[i4+1], b=d[i4+2];
+    if (Math.abs(r-sR)>tolerance || Math.abs(g-sG)>tolerance || Math.abs(b-sB)>tolerance) continue;
+
+    if (preserveLightness) {
+      const out = recolorPreserveLightness([r,g,b], newColor);
+      d[i4]=out[0]; d[i4+1]=out[1]; d[i4+2]=out[2]; d[i4+3]=255;
+    } else {
+      d[i4]=newColor[0]; d[i4+1]=newColor[1]; d[i4+2]=newColor[2]; d[i4+3]=255;
+    }
+
+    stack.push([cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]);
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+// === HSV utils ===
+function rgb2hsv(r,g,b){
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  let h=0;
+  if (d!==0){
+    if (max===r) h=((g-b)/d)%6;
+    else if (max===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h*=60; if (h<0) h+=360;
+  }
+  const s = max===0 ? 0 : d/max;
+  const v = max;
+  return [h,s,v];
+}
+function hsv2rgb(h,s,v){
+  const c=v*s, x=c*(1-Math.abs((h/60)%2-1)), m=v-c;
+  let r=0,g=0,b=0;
+  if (0<=h&&h<60){ r=c; g=x; b=0; }
+  else if (60<=h&&h<120){ r=x; g=c; b=0; }
+  else if (120<=h&&h<180){ r=0; g=c; b=x; }
+  else if (180<=h&&h<240){ r=0; g=x; b=c; }
+  else if (240<=h&&h<300){ r=x; g=0; b=c; }
+  else { r=c; g=0; b=x; }
+  return [ (r+m)*255, (g+m)*255, (b+m)*255 ];
+}
+
+// Đổi màu giữ sáng-tối (lấy H/S của màu chọn, giữ V của pixel gốc)
+function recolorPreserveLightness(srcRGB, targetRGB){
+  const [sr,sg,sb]=srcRGB, [tr,tg,tb]=targetRGB;
+  const [hT, sT] = (function(){ const [h,s]=rgb2hsv(tr,tg,tb); return [h, Math.max(0.05, s)]; })();
+  const vS = rgb2hsv(sr,sg,sb)[2];
+  const [r,g,b] = hsv2rgb(hT, sT, vS);
+  return [r|0, g|0, b|0];
 }
 
 // Brush/Eraser theo pixel trên canvas chính, KHÔNG đè lên lineMask
@@ -484,7 +586,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     }
   };
 
-  logo.onerror = () => alert("Không thể tải logo từ images/logo.webp");
+  logo.onerror = () => alert("Không thể tải logo từ images/html/logo.webp");
 });
 
 // ----------------- Text box DOM (giữ nguyên tính năng) -----------------
@@ -836,6 +938,71 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // ======================  Helpers: chuẩn hoá & init  ======================
+// Downscale nhanh để tính đặc trưng (<= 768px cạnh dài)
+function snapshotSmall(ctx, w, h, maxEdge = 768) {
+  const scale = Math.min(1, maxEdge / Math.max(w, h));
+  const sw = Math.max(1, Math.round(w * scale));
+  const sh = Math.max(1, Math.round(h * scale));
+  const c = document.createElement("canvas");
+  c.width = sw; c.height = sh;
+  const sctx = c.getContext("2d");
+  sctx.imageSmoothingEnabled = true;
+  sctx.drawImage(canvas, 0, 0, w, h, 0, 0, sw, sh);
+  const id = sctx.getImageData(0, 0, sw, sh);
+  return { sw, sh, data: id.data };
+}
+
+// Phân loại rất nhẹ: "lineart" hay "filled_color" (ảnh đã tô)
+function classifyImageTypeQuick(ctx, w, h) {
+  try {
+    const { sw, sh, data } = snapshotSmall(ctx, w, h, 768);
+
+    // Saturation trung bình & tỷ lệ gần xám
+    let satSum = 0, grayCnt = 0, total = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i+1], b = data[i+2];
+      const max = Math.max(r,g,b), min = Math.min(r,g,b);
+      const sat = max === 0 ? 0 : (max - min) / max;
+      satSum += sat; total++;
+      if (sat < 0.08) grayCnt++;
+    }
+    const satAvg = satSum / Math.max(1, total);
+    const grayRatio = grayCnt / Math.max(1, total);
+
+    // Edge density + chromatic edge ratio (Sobel trên Y)
+    const Y = new Float32Array(sw * sh);
+    const S = new Float32Array(sw * sh);
+    for (let p=0, i=0; p<sw*sh; p++, i+=4) {
+      const r=data[i], g=data[i+1], b=data[i+2];
+      Y[p] = 0.299*r + 0.587*g + 0.114*b;
+      const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+      S[p] = mx===0 ? 0 : (mx-mn)/mx;
+    }
+    let edgeCnt = 0, chromEdgeCnt = 0;
+    const EDGE_TH = 20;
+    for (let y=1; y<sh-1; y++) {
+      for (let x=1; x<sw-1; x++) {
+        const i = y*sw + x;
+        const gx = -Y[i-sw-1]-2*Y[i-1]-Y[i+sw-1] + Y[i-sw+1]+2*Y[i+1]+Y[i+sw+1];
+        const gy = -Y[i-sw-1]-2*Y[i-sw]-Y[i-sw+1] + Y[i+sw-1]+2*Y[i+sw]+Y[i+sw+1];
+        const mag = Math.hypot(gx, gy) / 4;
+        if (mag > EDGE_TH) { edgeCnt++; if (S[i] > 0.2) chromEdgeCnt++; }
+      }
+    }
+    const edgeDensity = edgeCnt / Math.max(1, (sw-2)*(sh-2));
+    const chromaticEdgeRatio = edgeCnt ? (chromEdgeCnt / edgeCnt) : 0;
+
+    const isLineart =
+      (satAvg < 0.08 && grayRatio > 0.70 && chromaticEdgeRatio < 0.20) ||
+      (satAvg < 0.10 && edgeDensity > 0.05 && chromaticEdgeRatio < 0.25);
+
+    return isLineart ? { label: "lineart", confidence: 0.7 }
+                     : { label: "filled_color", confidence: 0.7 };
+  } catch {
+    return { label: "filled_color", confidence: 0.5 };
+  }
+}
+
 
 // Khởi tạo nền trắng nếu chưa có kích thước
 function ensureInitialized() {
@@ -860,7 +1027,7 @@ function ensureInitialized() {
 
 // Vẽ ảnh vào canvas chính và chuẩn hoá thành đen/trắng + mịn nét
 function loadImageToMainCanvas(image) {
-  // Giới hạn kích thước làm việc để thao tác pixel mượt hơn trên mobile
+  // 1) Resize ảnh đầu vào (giống logic cũ)
   const MAX_EDGE = isMobile() ? 1600 : 3000;
   const srcW = image.width, srcH = image.height;
   const scale = Math.min(1, MAX_EDGE / Math.max(srcW, srcH));
@@ -870,16 +1037,25 @@ function loadImageToMainCanvas(image) {
   canvas.width = w;
   canvas.height = h;
 
-  // Downscale ảnh đầu vào có smoothing để đẹp
   ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, w, h);
   ctx.drawImage(image, 0, 0, srcW, srcH, 0, 0, w, h);
-
-  // Tắt smoothing cho các phép đọc/ghi pixel tiếp theo
   ctx.imageSmoothingEnabled = false;
 
-  normalizeLineartBW(ctx, w, h);
+  // 2) Phân loại ảnh → chọn mode
+  const { label } = classifyImageTypeQuick(ctx, w, h);
+  imageProcessingMode = (label === "lineart") ? "lineart" : "recolor";
+
+  // 3) Thi hành theo mode
+  if (imageProcessingMode === "lineart") {
+    // Giữ pipeline hiện tại: chuẩn hoá nét + AA + lineMask
+    normalizeLineartBW(ctx, w, h);
+  } else {
+    // Ảnh đã tô: không tạo lineMask, giữ nguyên ảnh để recolor
+    lineMask = null;
+  }
 }
+
 
 // Chuẩn hoá: gom xám sát viền vào đen, (tuỳ chọn) nở nét, tạo lineMask, rồi vẽ mịn (AA)
 function normalizeLineartBW(ctx, w, h) {
