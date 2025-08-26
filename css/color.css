@@ -53,7 +53,7 @@
   font-weight: 600;
   border: 0;
   border-radius: 12px;
-  padding: 5px 14px; /* chiều cao nhỏ gọn */
+  padding: 5px 12px; /* chiều cao nhỏ gọn */
   cursor: pointer;
   transition: all .25s ease;
   box-shadow: 0 4px 10px rgba(0,0,0,.15);
