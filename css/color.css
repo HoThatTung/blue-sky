@@ -404,71 +404,33 @@ canvas {
 
 
 
-/* === Chỉ áp dụng cho thiết bị cảm ứng === */
-
-@media (hover: none) and (pointer: coarse) {
-  .fancy-select .fs-trigger {
-    width: 160px;        /* 👈 chiều dài bạn muốn */
-    min-width: 0;        /* 👈 gỡ min-width:200px của rule gốc */
-    height: 36px;        /* 👈 chiều cao khung */
-    padding: 0 10px;     /* giảm padding cho gọn */
-    box-sizing: border-box;
-    line-height: normal; /* dùng flex để căn giữa, không cần line-height */
-    font-size: 15px;
-    border-radius: 10px;
-  }
-
-  .fancy-select .fs-label {
-    font-size: 15px;
-    font-weight: 700;
-  }
-
-  .fs-option {
-    font-size: 15px;
-    padding: 10px 12px;
-    line-height: 1.2;
-    margin: 4px 0;
-  }
-}
-
-/* FALLBACK: nếu bạn đang test trên desktop/devtools, dùng thêm cái này */
-@media (max-width: 820px) {
-  .fancy-select .fs-trigger {
-    width: 160px;
-    min-width: 0;
-    height: 36px;
-    padding: 0 10px;
-    box-sizing: border-box;
-    line-height: normal;
-  }
-}
-
+/* === Thiết bị cảm ứng (mobile/tablet) === */
 @media (hover: none) and (pointer: coarse) {
   /* Khung select */
   .fancy-select .fs-trigger {
-    width: 160px;       /* hoặc 200px tuỳ bạn */
-    min-width: 0;
+    width: 160px;        /* hoặc 200px tuỳ ý */
+    min-width: 0;        /* override min-width gốc 200px */
     height: 36px;
     padding: 0 10px;
     box-sizing: border-box;
     font-size: 15px;
     border-radius: 10px;
     display: flex;
-    align-items: center; /* chữ căn giữa dọc */
+    align-items: center; /* chữ căn giữa theo chiều dọc */
   }
 
+  /* Chữ Blue Sky Kite */
   .fancy-select .fs-label {
     font-size: 15px;
     font-weight: 700;
   }
 
-  /* Nút upload — cho giống khung select */
+  /* Nút Upload — đồng bộ style với khung select */
   .upload-label {
-    height: 32px;        /* giống .fs-trigger */
-    line-height: 36px;   /* căn chữ giữa nếu không dùng flex */
+    height: 36px;        /* = fs-trigger */
     padding: 0 10px;     /* giống padding khung */
-    font-size: 15px;     /* chữ cùng size với Blue Sky Kite */
-    border-radius: 10px; /* đồng bộ bo góc */
+    font-size: 15px;     /* chữ cùng size */
+    border-radius: 10px; /* bo góc đồng bộ */
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -483,3 +445,29 @@ canvas {
     margin: 4px 0;
   }
 }
+/* === Desktop (PC / Laptop) === */
+@media (hover: hover) and (pointer: fine) {
+  /* Khung select */
+  .fancy-select .fs-trigger {
+    height: 40px;       /* chiều cao khung */
+    padding: 0 14px;    /* khoảng cách ngang */
+    font-size: 17px;    /* chữ mặc định trong khung */
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Chữ Blue Sky Kite */
+  .fancy-select .fs-label {
+    font-size: 17px;    /* kích thước chữ */
+    font-weight: 700;
+  }
+
+  /* Popup options */
+  .fs-option {
+    font-size: 16px;    /* chữ trong menu xổ xuống */
+    padding: 10px 14px; /* padding cho dễ click */
+    line-height: 1.3;
+  }
+}
+
