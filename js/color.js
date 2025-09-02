@@ -40,6 +40,8 @@ let lineMask = null;
 // ✅ lưu điểm trước đó để nội suy nét brush
 let lastPt = null;
 
+let originalImageData = null;  // bản gốc (đã scale) để hiển thị & xuất
+
 const colors = [
   "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
   "#FFFF00", "#000000", "#C0C0C0", "#FFFFFF",
@@ -1302,19 +1304,32 @@ function loadImageToMainCanvas(image) {
   ctx.drawImage(image, 0, 0, srcW, srcH, 0, 0, w, h);
   ctx.imageSmoothingEnabled = false;
 
+  // NEW: lưu bản gốc sau khi scale
+  try {
+    originalImageData = ctx.getImageData(0, 0, w, h);
+  } catch {
+    originalImageData = null;
+  }
+
   // 2) Phân loại ảnh → chọn mode
   const { label } = classifyImageTypeQuick(ctx, w, h);
   imageProcessingMode = (label === "lineart") ? "lineart" : "recolor";
 
   // 3) Thi hành theo mode
   if (imageProcessingMode === "lineart") {
-    // Giữ pipeline hiện tại: chuẩn hoá nét + AA + lineMask
+    // Tạo lineMask từ pipeline chuẩn hoá hiện có
     normalizeLineartBW(ctx, w, h);
+
+    // NEW: phục hồi ảnh gốc để hiển thị/xuất (non-destructive)
+    if (originalImageData) {
+      ctx.putImageData(originalImageData, 0, 0);
+    }
   } else {
-    // Ảnh đã tô: không tạo lineMask, giữ nguyên ảnh để recolor
+    // Ảnh đã tô: không cần lineMask
     lineMask = null;
   }
 }
+
 
 
 // Chuẩn hoá: gom xám sát viền vào đen, (tuỳ chọn) nở nét, tạo lineMask, rồi vẽ mịn (AA)
