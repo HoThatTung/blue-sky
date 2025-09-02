@@ -128,25 +128,29 @@ document.getElementById("brushSizeSelect").addEventListener("change", function (
 // ----------------- Image select / upload -----------------
 const imageSelect = document.getElementById("imageSelect");
 
-document.getElementById("imageSelect").addEventListener("change", function () {
-  const selectedImage = this.value;
-  if (!selectedImage) return;
+if (imageSelect) {
+  imageSelect.addEventListener("change", function () {
+    const selectedImage = this.value;
+    if (!selectedImage) return;
 
-  const localImg = new Image();
-  localImg.onload = () => {
-    loadImageToMainCanvas(localImg);
-    undoStack = [];
-    redoStack = [];
-    originalImageName = selectedImage.split('/').pop();
-    updateSelectStyle();
+    const localImg = new Image();
+    localImg.onload = () => {
+      loadImageToMainCanvas(localImg);
+      undoStack = [];
+      redoStack = [];
+      originalImageName = selectedImage.split('/').pop();
+      updateSelectStyle();
 
-    const kiteLabel = document.getElementById("kite-label-input");
-    if (kiteLabel) kiteLabel.style.display = "block";
-  };
-  localImg.src = selectedImage;
+      const kiteLabel = document.getElementById("kite-label-input");
+      if (kiteLabel) kiteLabel.style.display = "block";
+    };
+    localImg.src = selectedImage;
 
-  document.getElementById("uploadInput").value = "";
-});
+    const up = document.getElementById("uploadInput");
+    if (up) up.value = "";
+  });
+}
+
 
 document.getElementById("uploadInput").addEventListener("change", function (e) {
   const file = e.target.files[0];
@@ -159,8 +163,9 @@ document.getElementById("uploadInput").addEventListener("change", function (e) {
       undoStack = [];
       redoStack = [];
       originalImageName = file.name;
-      document.getElementById("imageSelect").selectedIndex = 0;
-      updateSelectStyle();
+if (imageSelect) imageSelect.selectedIndex = 0;
+updateSelectStyle(); // hàm tự kiểm tra null bên trong
+
     };
     upImg.src = event.target.result;
   };
@@ -1148,10 +1153,13 @@ const open = () => {
 
 window.addEventListener("DOMContentLoaded", updateSelectStyle);
 
-imageSelect.addEventListener("change", () => {
-  imageSelect.classList.add("pop");
-  setTimeout(() => imageSelect.classList.remove("pop"), 200);
-});
+if (imageSelect) {
+  imageSelect.addEventListener("change", () => {
+    imageSelect.classList.add("pop");
+    setTimeout(() => imageSelect.classList.remove("pop"), 200);
+  });
+}
+
 
 // ====================== Init & Menu Toggle Fix ======================
 
@@ -1315,25 +1323,22 @@ function loadImageToMainCanvas(image) {
   const { label } = classifyImageTypeQuick(ctx, w, h);
   imageProcessingMode = (label === "lineart") ? "lineart" : "recolor";
 
-  // 3) Thi hành theo mode
-  if (imageProcessingMode === "lineart") {
-    // Tạo lineMask từ pipeline chuẩn hoá hiện có
-    normalizeLineartBW(ctx, w, h);
+// 3) Thi hành theo mode
+if (imageProcessingMode === "lineart") {
+  // Chỉ tạo lineMask, KHÔNG vẽ AA đè lên canvas
+  normalizeLineartBW(ctx, w, h, /*renderAA=*/false);
+  // Không cần phục hồi vì canvas chưa bị vẽ lại
+} else {
+  lineMask = null;
+}
 
-    // NEW: phục hồi ảnh gốc để hiển thị/xuất (non-destructive)
-    if (originalImageData) {
-      ctx.putImageData(originalImageData, 0, 0);
-    }
-  } else {
-    // Ảnh đã tô: không cần lineMask
-    lineMask = null;
-  }
 }
 
 
 
-// Chuẩn hoá: gom xám sát viền vào đen, (tuỳ chọn) nở nét, tạo lineMask, rồi vẽ mịn (AA)
-function normalizeLineartBW(ctx, w, h) {
+// Chuẩn hoá: gom xám sát viền vào đen, (tuỳ chọn) nở nét, tạo lineMask,
+// và CHỈ vẽ AA khi renderAA=true
+function normalizeLineartBW(ctx, w, h, renderAA = true) {
   let id;
   try {
     id = ctx.getImageData(0, 0, w, h);
@@ -1344,7 +1349,6 @@ function normalizeLineartBW(ctx, w, h) {
   }
   const d = id.data;
 
-  // 1) phân loại sơ bộ: đen chắc / trắng chắc
   const hardBlack = new Uint8Array(w * h);
   const hardWhite = new Uint8Array(w * h);
   for (let p = 0, i = 0; p < w * h; p++, i += 4) {
@@ -1354,7 +1358,6 @@ function normalizeLineartBW(ctx, w, h) {
     else if (y > T_LOW) hardWhite[p] = 1;
   }
 
-  // 2) vùng xám: nếu kề đen chắc thì nhập vào đen (hysteresis)
   const outBlack = new Uint8Array(hardBlack);
   const N = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
   for (let y = 0; y < h; y++) {
@@ -1369,7 +1372,6 @@ function normalizeLineartBW(ctx, w, h) {
     }
   }
 
-  // 3) (tuỳ chọn) nở nét 1px để bịt khe cực nhỏ
   if (DILATE_RADIUS > 0) {
     const src = outBlack;
     const out = new Uint8Array(src);
@@ -1392,10 +1394,13 @@ function normalizeLineartBW(ctx, w, h) {
     outBlack.set(out);
   }
 
-  // 4) lưu lineMask & vẽ nét mịn bằng supersampling
+  // ✔️ chỉ gán mask, KHÔNG động vào canvas nếu không cần vẽ AA
   lineMask = outBlack;
-  renderLineartAAFromMask(lineMask, w, h, AA_SCALE);
+  if (renderAA) {
+    renderLineartAAFromMask(lineMask, w, h, AA_SCALE);
+  }
 }
+
 
 // === Vẽ mịn từ lineMask: upsample (no smoothing) -> downsample (smoothing) ===
 function renderLineartAAFromMask(mask, w, h, scale = 2) {
