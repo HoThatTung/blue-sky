@@ -1144,7 +1144,6 @@ const open = () => {
 }
 
 
-imageSelect.addEventListener("change", updateSelectStyle);
 window.addEventListener("DOMContentLoaded", updateSelectStyle);
 
 imageSelect.addEventListener("change", () => {
