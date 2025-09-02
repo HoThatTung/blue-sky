@@ -507,92 +507,178 @@ document.getElementById("redoBtn").addEventListener("click", () => {
   }
 });
 
-// ----------------- Download (canvas + text + logo) -----------------
-document.getElementById("downloadBtn").addEventListener("click", () => {
-const logo = new Image();
-logo.crossOrigin = "anonymous";
-const logoCandidates = ["images/html/logo.webp", "images/html/logo.png", "images/logo.webp"];
-let logoTry = 0;
-logo.onerror = () => {
-  if (++logoTry < logoCandidates.length) { logo.src = logoCandidates[logoTry]; }
-  else { alert("Không thể tải logo. Kiểm tra đường dẫn."); }
-};
-logo.src = logoCandidates[0];
+// ============== Helpers cho phần lưu ảnh ==============
+function isIOSDevice() {
+  const ua = navigator.userAgent || navigator.vendor || window.opera || "";
+  const iOSUA = /iPad|iPhone|iPod/i.test(ua);
+  const iPadOS13Plus = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return iOSUA || iPadOS13Plus;
+}
 
-  logo.onload = () => {
-    const tempCanvas = document.createElement("canvas");
-    const tempCtx = tempCanvas.getContext("2d");
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-
-    // 1) Vẽ ảnh chính (đã gồm nét + tô)
-    tempCtx.drawImage(canvas, 0, 0);
-
-    // 2) Vẽ các text-box DOM
-    document.querySelectorAll(".text-box").forEach(box => {
-      const content = box.querySelector(".text-content");
-      const text = content.innerText;
-      if (!text.trim()) return;
-
-      const canvasRect = canvas.getBoundingClientRect();
-      const boxRect = box.getBoundingClientRect();
-
-      const scaleX = canvas.width / canvasRect.width;
-      const scaleY = canvas.height / canvasRect.height;
-
-      const centerX = (boxRect.left + boxRect.width / 2 - canvasRect.left) * scaleX;
-      const centerY = (boxRect.top + boxRect.height / 2 - canvasRect.top) * scaleY;
-
-      const fontSize = parseFloat(getComputedStyle(content).fontSize) * scaleY;
-      const fontFamily = getComputedStyle(content).fontFamily;
-      const fontWeight = getComputedStyle(content).fontWeight;
-      const textColor = getComputedStyle(content).color;
-
-      const rotation = parseFloat(box.dataset.rotation || "0");
-      const scaleBoxX = parseFloat(box.dataset.scaleX || "1");
-      const scaleBoxY = parseFloat(box.dataset.scaleY || "1");
-
-      tempCtx.save();
-      tempCtx.translate(centerX, centerY);
-      tempCtx.rotate(rotation * Math.PI / 180);
-      tempCtx.scale(scaleBoxX, scaleBoxY);
-      tempCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-      tempCtx.fillStyle = textColor;
-      tempCtx.textAlign = "center";
-      tempCtx.textBaseline = "middle";
-      tempCtx.fillText(text, 0, 0);
-      tempCtx.restore();
-    });
-
-    // 3) Vẽ logo
-    const logoHeight = 30;
-    const scale = logoHeight / logo.height;
-    const logoWidth = logo.width * scale;
-    const x = canvas.width - logoWidth - 10;
-    const y = canvas.height - logoHeight - 10;
-    tempCtx.drawImage(logo, x, y, logoWidth, logoHeight);
-
-    // 4) Tải về
-    if (isIOS) {
-      const win = window.open("about:blank", "_blank");
-      win.document.write(`<img src="${tempCanvas.toDataURL("image/png")}" style="max-width:100%;"/>`);
-      win.document.close();
-    } else {
-      tempCanvas.toBlob((blob) => {
-        const url = URL.createObjectURL(blob);
+function saveCanvasPNG(tempCanvas, filename) {
+  const dataURL = tempCanvas.toDataURL("image/png");
+  if (tempCanvas.toBlob) {
+    tempCanvas.toBlob((blob) => {
+      if (!blob) {
+        // Fallback hiếm
         const a = document.createElement("a");
-        a.href = url;
-        a.download = originalImageName || "to_mau.png";
+        a.href = dataURL;
+        a.download = filename || "to_mau.png";
+        a.rel = "noreferrer noopener";
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, "image/png");
-    }
+        a.remove();
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || "to_mau.png";
+      a.rel = "noreferrer noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  } else {
+    // Rất cũ
+    const a = document.createElement("a");
+    a.href = dataURL;
+    a.download = filename || "to_mau.png";
+    a.rel = "noreferrer noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+}
+
+
+function showToast(msg) {
+  try {
+    const t = document.createElement("div");
+    t.textContent = msg;
+    t.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:8px 12px;border-radius:10px;font-size:14px;z-index:9999";
+    document.body.appendChild(t);
+    setTimeout(()=>{ t.remove(); }, 1800);
+  } catch {}
+}
+
+// ============== Download (canvas + text + logo) — BẢN HOÀN CHỈNH ==============
+document.getElementById("downloadBtn").addEventListener("click", () => {
+  const logo = new Image();
+  logo.crossOrigin = "anonymous";
+  const logoCandidates = ["images/html/logo.webp", "images/html/logo.png", "images/logo.webp"];
+  let logoTry = 0;
+  let logoReady = false;
+
+  const proceed = () => {
+    // ⏳ Đợi webfont sẵn sàng để text vẽ ra đúng font
+    const ensureFonts = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+
+    ensureFonts.then(() => {
+      // Canvas tạm để xuất
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+
+      // 1) Vẽ ảnh chính
+      tempCtx.drawImage(canvas, 0, 0);
+
+      // 2) Vẽ các text-box DOM (có xoay/scale)
+      document.querySelectorAll(".text-box").forEach(box => {
+        const content = box.querySelector(".text-content");
+        const text = content?.innerText ?? "";
+        if (!text.trim()) return;
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const boxRect = box.getBoundingClientRect();
+
+        const scaleX = canvas.width / canvasRect.width;
+        const scaleY = canvas.height / canvasRect.height;
+
+        const centerX = (boxRect.left + boxRect.width / 2 - canvasRect.left) * scaleX;
+        const centerY = (boxRect.top + boxRect.height / 2 - canvasRect.top) * scaleY;
+
+        const cs = getComputedStyle(content);
+        const fontSize = Math.max(1, parseFloat(cs.fontSize) * scaleY);
+        const fontFamily = cs.fontFamily || "Inter, sans-serif";
+        const fontWeight = cs.fontWeight || "normal";
+        const textColor = cs.color || "#000";
+
+        const rotation = parseFloat(box.dataset.rotation || "0");
+        const scaleBoxX = parseFloat(box.dataset.scaleX || "1");
+        const scaleBoxY = parseFloat(box.dataset.scaleY || "1");
+
+        tempCtx.save();
+        tempCtx.translate(centerX, centerY);
+        tempCtx.rotate(rotation * Math.PI / 180);
+        tempCtx.scale(scaleBoxX, scaleBoxY);
+        tempCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+        tempCtx.fillStyle = textColor;
+        tempCtx.textAlign = "center";
+        tempCtx.textBaseline = "middle";
+        tempCtx.fillText(text, 0, 0);
+        tempCtx.restore();
+      });
+
+      // 3) Vẽ logo (nếu đã tải được)
+      if (logoReady) {
+        const desiredH = Math.max(24, Math.round(tempCanvas.height * 0.035)); // ~3.5% chiều cao
+        const scale = desiredH / logo.height;
+        const lw = Math.round(logo.width * scale);
+        const lh = Math.round(logo.height * scale);
+        const pad = Math.max(8, Math.round(tempCanvas.width * 0.01));
+        const x = tempCanvas.width - lw - pad;
+        const y = tempCanvas.height - lh - pad;
+        try { tempCtx.drawImage(logo, x, y, lw, lh); } catch {}
+      }
+
+      // 4) Xuất ảnh
+      // 🔒 Ép .png cho chắc
+      const filename = (originalImageName || "to_mau.png").replace(/\.[a-z0-9]+$/i, ".png");
+      const dataURL = tempCanvas.toDataURL("image/png");
+
+      if (isIOSDevice()) {
+        // iOS: mở tab mới để "nhấn-giữ → Lưu ảnh"
+        const win = window.open("", "_blank");
+        if (win && !win.closed) {
+          win.document.write(`<meta name="viewport" content="width=device-width,initial-scale=1" />`);
+          win.document.write(`<p style="font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;text-align:center;margin:8px 0;">Nhấn giữ vào ảnh để Lưu</p>`);
+          win.document.write(`<img src="${dataURL}" style="max-width:100%;height:auto;display:block;margin:8px auto;"/>`);
+          win.document.close();
+          showToast("Đã mở ảnh. Nhấn giữ để lưu.");
+        } else {
+          // Popup bị chặn → mở trong tab hiện tại
+          const a = document.createElement("a");
+          a.href = dataURL;
+          a.target = "_blank";
+          a.rel = "noreferrer noopener";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+      } else {
+        // Android & Desktop: tải file .png trực tiếp
+        saveCanvasPNG(tempCanvas, filename);
+      }
+    });
   };
 
-  logo.onerror = () => alert("Không thể tải logo từ images/html/logo.webp");
+  // Tải logo rồi proceed (nếu lỗi hết logo vẫn proceed)
+  logo.onload = () => { logoReady = true; proceed(); };
+  logo.onerror = () => {
+    if (++logoTry < logoCandidates.length) {
+      logo.src = logoCandidates[logoTry];
+    } else {
+      logoReady = false; // bỏ qua logo
+      proceed();
+    }
+  };
+  logo.src = logoCandidates[0];
 });
+
+
 
 // ----------------- Text box DOM (giữ nguyên tính năng) -----------------
 function addTextBoxCentered() {
