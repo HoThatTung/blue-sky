@@ -562,122 +562,158 @@ function showToast(msg) {
     setTimeout(()=>{ t.remove(); }, 1800);
   } catch {}
 }
+function openInlineViewer(dataURL) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText =
+    "position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:99999;padding:16px;";
+  wrap.innerHTML = `
+    <div style="max-width:100%;max-height:100%;text-align:center">
+      <p style="color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0 0 8px;">
+        Nhấn giữ vào ảnh để Lưu
+      </p>
+      <img src="${dataURL}" style="max-width:100%;max-height:calc(100vh - 80px);display:block;margin:0 auto;border-radius:8px"/>
+      <button style="margin-top:10px;padding:8px 12px;border-radius:8px;border:0;background:#fff;cursor:pointer">Đóng</button>
+    </div>`;
+  wrap.querySelector('button').onclick = () => wrap.remove();
+  document.body.appendChild(wrap);
+}
 
-// ============== Download (canvas + text + logo) — BẢN HOÀN CHỈNH ==============
-document.getElementById("downloadBtn").addEventListener("click", () => {
+
+// ============== Download (canvas + text + logo) — FIX iOS user-gesture ==============
+document.getElementById("downloadBtn").addEventListener("click", (evt) => {
+  // Nếu nút nằm trong <form>, tránh submit gây reload
+  evt.preventDefault();
+
+  const isIOS = isIOSDevice();
+
+  // 1) iOS: mở tab TRƯỚC (đảm bảo còn user-gesture)
+  let iosWin = null;
+  if (isIOS) {
+    iosWin = window.open("about:blank", "_blank");
+    if (iosWin && !iosWin.closed) {
+      // banner nhỏ để người dùng thấy có thay đổi
+      iosWin.document.write(
+        `<meta name="viewport" content="width=device-width,initial-scale=1" />
+         <div style="font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+                     text-align:center;padding:16px;color:#444">
+           Đang chuẩn bị ảnh...
+         </div>`
+      );
+      iosWin.document.close();
+    }
+  }
+
+  // 2) Tải logo song song (có thì vẽ, không có thì bỏ qua)
   const logo = new Image();
   logo.crossOrigin = "anonymous";
   const logoCandidates = ["images/html/logo.webp", "images/html/logo.png", "images/logo.webp"];
   let logoTry = 0;
   let logoReady = false;
 
-  const proceed = () => {
-    // ⏳ Đợi webfont sẵn sàng để text vẽ ra đúng font
-    const ensureFonts = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
-
-    ensureFonts.then(() => {
-      // Canvas tạm để xuất
-      const tempCanvas = document.createElement("canvas");
-      const tempCtx = tempCanvas.getContext("2d");
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
-
-      // 1) Vẽ ảnh chính
-      tempCtx.drawImage(canvas, 0, 0);
-
-      // 2) Vẽ các text-box DOM (có xoay/scale)
-      document.querySelectorAll(".text-box").forEach(box => {
-        const content = box.querySelector(".text-content");
-        const text = content?.innerText ?? "";
-        if (!text.trim()) return;
-
-        const canvasRect = canvas.getBoundingClientRect();
-        const boxRect = box.getBoundingClientRect();
-
-        const scaleX = canvas.width / canvasRect.width;
-        const scaleY = canvas.height / canvasRect.height;
-
-        const centerX = (boxRect.left + boxRect.width / 2 - canvasRect.left) * scaleX;
-        const centerY = (boxRect.top + boxRect.height / 2 - canvasRect.top) * scaleY;
-
-        const cs = getComputedStyle(content);
-        const fontSize = Math.max(1, parseFloat(cs.fontSize) * scaleY);
-        const fontFamily = cs.fontFamily || "Inter, sans-serif";
-        const fontWeight = cs.fontWeight || "normal";
-        const textColor = cs.color || "#000";
-
-        const rotation = parseFloat(box.dataset.rotation || "0");
-        const scaleBoxX = parseFloat(box.dataset.scaleX || "1");
-        const scaleBoxY = parseFloat(box.dataset.scaleY || "1");
-
-        tempCtx.save();
-        tempCtx.translate(centerX, centerY);
-        tempCtx.rotate(rotation * Math.PI / 180);
-        tempCtx.scale(scaleBoxX, scaleBoxY);
-        tempCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-        tempCtx.fillStyle = textColor;
-        tempCtx.textAlign = "center";
-        tempCtx.textBaseline = "middle";
-        tempCtx.fillText(text, 0, 0);
-        tempCtx.restore();
-      });
-
-      // 3) Vẽ logo (nếu đã tải được)
-      if (logoReady) {
-        const desiredH = Math.max(24, Math.round(tempCanvas.height * 0.035)); // ~3.5% chiều cao
-        const scale = desiredH / logo.height;
-        const lw = Math.round(logo.width * scale);
-        const lh = Math.round(logo.height * scale);
-        const pad = Math.max(8, Math.round(tempCanvas.width * 0.01));
-        const x = tempCanvas.width - lw - pad;
-        const y = tempCanvas.height - lh - pad;
-        try { tempCtx.drawImage(logo, x, y, lw, lh); } catch {}
+  const logoDone = new Promise((resolve) => {
+    logo.onload = () => { logoReady = true; resolve(); };
+    logo.onerror = () => {
+      if (++logoTry < logoCandidates.length) {
+        logo.src = logoCandidates[logoTry];
+      } else {
+        logoReady = false; resolve();
       }
+    };
+  });
+  logo.src = logoCandidates[0];
 
-      // 4) Xuất ảnh
-      // 🔒 Ép .png cho chắc
-      const filename = (originalImageName || "to_mau.png").replace(/\.[a-z0-9]+$/i, ".png");
-      const dataURL = tempCanvas.toDataURL("image/png");
+  // 3) Đợi webfont (nếu có) nhưng KHÔNG ảnh hưởng “open tab” ở trên
+  const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
 
-      if (isIOSDevice()) {
-        // iOS: mở tab mới để "nhấn-giữ → Lưu ảnh"
-        const win = window.open("", "_blank");
-        if (win && !win.closed) {
-          win.document.write(`<meta name="viewport" content="width=device-width,initial-scale=1" />`);
-          win.document.write(`<p style="font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;text-align:center;margin:8px 0;">Nhấn giữ vào ảnh để Lưu</p>`);
-          win.document.write(`<img src="${dataURL}" style="max-width:100%;height:auto;display:block;margin:8px auto;"/>`);
-          win.document.close();
-          showToast("Đã mở ảnh. Nhấn giữ để lưu.");
-        } else {
-          // Popup bị chặn → mở trong tab hiện tại
-          const a = document.createElement("a");
-          a.href = dataURL;
-          a.target = "_blank";
-          a.rel = "noreferrer noopener";
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
+  Promise.all([logoDone, fontsReady]).then(() => {
+    // Canvas tạm để xuất
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+
+    // 1) Vẽ ảnh chính
+    tempCtx.drawImage(canvas, 0, 0);
+
+    // 2) Vẽ text-box DOM (xoay/scale đúng vị trí)
+    document.querySelectorAll(".text-box").forEach(box => {
+      const content = box.querySelector(".text-content");
+      const text = content?.innerText ?? "";
+      if (!text.trim()) return;
+
+      const canvasRect = canvas.getBoundingClientRect();
+      const boxRect = box.getBoundingClientRect();
+
+      const scaleX = canvas.width / canvasRect.width;
+      const scaleY = canvas.height / canvasRect.height;
+
+      const centerX = (boxRect.left + boxRect.width / 2 - canvasRect.left) * scaleX;
+      const centerY = (boxRect.top + boxRect.height / 2 - canvasRect.top) * scaleY;
+
+      const cs = getComputedStyle(content);
+      const fontSize = Math.max(1, parseFloat(cs.fontSize) * scaleY);
+      const fontFamily = cs.fontFamily || "Inter, sans-serif";
+      const fontWeight = cs.fontWeight || "normal";
+      const textColor = cs.color || "#000";
+
+      const rotation = parseFloat(box.dataset.rotation || "0");
+      const scaleBoxX = parseFloat(box.dataset.scaleX || "1");
+      const scaleBoxY = parseFloat(box.dataset.scaleY || "1");
+
+      tempCtx.save();
+      tempCtx.translate(centerX, centerY);
+      tempCtx.rotate(rotation * Math.PI / 180);
+      tempCtx.scale(scaleBoxX, scaleBoxY);
+      tempCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+      tempCtx.fillStyle = textColor;
+      tempCtx.textAlign = "center";
+      tempCtx.textBaseline = "middle";
+      tempCtx.fillText(text, 0, 0);
+      tempCtx.restore();
+    });
+
+    // 3) Vẽ logo nếu có
+    if (logoReady) {
+      const desiredH = Math.max(24, Math.round(tempCanvas.height * 0.035));
+      const s = desiredH / logo.height;
+      const lw = Math.round(logo.width * s);
+      const lh = Math.round(logo.height * s);
+      const pad = Math.max(8, Math.round(tempCanvas.width * 0.01));
+      const x = tempCanvas.width - lw - pad;
+      const y = tempCanvas.height - lh - pad;
+      try { tempCtx.drawImage(logo, x, y, lw, lh); } catch {}
+    }
+
+    // 4) Xuất ảnh
+    const filename = (originalImageName || "to_mau.png").replace(/\.[a-z0-9]+$/i, ".png");
+    const dataURL = tempCanvas.toDataURL("image/png");
+
+    if (isIOS) {
+      // Ưu tiên ghi ảnh vào tab đã mở sẵn
+      if (iosWin && !iosWin.closed) {
+        try {
+          iosWin.document.open();
+          iosWin.document.write(
+            `<meta name="viewport" content="width=device-width,initial-scale=1" />
+             <p style="font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+                       text-align:center;margin:8px 0;">Nhấn giữ vào ảnh để Lưu</p>
+             <img src="${dataURL}" style="max-width:100%;height:auto;display:block;margin:8px auto;"/>`
+          );
+          iosWin.document.close();
+        } catch {
+          // ⬇️⬇️ Fallback: overlay trong trang hiện tại
+          openInlineViewer(dataURL);
         }
       } else {
-        // Android & Desktop: tải file .png trực tiếp
-        saveCanvasPNG(tempCanvas, filename);
+        // ⬇️⬇️ Fallback: overlay trong trang hiện tại (popup bị chặn)
+        openInlineViewer(dataURL);
       }
-    });
-  };
-
-  // Tải logo rồi proceed (nếu lỗi hết logo vẫn proceed)
-  logo.onload = () => { logoReady = true; proceed(); };
-  logo.onerror = () => {
-    if (++logoTry < logoCandidates.length) {
-      logo.src = logoCandidates[logoTry];
     } else {
-      logoReady = false; // bỏ qua logo
-      proceed();
+      // Android/Desktop
+      saveCanvasPNG(tempCanvas, filename);
     }
-  };
-  logo.src = logoCandidates[0];
+  });
 });
-
 
 
 // ----------------- Text box DOM (giữ nguyên tính năng) -----------------
