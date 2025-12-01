@@ -127,10 +127,10 @@ select:hover { background: #e3f2fd; border-color: #1565c0; }
 /* === BẢNG MÀU === */
 .palette {
   display: grid;
-  grid-template-columns: repeat(9, 32px);
+  grid-template-columns: repeat(8, 32px);
   gap: 12px;
   justify-content: center;
-  margin: 20px 0;
+  margin: 10px 0 4px;
 }
 .color {
   width: 32px;
@@ -471,3 +471,21 @@ canvas {
   }
 }
 
+.color-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  margin: 8px auto 8px;
+  border-radius: 999px;
+  background: #f3f4f6;          /* màu mặc định khi chưa chọn */
+  color: #111;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+
+#colorInfoText {
+  white-space: nowrap;
+  font-weight: 600;
+}
