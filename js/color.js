@@ -43,22 +43,57 @@ let lastPt = null;
 let originalImageData = null;  // bản gốc (đã scale) để hiển thị & xuất
 
 const colors = [
-  "#CD0000", "#FF6633", "#FF9933", "#FF00FF", "#FFD700",
-  "#FFFF00", "#000000", "#C0C0C0", "#FFFFFF",
-  "#0000FF", "#6600CC", "#0099FF", "#00FFFF",
-  "#008000", "#00FF00", "#CCFFCC", "#800080", "#8B5F65"
+  // Hàng 1
+  { hex: "#CD0000", name: "Đỏ đậm" },
+  { hex: "#FF4500", name: "Cam lửa" },
+  { hex: "#D2691E", name: "Cam đất" },
+  { hex: "#FFA500", name: "Cam cà rốt" },
+  { hex: "#FFD700", name: "Vàng nghệ" },
+  { hex: "#FFFF00", name: "Vàng tươi" },
+  { hex: "#FF3366", name: "Đỏ hồng" },
+  { hex: "#FF00FF", name: "Hồng" },
+
+  // Hàng 2
+  { hex: "#008000", name: "Xanh lá đậm" },
+  { hex: "#00FF00", name: "Xanh lá neon" },
+  { hex: "#CCFFCC", name: "Xanh minơ" },
+  { hex: "#0000FF", name: "Xanh dương" },
+  { hex: "#0099FF", name: "Xanh ngọc" },
+  { hex: "#00FFFF", name: "Xanh galaxy" },
+  { hex: "#6600CC", name: "Xanh tím" },
+  { hex: "#800080", name: "Tím" },
+
+  // Hàng 3
+  { hex: "#000000", name: "Đen" },
+  { hex: "#708090", name: "Xám xanh" },
+  { hex: "#C0C0C0", name: "Xám bạc" },
+  { hex: "#FFFFFF", name: "Trắng" },
+  { hex: "#A0522D", name: "Nâu đất" },
+  { hex: "#8B5F65", name: "Hồng nâu" },
+  { hex: "#CCC1DA", name: "Tím calilac" },
+  { hex: "#FFB6C1", name: "Hồng nhạt" },
 ];
 
+
 const palette = document.getElementById("colorPalette");
-colors.forEach((color, i) => {
+const colorInfo   = document.getElementById("colorInfo");
+const colorInfoText = document.getElementById("colorInfoText");
+
+
+colors.forEach((c, i) => {
   const div = document.createElement("div");
   div.className = "color";
-  div.style.background = color;
-  div.dataset.color = color;
+  div.style.background = c.hex;
+  div.dataset.color = c.hex;
+  div.dataset.name  = c.name;
+  div.title = `${c.name} (${c.hex})`; // tooltip khi hover
+
   if (i === 0) {
     div.classList.add("selected");
-    setCurrentColor(color); // chặn đen tuyệt đối
+    setCurrentColor(c.hex); // vẫn chặn đen tuyệt đối
+    updateColorInfo(c.hex, c.name);   // hiển thị ban đầu
   }
+
   palette.appendChild(div);
 });
 
@@ -73,19 +108,65 @@ function setCurrentColor(hex) {
 }
 
 // Gán click cho mỗi ô màu trong palette
+// Chọn màu chữ (đen / trắng) cho dễ đọc trên nền màu được chọn
+function getContrastTextColor(hex) {
+  if (!hex) return "#111111";
+  const v = hex.replace("#", "");
+  if (v.length !== 6) return "#111111";
+
+  const r = parseInt(v.slice(0, 2), 16);
+  const g = parseInt(v.slice(2, 4), 16);
+  const b = parseInt(v.slice(4, 6), 16);
+
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  // nền sáng → chữ đen, nền tối → chữ trắng
+  return luminance > 160 ? "#111111" : "#FFFFFF";
+}
+
+// Gán click cho mỗi ô màu trong palette
+function updateColorInfo(hex, name) {
+  if (!colorInfo || !colorInfoText) return;
+
+  // Nếu chưa có màu (trường hợp khởi tạo lỗi)
+  if (!hex || !name) {
+    colorInfo.style.background = "#f3f4f6";
+    colorInfo.style.color = "#111111";
+    colorInfoText.textContent = "Chosen color (Vietnamese): Chưa chọn";
+    return;
+  }
+
+  // Nền = Chosen color (Vietnamese)
+  colorInfo.style.background = hex;
+  // Màu chữ = màu đối nghịch (đen / trắng)
+  colorInfo.style.color = getContrastTextColor(hex);
+
+  // Hiển thị 1 dòng: Chosen color (Vietnamese): Xám bạc
+  colorInfoText.textContent = `Chosen color (Vietnamese): ${name}`;
+  // Nếu muốn kèm mã màu thì dùng:
+  // colorInfoText.textContent = `Chosen color (Vietnamese): ${name} (${hex})`;
+}
+
+
+
 document.querySelectorAll(".color").forEach(el => {
   el.addEventListener("click", () => {
     document.querySelectorAll(".color").forEach(c => c.classList.remove("selected"));
     el.classList.add("selected");
-    setCurrentColor(el.dataset.color);
 
-    // Nếu đang ở mode text và có text-box đang chọn, đổi màu ngay
+    const hex  = el.dataset.color;
+    const name = el.dataset.name || "";
+
+    setCurrentColor(hex);
+    updateColorInfo(hex, name);
+
+    // Nếu đang ở mode text thì đổi màu chữ luôn
     if (mode === "text" && currentTextBox) {
       const content = currentTextBox.querySelector(".text-content");
       if (content) content.style.color = currentColor;
     }
   });
 });
+
 
 // ----------------- Mode buttons -----------------
 document.getElementById("fillModeBtn").addEventListener("click", () => {
@@ -428,7 +509,7 @@ function hsv2rgb(h,s,v){
   return [ (r+m)*255, (g+m)*255, (b+m)*255 ];
 }
 
-// Đổi màu giữ sáng-tối (lấy H/S của màu chọn, giữ V của pixel gốc)
+// Đổi màu giữ sáng-tối (lấy H/S của Chosen color (Vietnamese), giữ V của pixel gốc)
 function recolorPreserveLightness(srcRGB, targetRGB){
   const [sr,sg,sb]=srcRGB, [tr,tg,tb]=targetRGB;
   const [hT, sT] = (function(){ const [h,s]=rgb2hsv(tr,tg,tb); return [h, Math.max(0.05, s)]; })();
