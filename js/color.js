@@ -1125,3 +1125,4484 @@ canvas.addEventListener(
 
   }
 );
+canvas.addEventListener(
+  "mousemove",
+  e => {
+
+    if (
+      isDrawing &&
+      (
+        mode === "brush" ||
+        mode === "eraser"
+      )
+    ) {
+
+      drawAt(e);
+
+    }
+
+  }
+);
+
+
+canvas.addEventListener(
+  "mouseup",
+  () => {
+
+    isDrawing =
+      false;
+
+    lastPt =
+      null;
+
+  }
+);
+
+
+canvas.addEventListener(
+  "mouseleave",
+  () => {
+
+    isDrawing =
+      false;
+
+    lastPt =
+      null;
+
+  }
+);
+
+
+// Mobile drawing
+canvas.addEventListener(
+  "touchstart",
+  e => {
+
+    if (
+      mode === "brush" ||
+      mode === "eraser"
+    ) {
+
+      isDrawing =
+        true;
+
+      saveState();
+
+      lastPt =
+        null;
+
+      drawAt(e);
+
+      e.preventDefault();
+
+    }
+
+  },
+  {
+    passive: false
+  }
+);
+
+
+canvas.addEventListener(
+  "touchmove",
+  e => {
+
+    if (
+      isDrawing &&
+      (
+        mode === "brush" ||
+        mode === "eraser"
+      )
+    ) {
+
+      drawAt(e);
+
+      e.preventDefault();
+
+    }
+
+  },
+  {
+    passive: false
+  }
+);
+
+
+canvas.addEventListener(
+  "touchend",
+  () => {
+
+    isDrawing =
+      false;
+
+    lastPt =
+      null;
+
+  }
+);
+
+
+// ======================================================
+// FILL
+// ======================================================
+
+canvas.addEventListener(
+  "click",
+  e => {
+
+    if (
+      mode !== "fill"
+    )
+      return;
+
+    ensureInitialized();
+
+    const {
+      x,
+      y
+    } =
+      getCanvasCoords(e);
+
+    saveState();
+
+    const color =
+      hexToRgba(
+        currentColor
+      );
+
+    if (
+      imageProcessingMode ===
+      "lineart"
+    ) {
+
+      floodFillSingleLayer(
+        x,
+        y,
+        color
+      );
+
+    }
+
+    else {
+
+      floodFillWithEdgeGuard(
+        x,
+        y,
+        color,
+        fillTolerance,
+        edgeStop,
+        PRESERVE_LIGHTNESS
+      );
+
+    }
+
+  }
+);
+
+
+function hexToRgba(hex) {
+
+  const bigint =
+    parseInt(
+      hex.slice(1),
+      16
+    );
+
+  return [
+
+    (bigint >> 16) & 255,
+
+    (bigint >> 8) & 255,
+
+    bigint & 255,
+
+    255
+
+  ];
+
+}
+
+
+function isLinePixel(
+  x,
+  y,
+  w,
+  h
+) {
+
+  if (!lineMask)
+    return false;
+
+  if (
+    x < 0 ||
+    y < 0 ||
+    x >= w ||
+    y >= h
+  )
+    return false;
+
+  return (
+    lineMask[
+      y * w + x
+    ] === 1
+  );
+
+}
+
+
+function floodFillSingleLayer(
+  x,
+  y,
+  fillColor
+) {
+
+  const w =
+    canvas.width;
+
+  const h =
+    canvas.height;
+
+  if (
+    w === 0 ||
+    h === 0
+  )
+    return;
+
+
+  let imageData;
+
+
+  try {
+
+    imageData =
+      ctx.getImageData(
+        0,
+        0,
+        w,
+        h
+      );
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+    alert(
+      "Unable to apply color because the image pixels cannot be read (CORS). Please use an image from the same domain or enable CORS/crossOrigin='anonymous'."
+    );
+
+    return;
+
+  }
+
+
+  const data =
+    imageData.data;
+
+
+  if (
+    isLinePixel(
+      x,
+      y,
+      w,
+      h
+    )
+  )
+    return;
+
+
+  const idx0 =
+    (
+      y * w + x
+    ) * 4;
+
+
+  const startR =
+    data[idx0];
+
+  const startG =
+    data[idx0 + 1];
+
+  const startB =
+    data[idx0 + 2];
+
+
+  const tolerance =
+    fillTolerance;
+
+
+  const visited =
+    new Uint8Array(
+      w * h
+    );
+
+
+  const stack = [
+    [x, y]
+  ];
+
+
+  const match =
+    (
+      cx,
+      cy,
+      i
+    ) => {
+
+      if (
+        isLinePixel(
+          cx,
+          cy,
+          w,
+          h
+        )
+      )
+        return false;
+
+
+      const r =
+        data[i];
+
+      const g =
+        data[i + 1];
+
+      const b =
+        data[i + 2];
+
+
+      return (
+
+        Math.abs(
+          r - startR
+        ) <= tolerance
+
+        &&
+
+        Math.abs(
+          g - startG
+        ) <= tolerance
+
+        &&
+
+        Math.abs(
+          b - startB
+        ) <= tolerance
+
+      );
+
+    };
+
+
+  while (
+    stack.length
+  ) {
+
+    const [
+      cx,
+      cy
+    ] =
+      stack.pop();
+
+
+    if (
+      cx < 0 ||
+      cy < 0 ||
+      cx >= w ||
+      cy >= h
+    )
+      continue;
+
+
+    const i =
+      (
+        cy * w + cx
+      ) * 4;
+
+
+    const vi =
+      cy * w + cx;
+
+
+    if (
+      visited[vi]
+    )
+      continue;
+
+
+    visited[vi] =
+      1;
+
+
+    if (
+      !match(
+        cx,
+        cy,
+        i
+      )
+    )
+      continue;
+
+
+    data[i] =
+      fillColor[0];
+
+    data[i + 1] =
+      fillColor[1];
+
+    data[i + 2] =
+      fillColor[2];
+
+    data[i + 3] =
+      255;
+
+
+    stack.push(
+
+      [cx - 1, cy],
+
+      [cx + 1, cy],
+
+      [cx, cy - 1],
+
+      [cx, cy + 1]
+
+    );
+
+  }
+
+
+  ctx.putImageData(
+    imageData,
+    0,
+    0
+  );
+
+}
+
+
+// ======================================================
+// RECOLOR WITH EDGE GUARD
+// ======================================================
+
+function floodFillWithEdgeGuard(
+  x,
+  y,
+  newColor,
+  tolerance = 48,
+  edgeStop = 22,
+  preserveLightness = true
+) {
+
+  const w =
+    canvas.width;
+
+  const h =
+    canvas.height;
+
+
+  let id;
+
+
+  try {
+
+    id =
+      ctx.getImageData(
+        0,
+        0,
+        w,
+        h
+      );
+
+  }
+
+  catch {
+
+    alert(
+      "Unable to apply color because of CORS restrictions. Please use an image from the same domain or upload a local file."
+    );
+
+    return;
+
+  }
+
+
+  const d =
+    id.data;
+
+
+  const seed =
+    (
+      y * w + x
+    ) * 4;
+
+
+  const sR =
+    d[seed];
+
+  const sG =
+    d[seed + 1];
+
+  const sB =
+    d[seed + 2];
+
+
+  // Luminance channel for Sobel edge detection
+  const Y =
+    new Float32Array(
+      w * h
+    );
+
+
+  for (
+    let p = 0,
+        i = 0;
+    p < w * h;
+    p++,
+    i += 4
+  ) {
+
+    Y[p] =
+      0.299 * d[i] +
+      0.587 * d[i + 1] +
+      0.114 * d[i + 2];
+
+  }
+
+
+  const sobelMag =
+    (
+      cx,
+      cy
+    ) => {
+
+      if (
+        cx <= 0 ||
+        cy <= 0 ||
+        cx >= w - 1 ||
+        cy >= h - 1
+      )
+        return 999;
+
+
+      const i =
+        cy * w + cx;
+
+
+      const gx =
+        -Y[i - w - 1]
+        -2 * Y[i - 1]
+        -Y[i + w - 1]
+        +Y[i - w + 1]
+        +2 * Y[i + 1]
+        +Y[i + w + 1];
+
+
+      const gy =
+        -Y[i - w - 1]
+        -2 * Y[i - w]
+        -Y[i - w + 1]
+        +Y[i + w - 1]
+        +2 * Y[i + w]
+        +Y[i + w + 1];
+
+
+      return (
+        Math.hypot(
+          gx,
+          gy
+        ) / 4
+      );
+
+    };
+
+
+  const visited =
+    new Uint8Array(
+      w * h
+    );
+
+
+  const stack = [
+    [x, y]
+  ];
+
+
+  while (
+    stack.length
+  ) {
+
+    const [
+      cx,
+      cy
+    ] =
+      stack.pop();
+
+
+    if (
+      cx < 0 ||
+      cy < 0 ||
+      cx >= w ||
+      cy >= h
+    )
+      continue;
+
+
+    const pi =
+      cy * w + cx;
+
+
+    if (
+      visited[pi]
+    )
+      continue;
+
+
+    visited[pi] =
+      1;
+
+
+    if (
+      sobelMag(
+        cx,
+        cy
+      ) > edgeStop
+    )
+      continue;
+
+
+    const i4 =
+      pi * 4;
+
+
+    const r =
+      d[i4];
+
+    const g =
+      d[i4 + 1];
+
+    const b =
+      d[i4 + 2];
+
+
+    if (
+      Math.abs(r - sR) > tolerance ||
+      Math.abs(g - sG) > tolerance ||
+      Math.abs(b - sB) > tolerance
+    )
+      continue;
+
+
+    if (
+      preserveLightness
+    ) {
+
+      const out =
+        recolorPreserveLightness(
+          [r, g, b],
+          newColor
+        );
+
+
+      d[i4] =
+        out[0];
+
+      d[i4 + 1] =
+        out[1];
+
+      d[i4 + 2] =
+        out[2];
+
+      d[i4 + 3] =
+        255;
+
+    }
+
+    else {
+
+      d[i4] =
+        newColor[0];
+
+      d[i4 + 1] =
+        newColor[1];
+
+      d[i4 + 2] =
+        newColor[2];
+
+      d[i4 + 3] =
+        255;
+
+    }
+
+
+    stack.push(
+
+      [cx - 1, cy],
+
+      [cx + 1, cy],
+
+      [cx, cy - 1],
+
+      [cx, cy + 1]
+
+    );
+
+  }
+
+
+  ctx.putImageData(
+    id,
+    0,
+    0
+  );
+
+}
+
+
+// ======================================================
+// HSV UTILS
+// ======================================================
+
+function rgb2hsv(
+  r,
+  g,
+  b
+) {
+
+  r /= 255;
+  g /= 255;
+  b /= 255;
+
+
+  const max =
+    Math.max(
+      r,
+      g,
+      b
+    );
+
+
+  const min =
+    Math.min(
+      r,
+      g,
+      b
+    );
+
+
+  const d =
+    max - min;
+
+
+  let h =
+    0;
+
+
+  if (
+    d !== 0
+  ) {
+
+    if (
+      max === r
+    ) {
+
+      h =
+        (
+          (g - b) /
+          d
+        ) % 6;
+
+    }
+
+    else if (
+      max === g
+    ) {
+
+      h =
+        (
+          (b - r) /
+          d
+        ) + 2;
+
+    }
+
+    else {
+
+      h =
+        (
+          (r - g) /
+          d
+        ) + 4;
+
+    }
+
+
+    h *= 60;
+
+
+    if (
+      h < 0
+    ) {
+
+      h += 360;
+
+    }
+
+  }
+
+
+  const s =
+    max === 0
+      ? 0
+      : d / max;
+
+
+  const v =
+    max;
+
+
+  return [
+    h,
+    s,
+    v
+  ];
+
+}
+
+
+function hsv2rgb(
+  h,
+  s,
+  v
+) {
+
+  const c =
+    v * s;
+
+
+  const x =
+    c *
+    (
+      1 -
+      Math.abs(
+        (
+          h / 60
+        ) % 2 - 1
+      )
+    );
+
+
+  const m =
+    v - c;
+
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+
+  if (
+    0 <= h &&
+    h < 60
+  ) {
+
+    r = c;
+    g = x;
+    b = 0;
+
+  }
+
+  else if (
+    60 <= h &&
+    h < 120
+  ) {
+
+    r = x;
+    g = c;
+    b = 0;
+
+  }
+
+  else if (
+    120 <= h &&
+    h < 180
+  ) {
+
+    r = 0;
+    g = c;
+    b = x;
+
+  }
+
+  else if (
+    180 <= h &&
+    h < 240
+  ) {
+
+    r = 0;
+    g = x;
+    b = c;
+
+  }
+
+  else if (
+    240 <= h &&
+    h < 300
+  ) {
+
+    r = x;
+    g = 0;
+    b = c;
+
+  }
+
+  else {
+
+    r = c;
+    g = 0;
+    b = x;
+
+  }
+
+
+  return [
+
+    (r + m) * 255,
+
+    (g + m) * 255,
+
+    (b + m) * 255
+
+  ];
+
+}
+
+
+// Preserve original brightness while applying target hue/saturation
+function recolorPreserveLightness(
+  srcRGB,
+  targetRGB
+) {
+
+  const [
+    sr,
+    sg,
+    sb
+  ] =
+    srcRGB;
+
+
+  const [
+    tr,
+    tg,
+    tb
+  ] =
+    targetRGB;
+
+
+  const [
+    hT,
+    sT
+  ] =
+    (
+      function () {
+
+        const [
+          h,
+          s
+        ] =
+          rgb2hsv(
+            tr,
+            tg,
+            tb
+          );
+
+
+        return [
+          h,
+          Math.max(
+            0.05,
+            s
+          )
+        ];
+
+      }
+    )();
+
+
+  const vS =
+    rgb2hsv(
+      sr,
+      sg,
+      sb
+    )[2];
+
+
+  const [
+    r,
+    g,
+    b
+  ] =
+    hsv2rgb(
+      hT,
+      sT,
+      vS
+    );
+
+
+  return [
+    r | 0,
+    g | 0,
+    b | 0
+  ];
+
+}
+
+
+// ======================================================
+// BRUSH / ERASER PIXEL PAINTING
+// ======================================================
+
+function paintCircleOnMain(
+  x,
+  y,
+  radius,
+  rgba,
+  isErase = false
+) {
+
+  const w =
+    canvas.width;
+
+  const h =
+    canvas.height;
+
+
+  const x0 =
+    Math.max(
+      0,
+      Math.floor(
+        x - radius
+      )
+    );
+
+
+  const x1 =
+    Math.min(
+      w - 1,
+      Math.ceil(
+        x + radius
+      )
+    );
+
+
+  const y0 =
+    Math.max(
+      0,
+      Math.floor(
+        y - radius
+      )
+    );
+
+
+  const y1 =
+    Math.min(
+      h - 1,
+      Math.ceil(
+        y + radius
+      )
+    );
+
+
+  let imageData;
+
+
+  try {
+
+    imageData =
+      ctx.getImageData(
+        x0,
+        y0,
+        x1 - x0 + 1,
+        y1 - y0 + 1
+      );
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+    alert(
+      "Unable to draw because the image pixels cannot be read (CORS). Please use an image from the same domain or enable CORS/crossOrigin='anonymous'."
+    );
+
+    return;
+
+  }
+
+
+  const d =
+    imageData.data;
+
+
+  const rr =
+    radius * radius;
+
+
+  for (
+    let yy = y0;
+    yy <= y1;
+    yy++
+  ) {
+
+    for (
+      let xx = x0;
+      xx <= x1;
+      xx++
+    ) {
+
+      const dx =
+        xx - x;
+
+      const dy =
+        yy - y;
+
+
+      if (
+        dx * dx +
+        dy * dy >
+        rr
+      )
+        continue;
+
+
+      if (
+        isLinePixel(
+          xx,
+          yy,
+          w,
+          h
+        )
+      )
+        continue;
+
+
+      const i =
+        (
+          (
+            yy - y0
+          ) *
+          (
+            x1 - x0 + 1
+          )
+          +
+          (
+            xx - x0
+          )
+        ) * 4;
+
+
+      if (
+        isErase
+      ) {
+
+        d[i] =
+          255;
+
+        d[i + 1] =
+          255;
+
+        d[i + 2] =
+          255;
+
+        d[i + 3] =
+          255;
+
+      }
+
+      else {
+
+        d[i] =
+          rgba[0];
+
+        d[i + 1] =
+          rgba[1];
+
+        d[i + 2] =
+          rgba[2];
+
+        d[i + 3] =
+          255;
+
+      }
+
+    }
+
+  }
+
+
+  ctx.putImageData(
+    imageData,
+    x0,
+    y0
+  );
+
+}
+
+
+// ======================================================
+// UNDO / REDO
+// ======================================================
+
+function saveState() {
+
+  ensureInitialized();
+
+
+  if (
+    canvas.width === 0 ||
+    canvas.height === 0
+  )
+    return;
+
+
+  try {
+
+    undoStack.push(
+      ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      )
+    );
+
+
+    redoStack =
+      [];
+
+  }
+
+  catch (e) {
+
+    console.warn(
+      "saveState failed:",
+      e
+    );
+
+  }
+
+}
+
+
+document
+  .getElementById("undoBtn")
+  .addEventListener(
+    "click",
+    () => {
+
+      if (
+        undoStack.length > 0
+      ) {
+
+        try {
+
+          const current =
+            ctx.getImageData(
+              0,
+              0,
+              canvas.width,
+              canvas.height
+            );
+
+
+          redoStack.push(
+            current
+          );
+
+
+          const prev =
+            undoStack.pop();
+
+
+          ctx.putImageData(
+            prev,
+            0,
+            0
+          );
+
+        }
+
+        catch (e) {
+
+          console.warn(
+            "undo failed:",
+            e
+          );
+
+        }
+
+      }
+
+    }
+  );
+
+
+document
+  .getElementById("redoBtn")
+  .addEventListener(
+    "click",
+    () => {
+
+      if (
+        redoStack.length > 0
+      ) {
+
+        try {
+
+          const current =
+            ctx.getImageData(
+              0,
+              0,
+              canvas.width,
+              canvas.height
+            );
+
+
+          undoStack.push(
+            current
+          );
+
+
+          const next =
+            redoStack.pop();
+
+
+          ctx.putImageData(
+            next,
+            0,
+            0
+          );
+
+        }
+
+        catch (e) {
+
+          console.warn(
+            "redo failed:",
+            e
+          );
+
+        }
+
+      }
+
+    }
+  );
+
+
+// ======================================================
+// SAVE IMAGE HELPERS
+// ======================================================
+
+function isIOSDevice() {
+
+  const ua =
+    navigator.userAgent ||
+    navigator.vendor ||
+    window.opera ||
+    "";
+
+
+  const iOSUA =
+    /iPad|iPhone|iPod/i
+      .test(ua);
+
+
+  const iPadOS13Plus =
+    (
+      navigator.platform ===
+      "MacIntel"
+      &&
+      navigator.maxTouchPoints > 1
+    );
+
+
+  return (
+    iOSUA ||
+    iPadOS13Plus
+  );
+
+}
+
+
+function saveCanvasPNG(
+  tempCanvas,
+  filename
+) {
+
+  const dataURL =
+    tempCanvas.toDataURL(
+      "image/png"
+    );
+
+
+  if (
+    tempCanvas.toBlob
+  ) {
+
+    tempCanvas.toBlob(
+      blob => {
+
+        if (!blob) {
+
+          const a =
+            document.createElement(
+              "a"
+            );
+
+
+          a.href =
+            dataURL;
+
+
+          a.download =
+            filename ||
+            "colored-image.png";
+
+
+          a.rel =
+            "noreferrer noopener";
+
+
+          document.body
+            .appendChild(a);
+
+
+          a.click();
+
+
+          a.remove();
+
+
+          return;
+
+        }
+
+
+        const url =
+          URL.createObjectURL(
+            blob
+          );
+
+
+        const a =
+          document.createElement(
+            "a"
+          );
+
+
+        a.href =
+          url;
+
+
+        a.download =
+          filename ||
+          "colored-image.png";
+
+
+        a.rel =
+          "noreferrer noopener";
+
+
+        document.body
+          .appendChild(a);
+
+
+        a.click();
+
+
+        a.remove();
+
+
+        URL.revokeObjectURL(
+          url
+        );
+
+      },
+      "image/png"
+    );
+
+  }
+
+  else {
+
+    const a =
+      document.createElement(
+        "a"
+      );
+
+
+    a.href =
+      dataURL;
+
+
+    a.download =
+      filename ||
+      "colored-image.png";
+
+
+    a.rel =
+      "noreferrer noopener";
+
+
+    document.body
+      .appendChild(a);
+
+
+    a.click();
+
+
+    a.remove();
+
+  }
+
+}
+
+
+function showToast(msg) {
+
+  try {
+
+    const t =
+      document.createElement(
+        "div"
+      );
+
+
+    t.textContent =
+      msg;
+
+
+    t.style.cssText =
+      "position:fixed;" +
+      "left:50%;" +
+      "bottom:24px;" +
+      "transform:translateX(-50%);" +
+      "background:rgba(0,0,0,.85);" +
+      "color:#fff;" +
+      "padding:8px 12px;" +
+      "border-radius:10px;" +
+      "font-size:14px;" +
+      "z-index:9999";
+
+
+    document.body
+      .appendChild(t);
+
+
+    setTimeout(
+      () => {
+        t.remove();
+      },
+      1800
+    );
+
+  }
+
+  catch {}
+
+}
+
+
+function openInlineViewer(
+  dataURL
+) {
+
+  const wrap =
+    document.createElement(
+      "div"
+    );
+
+
+  wrap.style.cssText =
+    "position:fixed;" +
+    "inset:0;" +
+    "background:rgba(0,0,0,.85);" +
+    "display:flex;" +
+    "align-items:center;" +
+    "justify-content:center;" +
+    "z-index:99999;" +
+    "padding:16px;";
+
+
+  wrap.innerHTML =
+    `
+    <div style="max-width:100%;max-height:100%;text-align:center">
+
+      <p style="
+        color:#fff;
+        font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+        margin:0 0 8px;
+      ">
+        Press and hold the image to save it
+      </p>
+
+      <img
+        src="${dataURL}"
+        style="
+          max-width:100%;
+          max-height:calc(100vh - 80px);
+          display:block;
+          margin:0 auto;
+          border-radius:8px
+        "
+      />
+
+      <button style="
+        margin-top:10px;
+        padding:8px 12px;
+        border-radius:8px;
+        border:0;
+        background:#fff;
+        cursor:pointer
+      ">
+        Close
+      </button>
+
+    </div>
+    `;
+
+
+  wrap
+    .querySelector("button")
+    .onclick =
+      () => wrap.remove();
+
+
+  document.body
+    .appendChild(wrap);
+
+}
+
+
+// ======================================================
+// DOWNLOAD
+// ======================================================
+
+document
+  .getElementById("downloadBtn")
+  .addEventListener(
+    "click",
+    evt => {
+
+      evt.preventDefault();
+
+
+      const isIOS =
+        isIOSDevice();
+
+
+      let iosWin =
+        null;
+
+
+      if (
+        isIOS
+      ) {
+
+        iosWin =
+          window.open(
+            "about:blank",
+            "_blank"
+          );
+
+
+        if (
+          iosWin &&
+          !iosWin.closed
+        ) {
+
+          iosWin.document.write(
+            `
+            <meta
+              name="viewport"
+              content="width=device-width,initial-scale=1"
+            />
+
+            <div style="
+              font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+              text-align:center;
+              padding:16px;
+              color:#444
+            ">
+              Preparing image...
+            </div>
+            `
+          );
+
+
+          iosWin.document.close();
+
+        }
+
+      }
+
+
+      const logo =
+        new Image();
+
+
+      logo.crossOrigin =
+        "anonymous";
+
+
+      const logoCandidates = [
+
+        "images/html/logo.webp",
+
+        "images/html/logo.png",
+
+        "images/logo.webp"
+
+      ];
+
+
+      let logoTry =
+        0;
+
+
+      let logoReady =
+        false;
+
+
+      const logoDone =
+        new Promise(
+          resolve => {
+
+            logo.onload =
+              () => {
+
+                logoReady =
+                  true;
+
+                resolve();
+
+              };
+
+
+            logo.onerror =
+              () => {
+
+                if (
+                  ++logoTry <
+                  logoCandidates.length
+                ) {
+
+                  logo.src =
+                    logoCandidates[
+                      logoTry
+                    ];
+
+                }
+
+                else {
+
+                  logoReady =
+                    false;
+
+                  resolve();
+
+                }
+
+              };
+
+          }
+        );
+
+
+      logo.src =
+        logoCandidates[0];
+
+
+      const fontsReady =
+        (
+          document.fonts &&
+          document.fonts.ready
+        )
+        ?
+        document.fonts.ready
+        :
+        Promise.resolve();
+
+
+      Promise
+        .all([
+          logoDone,
+          fontsReady
+        ])
+        .then(
+          () => {
+
+            const tempCanvas =
+              document.createElement(
+                "canvas"
+              );
+
+
+            const tempCtx =
+              tempCanvas.getContext(
+                "2d"
+              );
+
+
+            tempCanvas.width =
+              canvas.width;
+
+
+            tempCanvas.height =
+              canvas.height;
+
+
+            // Draw main image
+            tempCtx.drawImage(
+              canvas,
+              0,
+              0
+            );
+
+
+            // Draw text boxes
+            document
+              .querySelectorAll(
+                ".text-box"
+              )
+              .forEach(
+                box => {
+
+                  const content =
+                    box.querySelector(
+                      ".text-content"
+                    );
+
+
+                  const text =
+                    content?.innerText ??
+                    "";
+
+
+                  if (
+                    !text.trim()
+                  )
+                    return;
+
+
+                  const canvasRect =
+                    canvas.getBoundingClientRect();
+
+
+                  const boxRect =
+                    box.getBoundingClientRect();
+
+
+                  const scaleX =
+                    canvas.width /
+                    canvasRect.width;
+
+
+                  const scaleY =
+                    canvas.height /
+                    canvasRect.height;
+
+
+                  const centerX =
+                    (
+                      boxRect.left +
+                      boxRect.width / 2 -
+                      canvasRect.left
+                    ) *
+                    scaleX;
+
+
+                  const centerY =
+                    (
+                      boxRect.top +
+                      boxRect.height / 2 -
+                      canvasRect.top
+                    ) *
+                    scaleY;
+
+
+                  const cs =
+                    getComputedStyle(
+                      content
+                    );
+
+
+                  const fontSize =
+                    Math.max(
+                      1,
+                      parseFloat(
+                        cs.fontSize
+                      ) *
+                      scaleY
+                    );
+
+
+                  const fontFamily =
+                    cs.fontFamily ||
+                    "Inter, sans-serif";
+
+
+                  const fontWeight =
+                    cs.fontWeight ||
+                    "normal";
+
+
+                  const textColor =
+                    cs.color ||
+                    "#000";
+
+
+                  const rotation =
+                    parseFloat(
+                      box.dataset.rotation ||
+                      "0"
+                    );
+
+
+                  const scaleBoxX =
+                    parseFloat(
+                      box.dataset.scaleX ||
+                      "1"
+                    );
+
+
+                  const scaleBoxY =
+                    parseFloat(
+                      box.dataset.scaleY ||
+                      "1"
+                    );
+
+
+                  tempCtx.save();
+
+
+                  tempCtx.translate(
+                    centerX,
+                    centerY
+                  );
+
+
+                  tempCtx.rotate(
+                    rotation *
+                    Math.PI /
+                    180
+                  );
+
+
+                  tempCtx.scale(
+                    scaleBoxX,
+                    scaleBoxY
+                  );
+
+
+                  tempCtx.font =
+                    `${fontWeight} ${fontSize}px ${fontFamily}`;
+
+
+                  tempCtx.fillStyle =
+                    textColor;
+
+
+                  tempCtx.textAlign =
+                    "center";
+
+
+                  tempCtx.textBaseline =
+                    "middle";
+
+
+                  tempCtx.fillText(
+                    text,
+                    0,
+                    0
+                  );
+
+
+                  tempCtx.restore();
+
+                }
+              );
+
+
+            // Draw logo
+            if (
+              logoReady
+            ) {
+
+              const desiredH =
+                Math.max(
+                  24,
+                  Math.round(
+                    tempCanvas.height *
+                    0.035
+                  )
+                );
+
+
+              const s =
+                desiredH /
+                logo.height;
+
+
+              const lw =
+                Math.round(
+                  logo.width * s
+                );
+
+
+              const lh =
+                Math.round(
+                  logo.height * s
+                );
+
+
+              const pad =
+                Math.max(
+                  8,
+                  Math.round(
+                    tempCanvas.width *
+                    0.01
+                  )
+                );
+
+
+              const x =
+                tempCanvas.width -
+                lw -
+                pad;
+
+
+              const y =
+                tempCanvas.height -
+                lh -
+                pad;
+
+
+              try {
+
+                tempCtx.drawImage(
+                  logo,
+                  x,
+                  y,
+                  lw,
+                  lh
+                );
+
+              }
+
+              catch {}
+
+            }
+
+
+            const filename =
+              (
+                originalImageName ||
+                "colored-image.png"
+              )
+              .replace(
+                /\.[a-z0-9]+$/i,
+                ".png"
+              );
+
+
+            const dataURL =
+              tempCanvas.toDataURL(
+                "image/png"
+              );
+
+
+            if (
+              isIOS
+            ) {
+
+              if (
+                iosWin &&
+                !iosWin.closed
+              ) {
+
+                try {
+
+                  iosWin.document.open();
+
+
+                  iosWin.document.write(
+                    `
+                    <meta
+                      name="viewport"
+                      content="width=device-width,initial-scale=1"
+                    />
+
+                    <p style="
+                      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+                      text-align:center;
+                      margin:8px 0
+                    ">
+                      Press and hold the image to save it
+                    </p>
+
+                    <img
+                      src="${dataURL}"
+                      style="
+                        max-width:100%;
+                        height:auto;
+                        display:block;
+                        margin:8px auto;
+                      "
+                    />
+                    `
+                  );
+
+
+                  iosWin.document.close();
+
+                }
+
+                catch {
+
+                  openInlineViewer(
+                    dataURL
+                  );
+
+                }
+
+              }
+
+              else {
+
+                openInlineViewer(
+                  dataURL
+                );
+
+              }
+
+            }
+
+            else {
+
+              saveCanvasPNG(
+                tempCanvas,
+                filename
+              );
+
+            }
+
+          }
+        );
+
+    }
+  );
+
+
+// ======================================================
+// TEXT BOX
+// ======================================================
+
+function addTextBoxCentered() {
+
+  if (!canvas)
+    return;
+
+
+  const rect =
+    canvas.getBoundingClientRect();
+
+
+  const container =
+    document.querySelector(
+      ".canvas-wrapper"
+    );
+
+
+  const box =
+    document.createElement(
+      "div"
+    );
+
+
+  box.className =
+    "text-box";
+
+
+  box.style.left =
+    `${
+      (
+        rect.width / 2
+      ) - 100
+    }px`;
+
+
+  box.style.top =
+    `${
+      (
+        rect.height / 2
+      ) - 20
+    }px`;
+
+
+  const content =
+    document.createElement(
+      "div"
+    );
+
+
+  content.className =
+    "text-content";
+
+
+  content.contentEditable =
+    "true";
+
+
+  content.spellcheck =
+    false;
+
+
+  content.style.minWidth =
+    "1ch";
+
+
+  content.style.width =
+    "100%";
+
+
+  box.appendChild(
+    content
+  );
+
+
+  container.appendChild(
+    box
+  );
+
+
+  content.focus();
+
+
+  content.style.color =
+    currentColor;
+
+
+  makeTextBoxDraggable(
+    box
+  );
+
+
+  enableResize(
+    box
+  );
+
+
+  enableRotate(
+    box
+  );
+
+
+  currentTextBox =
+    box;
+
+
+  box.addEventListener(
+    "click",
+    () => {
+
+      currentTextBox =
+        box;
+
+
+      if (
+        mode === "text" &&
+        currentTextBox
+      ) {
+
+        const content =
+          currentTextBox.querySelector(
+            ".text-content"
+          );
+
+
+        if (
+          content
+        ) {
+
+          content.style.color =
+            currentColor;
+
+        }
+
+      }
+
+    }
+  );
+
+
+  content.addEventListener(
+    "keydown",
+    e => {
+
+      if (
+        e.key === "Enter"
+      ) {
+
+        e.preventDefault();
+
+      }
+
+    }
+  );
+
+}
+function makeTextBoxDraggable(box) {
+  let isDragging = false;
+  let hasMoved = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  // Desktop
+  box.addEventListener("mousedown", (e) => {
+    if (e.target !== box) return;
+    isDragging = true;
+    hasMoved = false;
+    offsetX = e.offsetX;
+    offsetY = e.offsetY;
+    e.preventDefault();
+  });
+
+  // Mobile
+  box.addEventListener("touchstart", (e) => {
+    if (e.target !== box) return;
+    isDragging = true;
+    hasMoved = false;
+
+    const touch = e.touches[0];
+    const rect = box.getBoundingClientRect();
+    offsetX = touch.clientX - rect.left;
+    offsetY = touch.clientY - rect.top;
+    e.preventDefault();
+  }, { passive: false });
+
+  // Move
+  function handleMove(clientX, clientY) {
+    const wrapperRect = document.querySelector(".canvas-wrapper").getBoundingClientRect();
+    box.style.left = `${clientX - wrapperRect.left - offsetX}px`;
+    box.style.top = `${clientY - wrapperRect.top - offsetY}px`;
+  }
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    hasMoved = true;
+    handleMove(e.clientX, e.clientY);
+  });
+
+  document.addEventListener("touchmove", (e) => {
+    if (!isDragging) return;
+    hasMoved = true;
+    const touch = e.touches[0];
+    handleMove(touch.clientX, touch.clientY);
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener("mouseup", () => {
+    if (isDragging && !hasMoved) box.focus();
+    isDragging = false;
+  });
+
+  document.addEventListener("touchend", () => {
+    if (isDragging && !hasMoved) box.focus();
+    isDragging = false;
+  });
+}
+
+
+function enableResize(textBox) {
+  const resizer = document.createElement("div");
+  resizer.className = "resizer";
+  textBox.appendChild(resizer);
+
+  let isResizing = false;
+  let startX, startY;
+  let startWidth, startHeight;
+  let startScaleX, startScaleY;
+  let rotation;
+
+  textBox.style.transformOrigin = "center center";
+  textBox.dataset.scaleX = textBox.dataset.scaleX || "1";
+  textBox.dataset.scaleY = textBox.dataset.scaleY || "1";
+  textBox.dataset.rotation = textBox.dataset.rotation || "0";
+
+  const onResizeStart = (e) => {
+    e.preventDefault();
+    isResizing = true;
+
+    const clientX = e.clientX || e.touches?.[0]?.clientX;
+    const clientY = e.clientY || e.touches?.[0]?.clientY;
+
+    startX = clientX;
+    startY = clientY;
+
+    const rect = textBox.getBoundingClientRect();
+    startWidth = rect.width;
+    startHeight = rect.height;
+
+    startScaleX = parseFloat(textBox.dataset.scaleX || "1");
+    startScaleY = parseFloat(textBox.dataset.scaleY || "1");
+    rotation = parseFloat(textBox.dataset.rotation || "0");
+  };
+
+  const onResizeMove = (e) => {
+    if (!isResizing) return;
+
+    const clientX = e.clientX || e.touches?.[0]?.clientX;
+    const clientY = e.clientY || e.touches?.[0]?.clientY;
+
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+
+    const angleRad = rotation * Math.PI / 180;
+
+    const deltaW = dx * Math.cos(angleRad) + dy * Math.sin(angleRad);
+    const deltaH = dy * Math.cos(angleRad) - dx * Math.sin(angleRad);
+
+    let scaleX = (startWidth + deltaW) / startWidth * startScaleX;
+    let scaleY = (startHeight + deltaH) / startHeight * startScaleY;
+
+    scaleX = Math.max(0.2, Math.min(scaleX, 5));
+    scaleY = Math.max(0.2, Math.min(scaleY, 5));
+
+    textBox.dataset.scaleX = scaleX.toFixed(3);
+    textBox.dataset.scaleY = scaleY.toFixed(3);
+
+    applyTransform(textBox);
+  };
+
+  const onResizeEnd = () => {
+    isResizing = false;
+  };
+
+  resizer.addEventListener("mousedown", onResizeStart);
+  document.addEventListener("mousemove", onResizeMove);
+  document.addEventListener("mouseup", onResizeEnd);
+
+  resizer.addEventListener("touchstart", onResizeStart, { passive: false });
+  document.addEventListener("touchmove", onResizeMove, { passive: false });
+  document.addEventListener("touchend", onResizeEnd);
+}
+
+
+function applyTransform(box) {
+  const angle = parseFloat(box.dataset.rotation || "0");
+  const scaleX = parseFloat(box.dataset.scaleX || "1");
+  const scaleY = parseFloat(box.dataset.scaleY || "1");
+
+  box.style.transform =
+    `rotate(${angle}deg) scale(${scaleX}, ${scaleY})`;
+}
+
+
+function enableRotate(textBox) {
+  const rotateHandle = document.createElement("div");
+  rotateHandle.className = "rotate-handle";
+  textBox.appendChild(rotateHandle);
+
+  let isRotating = false;
+  let centerX, centerY, startAngle;
+
+  const getCenter = () => {
+    const rect = textBox.getBoundingClientRect();
+
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+  };
+
+  const getAngle = (cx, cy, x, y) => {
+    return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
+  };
+
+  const startRotate = (clientX, clientY) => {
+    isRotating = true;
+
+    const center = getCenter();
+
+    centerX = center.x;
+    centerY = center.y;
+
+    startAngle =
+      getAngle(centerX, centerY, clientX, clientY) -
+      parseFloat(textBox.dataset.rotation || "0");
+  };
+
+  const rotate = (clientX, clientY) => {
+    if (!isRotating) return;
+
+    const angle =
+      getAngle(centerX, centerY, clientX, clientY) -
+      startAngle;
+
+    textBox.dataset.rotation =
+      angle.toFixed(2);
+
+    applyTransform(textBox);
+  };
+
+  const stopRotate = () => {
+    isRotating = false;
+  };
+
+  rotateHandle.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+    startRotate(e.clientX, e.clientY);
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (isRotating) {
+      rotate(e.clientX, e.clientY);
+    }
+  });
+
+  document.addEventListener("mouseup", stopRotate);
+
+  rotateHandle.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+
+      startRotate(
+        touch.clientX,
+        touch.clientY
+      );
+
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.addEventListener("touchmove", (e) => {
+    if (
+      isRotating &&
+      e.touches.length === 1
+    ) {
+      const touch = e.touches[0];
+
+      rotate(
+        touch.clientX,
+        touch.clientY
+      );
+
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.addEventListener(
+    "touchend",
+    stopRotate
+  );
+}
+
+
+// Select current text box
+function handleTextBoxSelection(e) {
+  const box =
+    e.target.closest(".text-box");
+
+  if (box) {
+    currentTextBox = box;
+
+    const content =
+      currentTextBox.querySelector(
+        ".text-content"
+      );
+
+    if (content) {
+      content.style.color =
+        currentColor;
+    }
+  }
+}
+
+
+document.addEventListener(
+  "click",
+  handleTextBoxSelection
+);
+
+document.addEventListener(
+  "touchstart",
+  handleTextBoxSelection,
+  { passive: true }
+);
+
+
+document
+  .getElementById("boldBtn")
+  .addEventListener(
+    "click",
+    () => {
+
+      if (currentTextBox) {
+
+        const content =
+          currentTextBox.querySelector(
+            ".text-content"
+          );
+
+        const isBold =
+          content.style.fontWeight ===
+          "bold";
+
+        content.style.fontWeight =
+          isBold
+            ? "normal"
+            : "bold";
+      }
+
+    }
+  );
+
+
+document
+  .getElementById("deleteTextBtn")
+  .addEventListener(
+    "click",
+    () => {
+
+      if (currentTextBox) {
+
+        currentTextBox.remove();
+
+        currentTextBox =
+          null;
+
+      }
+
+    }
+  );
+
+
+// ======================================================
+// IMAGE SELECT STYLE
+// ======================================================
+
+function updateSelectStyle() {
+
+  const el =
+    document.getElementById(
+      "imageSelect"
+    );
+
+  if (!el)
+    return;
+
+
+  const isPlaceholder =
+    el.selectedIndex === 0;
+
+
+  if (isPlaceholder) {
+
+    el.style.color =
+      "#1565c0";
+
+    el.style.fontWeight =
+      "700";
+
+    el.style.fontStyle =
+      "italic";
+
+  }
+
+  else {
+
+    el.style.color =
+      "#111";
+
+    el.style.fontWeight =
+      "400";
+
+    el.style.fontStyle =
+      "normal";
+
+  }
+
+
+  if (!isPlaceholder) {
+
+    el.classList.add(
+      "selected-kite"
+    );
+
+  }
+
+  else {
+
+    el.classList.remove(
+      "selected-kite"
+    );
+
+  }
+
+}
+
+
+function enhanceImageSelect() {
+
+  const select =
+    document.getElementById(
+      "imageSelect"
+    );
+
+
+  if (
+    !select ||
+    select.dataset.enhanced
+  )
+    return;
+
+
+  select.dataset.enhanced =
+    "1";
+
+
+  const wrapper =
+    document.createElement(
+      "div"
+    );
+
+
+  wrapper.className =
+    "fancy-select";
+
+
+  select.parentNode.insertBefore(
+    wrapper,
+    select
+  );
+
+
+  wrapper.appendChild(
+    select
+  );
+
+
+  select.classList.add(
+    "fs-native"
+  );
+
+
+  // Display button
+  const trigger =
+    document.createElement(
+      "button"
+    );
+
+
+  trigger.type =
+    "button";
+
+
+  trigger.className =
+    "fs-trigger";
+
+
+  trigger.setAttribute(
+    "aria-haspopup",
+    "listbox"
+  );
+
+
+  trigger.setAttribute(
+    "aria-expanded",
+    "false"
+  );
+
+
+  const label =
+    document.createElement(
+      "span"
+    );
+
+
+  label.className =
+    "fs-label";
+
+
+  trigger.appendChild(
+    label
+  );
+
+
+  wrapper.appendChild(
+    trigger
+  );
+
+
+  // Popup panel
+  const panel =
+    document.createElement(
+      "div"
+    );
+
+
+  panel.className =
+    "fs-panel";
+
+
+  panel.setAttribute(
+    "role",
+    "listbox"
+  );
+
+
+  panel.setAttribute(
+    "tabindex",
+    "-1"
+  );
+
+
+  wrapper.appendChild(
+    panel
+  );
+
+
+  const syncLabelStyle =
+    () => {
+
+      const isPlaceholder =
+        select.selectedIndex === 0;
+
+
+      if (isPlaceholder) {
+
+        trigger.style.color =
+          "#fff";
+
+        trigger.style.fontWeight =
+          "700";
+
+        trigger.style.fontStyle =
+          "italic";
+
+        trigger.style.background =
+          "linear-gradient(135deg,#00c6ff,#0072ff)";
+
+        trigger.style.borderColor =
+          "transparent";
+
+      }
+
+      else {
+
+        trigger.style.color =
+          "#111";
+
+        trigger.style.fontWeight =
+          "400";
+
+        trigger.style.fontStyle =
+          "normal";
+
+        trigger.style.background =
+          "linear-gradient(135deg,#3a7bd5,#00d2ff)";
+
+        trigger.style.borderColor =
+          "#1976d2";
+
+      }
+
+    };
+
+
+  const buildOptions =
+    () => {
+
+      panel.innerHTML =
+        "";
+
+
+      [...select.options]
+        .forEach(
+          (opt, idx) => {
+
+            const isPlaceholder =
+              opt.disabled &&
+              opt.hidden;
+
+
+            if (
+              isPlaceholder
+            )
+              return;
+
+
+            const item =
+              document.createElement(
+                "div"
+              );
+
+
+            item.className =
+              "fs-option";
+
+
+            item.textContent =
+              opt.textContent;
+
+
+            item.setAttribute(
+              "role",
+              "option"
+            );
+
+
+            if (
+              idx ===
+              select.selectedIndex
+            ) {
+
+              item.setAttribute(
+                "aria-selected",
+                "true"
+              );
+
+            }
+
+
+            item.addEventListener(
+              "click",
+              () => {
+
+                select.selectedIndex =
+                  idx;
+
+
+                select.dispatchEvent(
+                  new Event(
+                    "change",
+                    {
+                      bubbles: true
+                    }
+                  )
+                );
+
+
+                label.textContent =
+                  opt.textContent;
+
+
+                [...panel.children]
+                  .forEach(
+                    c =>
+                      c.removeAttribute(
+                        "aria-selected"
+                      )
+                  );
+
+
+                item.setAttribute(
+                  "aria-selected",
+                  "true"
+                );
+
+
+                close();
+
+              }
+            );
+
+
+            panel.appendChild(
+              item
+            );
+
+          }
+        );
+
+
+      label.textContent =
+        select.options[
+          select.selectedIndex
+        ]?.textContent || "";
+
+
+      syncLabelStyle();
+
+    };
+
+
+  const open =
+    () => {
+
+      panel.classList.add(
+        "open"
+      );
+
+
+      trigger.classList.add(
+        "open"
+      );
+
+
+      trigger.setAttribute(
+        "aria-expanded",
+        "true"
+      );
+
+
+      const sel =
+        panel.querySelector(
+          '.fs-option[aria-selected="true"]'
+        )
+        ||
+        panel.firstChild;
+
+
+      sel?.scrollIntoView({
+        block: "nearest"
+      });
+
+
+      panel.focus();
+
+    };
+
+
+  const close =
+    () => {
+
+      panel.classList.remove(
+        "open"
+      );
+
+
+      trigger.classList.remove(
+        "open"
+      );
+
+
+      trigger.setAttribute(
+        "aria-expanded",
+        "false"
+      );
+
+    };
+
+
+  trigger.addEventListener(
+    "click",
+    () => {
+
+      panel.classList.contains(
+        "open"
+      )
+        ? close()
+        : open();
+
+    }
+  );
+
+
+  document.addEventListener(
+    "click",
+    e => {
+
+      if (
+        !wrapper.contains(
+          e.target
+        )
+      ) {
+
+        close();
+
+      }
+
+    }
+  );
+
+
+  select.addEventListener(
+    "change",
+    buildOptions
+  );
+
+
+  trigger.addEventListener(
+    "keydown",
+    e => {
+
+      if (
+        e.key === "ArrowDown" ||
+        e.key === "Enter" ||
+        e.key === " "
+      ) {
+
+        e.preventDefault();
+
+        open();
+
+      }
+
+    }
+  );
+
+
+  panel.addEventListener(
+    "keydown",
+    e => {
+
+      const opts =
+        [
+          ...panel.querySelectorAll(
+            ".fs-option"
+          )
+        ];
+
+
+      let i =
+        opts.findIndex(
+          o =>
+            o.getAttribute(
+              "aria-selected"
+            ) === "true"
+        );
+
+
+      if (
+        e.key === "ArrowDown"
+      ) {
+
+        e.preventDefault();
+
+        opts[
+          Math.min(
+            i + 1,
+            opts.length - 1
+          )
+        ]?.click();
+
+      }
+
+
+      if (
+        e.key === "ArrowUp"
+      ) {
+
+        e.preventDefault();
+
+        opts[
+          Math.max(
+            i - 1,
+            0
+          )
+        ]?.click();
+
+      }
+
+
+      if (
+        e.key === "Escape"
+      ) {
+
+        e.preventDefault();
+
+        close();
+
+        trigger.focus();
+
+      }
+
+    }
+  );
+
+
+  buildOptions();
+
+}
+
+
+window.addEventListener(
+  "DOMContentLoaded",
+  updateSelectStyle
+);
+
+
+if (imageSelect) {
+
+  imageSelect.addEventListener(
+    "change",
+    () => {
+
+      imageSelect.classList.add(
+        "pop"
+      );
+
+
+      setTimeout(
+        () =>
+          imageSelect.classList.remove(
+            "pop"
+          ),
+        200
+      );
+
+    }
+  );
+
+}
+
+
+// ======================================================
+// INITIALIZATION & MENU
+// ======================================================
+
+window.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    ensureInitialized();
+
+
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
+
+
+    const imageUrl =
+      params.get(
+        "img"
+      );
+
+
+    if (imageUrl) {
+
+      const imgFromUrl =
+        new Image();
+
+
+      imgFromUrl.crossOrigin =
+        "anonymous";
+
+
+      imgFromUrl.onload =
+        () => {
+
+          loadImageToMainCanvas(
+            imgFromUrl
+          );
+
+
+          undoStack =
+            [];
+
+
+          redoStack =
+            [];
+
+
+          originalImageName =
+            imageUrl
+              .split("/")
+              .pop();
+
+        };
+
+
+      imgFromUrl.src =
+        imageUrl;
+
+    }
+
+
+    const toggle =
+      document.querySelector(
+        ".menu-toggle"
+      );
+
+
+    const nav =
+      document.getElementById(
+        "site-nav"
+      );
+
+
+    if (
+      toggle &&
+      nav
+    ) {
+
+      toggle.addEventListener(
+        "click",
+        e => {
+
+          e.stopPropagation();
+
+
+          const expanded =
+            toggle.getAttribute(
+              "aria-expanded"
+            ) === "true";
+
+
+          toggle.setAttribute(
+            "aria-expanded",
+            String(!expanded)
+          );
+
+
+          toggle.classList.toggle(
+            "is-open"
+          );
+
+
+          nav.classList.toggle(
+            "show"
+          );
+
+        }
+      );
+
+
+      document.addEventListener(
+        "click",
+        e => {
+
+          if (
+            !nav.contains(
+              e.target
+            )
+            &&
+            !toggle.contains(
+              e.target
+            )
+          ) {
+
+            nav.classList.remove(
+              "show"
+            );
+
+
+            toggle.classList.remove(
+              "is-open"
+            );
+
+
+            toggle.setAttribute(
+              "aria-expanded",
+              "false"
+            );
+
+          }
+
+        }
+      );
+
+    }
+
+
+    enhanceImageSelect();
+
+  }
+);
+
+
+// ======================================================
+// IMAGE CLASSIFICATION HELPERS
+// ======================================================
+
+function snapshotSmall(
+  ctx,
+  w,
+  h,
+  maxEdge = 768
+) {
+
+  const scale =
+    Math.min(
+      1,
+      maxEdge /
+      Math.max(
+        w,
+        h
+      )
+    );
+
+
+  const sw =
+    Math.max(
+      1,
+      Math.round(
+        w * scale
+      )
+    );
+
+
+  const sh =
+    Math.max(
+      1,
+      Math.round(
+        h * scale
+      )
+    );
+
+
+  const c =
+    document.createElement(
+      "canvas"
+    );
+
+
+  c.width =
+    sw;
+
+
+  c.height =
+    sh;
+
+
+  const sctx =
+    c.getContext(
+      "2d"
+    );
+
+
+  sctx.imageSmoothingEnabled =
+    true;
+
+
+  sctx.drawImage(
+    ctx.canvas,
+    0,
+    0,
+    w,
+    h,
+    0,
+    0,
+    sw,
+    sh
+  );
+
+
+  const id =
+    sctx.getImageData(
+      0,
+      0,
+      sw,
+      sh
+    );
+
+
+  return {
+    sw,
+    sh,
+    data: id.data
+  };
+
+}
+
+
+function classifyImageTypeQuick(
+  ctx,
+  w,
+  h
+) {
+
+  try {
+
+    const {
+      sw,
+      sh,
+      data
+    } =
+      snapshotSmall(
+        ctx,
+        w,
+        h,
+        768
+      );
+
+
+    let satSum =
+      0;
+
+
+    let grayCnt =
+      0;
+
+
+    let total =
+      0;
+
+
+    for (
+      let i = 0;
+      i < data.length;
+      i += 4
+    ) {
+
+      const r =
+        data[i];
+
+
+      const g =
+        data[i + 1];
+
+
+      const b =
+        data[i + 2];
+
+
+      const max =
+        Math.max(
+          r,
+          g,
+          b
+        );
+
+
+      const min =
+        Math.min(
+          r,
+          g,
+          b
+        );
+
+
+      const sat =
+        max === 0
+          ? 0
+          : (
+              max - min
+            ) / max;
+
+
+      satSum +=
+        sat;
+
+
+      total++;
+
+
+      if (
+        sat < 0.08
+      ) {
+
+        grayCnt++;
+
+      }
+
+    }
+
+
+    const satAvg =
+      satSum /
+      Math.max(
+        1,
+        total
+      );
+
+
+    const grayRatio =
+      grayCnt /
+      Math.max(
+        1,
+        total
+      );
+
+
+    const Y =
+      new Float32Array(
+        sw * sh
+      );
+
+
+    const S =
+      new Float32Array(
+        sw * sh
+      );
+
+
+    for (
+      let p = 0,
+          i = 0;
+      p < sw * sh;
+      p++,
+      i += 4
+    ) {
+
+      const r =
+        data[i];
+
+
+      const g =
+        data[i + 1];
+
+
+      const b =
+        data[i + 2];
+
+
+      Y[p] =
+        0.299 * r +
+        0.587 * g +
+        0.114 * b;
+
+
+      const mx =
+        Math.max(
+          r,
+          g,
+          b
+        );
+
+
+      const mn =
+        Math.min(
+          r,
+          g,
+          b
+        );
+
+
+      S[p] =
+        mx === 0
+          ? 0
+          : (
+              mx - mn
+            ) / mx;
+
+    }
+
+
+    let edgeCnt =
+      0;
+
+
+    let chromEdgeCnt =
+      0;
+
+
+    const EDGE_TH =
+      20;
+
+
+    for (
+      let y = 1;
+      y < sh - 1;
+      y++
+    ) {
+
+      for (
+        let x = 1;
+        x < sw - 1;
+        x++
+      ) {
+
+        const i =
+          y * sw + x;
+
+
+        const gx =
+          -Y[i - sw - 1]
+          -2 * Y[i - 1]
+          -Y[i + sw - 1]
+          +Y[i - sw + 1]
+          +2 * Y[i + 1]
+          +Y[i + sw + 1];
+
+
+        const gy =
+          -Y[i - sw - 1]
+          -2 * Y[i - sw]
+          -Y[i - sw + 1]
+          +Y[i + sw - 1]
+          +2 * Y[i + sw]
+          +Y[i + sw + 1];
+
+
+        const mag =
+          Math.hypot(
+            gx,
+            gy
+          ) / 4;
+
+
+        if (
+          mag > EDGE_TH
+        ) {
+
+          edgeCnt++;
+
+
+          if (
+            S[i] > 0.2
+          ) {
+
+            chromEdgeCnt++;
+
+          }
+
+        }
+
+      }
+
+    }
+
+
+    const edgeDensity =
+      edgeCnt /
+      Math.max(
+        1,
+        (
+          sw - 2
+        ) *
+        (
+          sh - 2
+        )
+      );
+
+
+    const chromaticEdgeRatio =
+      edgeCnt
+        ? (
+            chromEdgeCnt /
+            edgeCnt
+          )
+        : 0;
+
+
+    const isLineart =
+      (
+        satAvg < 0.08 &&
+        grayRatio > 0.70 &&
+        chromaticEdgeRatio < 0.20
+      )
+      ||
+      (
+        satAvg < 0.10 &&
+        edgeDensity > 0.05 &&
+        chromaticEdgeRatio < 0.25
+      );
+
+
+    return isLineart
+      ?
+      {
+        label: "lineart",
+        confidence: 0.7
+      }
+      :
+      {
+        label: "filled_color",
+        confidence: 0.7
+      };
+
+  }
+
+  catch {
+
+    return {
+      label: "filled_color",
+      confidence: 0.5
+    };
+
+  }
+
+}
+
+
+// ======================================================
+// INITIALIZE CANVAS
+// ======================================================
+
+function ensureInitialized() {
+
+  if (
+    canvas.width === 0 ||
+    canvas.height === 0
+  ) {
+
+    const w =
+      +(
+        canvas.getAttribute(
+          "width"
+        )
+        ||
+        canvas.clientWidth
+        ||
+        1024
+      );
+
+
+    const h =
+      +(
+        canvas.getAttribute(
+          "height"
+        )
+        ||
+        canvas.clientHeight
+        ||
+        768
+      );
+
+
+    canvas.width =
+      w;
+
+
+    canvas.height =
+      h;
+
+
+    ctx.fillStyle =
+      "#FFFFFF";
+
+
+    ctx.fillRect(
+      0,
+      0,
+      w,
+      h
+    );
+
+  }
+
+}
+
+
+// ======================================================
+// LOAD IMAGE
+// ======================================================
+
+function loadImageToMainCanvas(
+  image
+) {
+
+  const MAX_EDGE =
+    isMobile()
+      ? 1600
+      : 3000;
+
+
+  const srcW =
+    image.width;
+
+
+  const srcH =
+    image.height;
+
+
+  const scale =
+    Math.min(
+      1,
+      MAX_EDGE /
+      Math.max(
+        srcW,
+        srcH
+      )
+    );
+
+
+  const w =
+    Math.max(
+      1,
+      Math.round(
+        srcW * scale
+      )
+    );
+
+
+  const h =
+    Math.max(
+      1,
+      Math.round(
+        srcH * scale
+      )
+    );
+
+
+  canvas.width =
+    w;
+
+
+  canvas.height =
+    h;
+
+
+  ctx.imageSmoothingEnabled =
+    true;
+
+
+  ctx.clearRect(
+    0,
+    0,
+    w,
+    h
+  );
+
+
+  ctx.drawImage(
+    image,
+    0,
+    0,
+    srcW,
+    srcH,
+    0,
+    0,
+    w,
+    h
+  );
+
+
+  ctx.imageSmoothingEnabled =
+    false;
+
+
+  try {
+
+    originalImageData =
+      ctx.getImageData(
+        0,
+        0,
+        w,
+        h
+      );
+
+  }
+
+  catch {
+
+    originalImageData =
+      null;
+
+  }
+
+
+  const {
+    label
+  } =
+    classifyImageTypeQuick(
+      ctx,
+      w,
+      h
+    );
+
+
+  imageProcessingMode =
+    label === "lineart"
+      ? "lineart"
+      : "recolor";
+
+
+  if (
+    imageProcessingMode ===
+    "lineart"
+  ) {
+
+    normalizeLineartBW(
+      ctx,
+      w,
+      h,
+      false
+    );
+
+  }
+
+  else {
+
+    lineMask =
+      null;
+
+  }
+
+}
+
+
+// ======================================================
+// LINE ART NORMALIZATION
+// ======================================================
+
+function normalizeLineartBW(
+  ctx,
+  w,
+  h,
+  renderAA = true
+) {
+
+  let id;
+
+
+  try {
+
+    id =
+      ctx.getImageData(
+        0,
+        0,
+        w,
+        h
+      );
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+
+    alert(
+      "Unable to process the image (CORS). Please use an image from the same domain or enable CORS/crossOrigin='anonymous'."
+    );
+
+
+    return;
+
+  }
+
+
+  const d =
+    id.data;
+
+
+  const hardBlack =
+    new Uint8Array(
+      w * h
+    );
+
+
+  const hardWhite =
+    new Uint8Array(
+      w * h
+    );
+
+
+  for (
+    let p = 0,
+        i = 0;
+    p < w * h;
+    p++,
+    i += 4
+  ) {
+
+    const r =
+      d[i];
+
+
+    const g =
+      d[i + 1];
+
+
+    const b =
+      d[i + 2];
+
+
+    const y =
+      0.299 * r +
+      0.587 * g +
+      0.114 * b;
+
+
+    if (
+      y < T_HIGH
+    ) {
+
+      hardBlack[p] =
+        1;
+
+    }
+
+    else if (
+      y > T_LOW
+    ) {
+
+      hardWhite[p] =
+        1;
+
+    }
+
+  }
+
+
+  const outBlack =
+    new Uint8Array(
+      hardBlack
+    );
+
+
+  const N = [
+    [1,0],
+    [-1,0],
+    [0,1],
+    [0,-1],
+    [1,1],
+    [1,-1],
+    [-1,1],
+    [-1,-1]
+  ];
+
+
+  for (
+    let y = 0;
+    y < h;
+    y++
+  ) {
+
+    for (
+      let x = 0;
+      x < w;
+      x++
+    ) {
+
+      const p =
+        y * w + x;
+
+
+      if (
+        hardBlack[p] ||
+        hardWhite[p]
+      )
+        continue;
+
+
+      for (
+        const [
+          dx,
+          dy
+        ] of N
+      ) {
+
+        const nx =
+          x + dx;
+
+
+        const ny =
+          y + dy;
+
+
+        if (
+          nx < 0 ||
+          ny < 0 ||
+          nx >= w ||
+          ny >= h
+        )
+          continue;
+
+
+        if (
+          hardBlack[
+            ny * w + nx
+          ]
+        ) {
+
+          outBlack[p] =
+            1;
+
+          break;
+
+        }
+
+      }
+
+    }
+
+  }
+
+
+  if (
+    DILATE_RADIUS > 0
+  ) {
+
+    const src =
+      outBlack;
+
+
+    const out =
+      new Uint8Array(
+        src
+      );
+
+
+    const R =
+      DILATE_RADIUS;
+
+
+    for (
+      let y = 0;
+      y < h;
+      y++
+    ) {
+
+      for (
+        let x = 0;
+        x < w;
+        x++
+      ) {
+
+        const p =
+          y * w + x;
+
+
+        if (
+          src[p]
+        )
+          continue;
+
+
+        let touch =
+          false;
+
+
+        for (
+          let dy = -R;
+          dy <= R &&
+          !touch;
+          dy++
+        ) {
+
+          for (
+            let dx = -R;
+            dx <= R &&
+            !touch;
+            dx++
+          ) {
+
+            const nx =
+              x + dx;
+
+
+            const ny =
+              y + dy;
+
+
+            if (
+              nx < 0 ||
+              ny < 0 ||
+              nx >= w ||
+              ny >= h
+            )
+              continue;
+
+
+            if (
+              src[
+                ny * w + nx
+              ]
+            ) {
+
+              touch =
+                true;
+
+            }
+
+          }
+
+        }
+
+
+        if (
+          touch
+        ) {
+
+          out[p] =
+            1;
+
+        }
+
+      }
+
+    }
+
+
+    outBlack.set(
+      out
+    );
+
+  }
+
+
+  lineMask =
+    outBlack;
+
+
+  if (
+    renderAA
+  ) {
+
+    renderLineartAAFromMask(
+      lineMask,
+      w,
+      h,
+      AA_SCALE
+    );
+
+  }
+
+}
+
+
+// ======================================================
+// ANTI-ALIASED LINE RENDERING
+// ======================================================
+
+function renderLineartAAFromMask(
+  mask,
+  w,
+  h,
+  scale = 2
+) {
+
+  const src =
+    document.createElement(
+      "canvas"
+    );
+
+
+  src.width =
+    w;
+
+
+  src.height =
+    h;
+
+
+  const sctx =
+    src.getContext(
+      "2d"
+    );
+
+
+  const id =
+    sctx.createImageData(
+      w,
+      h
+    );
+
+
+  const dd =
+    id.data;
+
+
+  for (
+    let p = 0,
+        i = 0;
+    p < w * h;
+    p++,
+    i += 4
+  ) {
+
+    const black =
+      mask[p] === 1;
+
+
+    dd[i] =
+      black
+        ? 0
+        : 255;
+
+
+    dd[i + 1] =
+      black
+        ? 0
+        : 255;
+
+
+    dd[i + 2] =
+      black
+        ? 0
+        : 255;
+
+
+    dd[i + 3] =
+      255;
+
+  }
+
+
+  sctx.putImageData(
+    id,
+    0,
+    0
+  );
+
+
+  const up =
+    document.createElement(
+      "canvas"
+    );
+
+
+  up.width =
+    w * scale;
+
+
+  up.height =
+    h * scale;
+
+
+  const uctx =
+    up.getContext(
+      "2d"
+    );
+
+
+  uctx.imageSmoothingEnabled =
+    false;
+
+
+  uctx.drawImage(
+    src,
+    0,
+    0,
+    up.width,
+    up.height
+  );
+
+
+  ctx.imageSmoothingEnabled =
+    true;
+
+
+  ctx.clearRect(
+    0,
+    0,
+    w,
+    h
+  );
+
+
+  ctx.fillStyle =
+    "#FFFFFF";
+
+
+  ctx.fillRect(
+    0,
+    0,
+    w,
+    h
+  );
+
+
+  ctx.drawImage(
+    up,
+    0,
+    0,
+    w,
+    h
+  );
+
+
+  ctx.imageSmoothingEnabled =
+    false;
+
+}
