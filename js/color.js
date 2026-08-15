@@ -3,30 +3,36 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// Ngăn cuộn/zoom mặc định trên mobile khi vẽ
+// Prevent default scrolling/zooming on mobile while drawing
 if (canvas && canvas.style) {
   canvas.style.touchAction = "none";
 }
 
-// ---------- Config cho chuẩn hoá & bảo vệ nét ----------
-const T_HIGH = 165;      // pixel tối hơn => chắc chắn là "đen"
-const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
-const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
+// ---------- Line normalization & protection config ----------
+const T_HIGH = 165;
+const T_LOW  = 220;
+const DILATE_RADIUS = 0;
 
-// ✅ cấu hình mịn nét (anti-alias)
-const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
+// Anti-aliasing scale
+const AA_SCALE = 2;
 
-// ---------- State ----------
-// === Recolor mode (tự động, không thêm UI) ===
-let imageProcessingMode = "lineart"; // "lineart" | "recolor"
-let fillTolerance = 70;              // 10..80 (dung sai giống màu)
-let edgeStop = 22;                   // 10..40 (độ nhạy biên Sobel)
-const PRESERVE_LIGHTNESS = true;     // giữ sáng/tối khi đổi màu
+
+// ======================================================
+// STATE
+// ======================================================
+
+let imageProcessingMode = "lineart";
+let fillTolerance = 70;
+let edgeStop = 22;
+const PRESERVE_LIGHTNESS = true;
 
 let currentColor = "#000000";
 let isDrawing = false;
-let mode = "fill"; // fill | brush | eraser | text
+
+let mode = "fill";
+
 let currentTextBox = null;
+
 let brushSize = 7.5;
 
 let undoStack = [];
@@ -34,16 +40,368 @@ let redoStack = [];
 
 let originalImageName = "";
 
-// ✅ mặt nạ nét (1 = pixel thuộc đường nét; 0 = nền/vùng tô)
 let lineMask = null;
 
-// ✅ lưu điểm trước đó để nội suy nét brush
 let lastPt = null;
 
-let originalImageData = null;  // bản gốc (đã scale) để hiển thị & xuất
+let originalImageData = null;
+
+
+// ======================================================
+// DESKTOP TOOL CURSOR
+// ======================================================
+
+let toolCursorPreview = null;
+let toolCursorCenter = null;
+
+
+/*
+Create the Brush / Eraser preview circle.
+
+Fill does not need a custom HTML cursor because
+the browser's small crosshair cursor is more precise.
+*/
+function createToolCursorPreview() {
+
+  if (!canvas) return;
+
+  const wrapper =
+    canvas.closest(".canvas-wrapper");
+
+  if (!wrapper) return;
+
+
+  toolCursorPreview =
+    document.createElement("div");
+
+  toolCursorPreview.className =
+    "tool-cursor-preview";
+
+
+  toolCursorCenter =
+    document.createElement("div");
+
+  toolCursorCenter.className =
+    "tool-cursor-center";
+
+
+  toolCursorPreview.appendChild(
+    toolCursorCenter
+  );
+
+
+  wrapper.appendChild(
+    toolCursorPreview
+  );
+
+}
+
+
+/*
+Check whether the current device uses
+a desktop-style fine pointer such as a mouse.
+*/
+function hasFinePointer() {
+
+  return window.matchMedia(
+    "(hover: hover) and (pointer: fine)"
+  ).matches;
+
+}
+
+
+/*
+Update the cursor style whenever the user
+changes between Fill, Brush, Eraser and Text.
+*/
+function updateCanvasCursorMode() {
+
+  if (!canvas) return;
+
+
+  canvas.classList.remove(
+    "cursor-fill",
+    "cursor-brush",
+    "cursor-eraser",
+    "cursor-text"
+  );
+
+
+  if (mode === "fill") {
+
+    canvas.classList.add(
+      "cursor-fill"
+    );
+
+  }
+
+  else if (mode === "brush") {
+
+    canvas.classList.add(
+      "cursor-brush"
+    );
+
+  }
+
+  else if (mode === "eraser") {
+
+    canvas.classList.add(
+      "cursor-eraser"
+    );
+
+  }
+
+  else if (mode === "text") {
+
+    canvas.classList.add(
+      "cursor-text"
+    );
+
+  }
+
+
+  /*
+  The preview circle is only needed
+  for Brush and Eraser.
+  */
+  if (
+    toolCursorPreview &&
+    mode !== "brush" &&
+    mode !== "eraser"
+  ) {
+
+    toolCursorPreview.style.display =
+      "none";
+
+  }
+
+}
+
+
+/*
+Calculate the visible brush diameter on screen.
+
+brushSize is stored in canvas pixels, while the
+canvas may be scaled down by CSS. Therefore the
+preview circle must use the current display scale.
+*/
+function getVisibleBrushDiameter() {
+
+  if (!canvas) {
+    return brushSize * 2;
+  }
+
+
+  const rect =
+    canvas.getBoundingClientRect();
+
+
+  if (
+    !rect.width ||
+    !canvas.width
+  ) {
+
+    return brushSize * 2;
+
+  }
+
+
+  const scaleX =
+    rect.width /
+    canvas.width;
+
+
+  /*
+  paintCircleOnMain() uses brushSize as radius,
+  therefore the visible diameter is radius × 2.
+  */
+  return Math.max(
+    4,
+    brushSize * 2 * scaleX
+  );
+
+}
+
+
+/*
+Update the size and visual style of
+the Brush / Eraser cursor.
+*/
+function updateToolCursorSize() {
+
+  if (!toolCursorPreview) return;
+
+
+  const diameter =
+    getVisibleBrushDiameter();
+
+
+  toolCursorPreview.style.width =
+    `${diameter}px`;
+
+  toolCursorPreview.style.height =
+    `${diameter}px`;
+
+
+  toolCursorPreview.dataset.mode =
+    mode;
+
+}
+
+
+/*
+Move the preview circle to the exact mouse
+position relative to the canvas wrapper.
+*/
+function moveToolCursorPreview(e) {
+
+  if (
+    !hasFinePointer() ||
+    !toolCursorPreview ||
+    (
+      mode !== "brush" &&
+      mode !== "eraser"
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const wrapper =
+    canvas.closest(".canvas-wrapper");
+
+  if (!wrapper) return;
+
+
+  const wrapperRect =
+    wrapper.getBoundingClientRect();
+
+
+  const canvasRect =
+    canvas.getBoundingClientRect();
+
+
+  /*
+  Only show the preview while the pointer
+  is actually inside the canvas.
+  */
+  const insideCanvas =
+    e.clientX >= canvasRect.left &&
+    e.clientX <= canvasRect.right &&
+    e.clientY >= canvasRect.top &&
+    e.clientY <= canvasRect.bottom;
+
+
+  if (!insideCanvas) {
+
+    toolCursorPreview.style.display =
+      "none";
+
+    return;
+
+  }
+
+
+  const x =
+    e.clientX -
+    wrapperRect.left;
+
+
+  const y =
+    e.clientY -
+    wrapperRect.top;
+
+
+  updateToolCursorSize();
+
+
+  toolCursorPreview.style.left =
+    `${x}px`;
+
+  toolCursorPreview.style.top =
+    `${y}px`;
+
+  toolCursorPreview.style.display =
+    "block";
+
+}
+
+
+/*
+Hide the custom cursor when the mouse
+leaves the canvas.
+*/
+function hideToolCursorPreview() {
+
+  if (toolCursorPreview) {
+
+    toolCursorPreview.style.display =
+      "none";
+
+  }
+
+}
+
+
+// Track desktop mouse movement
+canvas.addEventListener(
+  "mousemove",
+  moveToolCursorPreview
+);
+
+
+canvas.addEventListener(
+  "mouseenter",
+  e => {
+
+    if (
+      mode === "brush" ||
+      mode === "eraser"
+    ) {
+
+      moveToolCursorPreview(e);
+
+    }
+
+  }
+);
+
+
+canvas.addEventListener(
+  "mouseleave",
+  hideToolCursorPreview
+);
+
+
+// Keep the preview correct if the browser
+// window or canvas display size changes.
+window.addEventListener(
+  "resize",
+  () => {
+
+    if (
+      toolCursorPreview &&
+      toolCursorPreview.style.display !==
+      "none"
+    ) {
+
+      updateToolCursorSize();
+
+    }
+
+  }
+);
+
+
+// ======================================================
+// COLORS
+// ======================================================
 
 const colors = [
-  // Hàng 1
+
+  // Row 1
   { hex: "#CD0000", name: "Dark Red" },
   { hex: "#FF4500", name: "Orange Red" },
   { hex: "#D2691E", name: "Chocolate" },
@@ -53,7 +411,7 @@ const colors = [
   { hex: "#FF3366", name: "Rose Red" },
   { hex: "#FF00FF", name: "Magenta" },
 
-  // Hàng 2
+  // Row 2
   { hex: "#008000", name: "Dark Green" },
   { hex: "#00FF00", name: "Lime" },
   { hex: "#CCFFCC", name: "Mint Green" },
@@ -63,7 +421,7 @@ const colors = [
   { hex: "#6600CC", name: "Blue Violet" },
   { hex: "#800080", name: "Purple" },
 
-  // Hàng 3
+  // Row 3
   { hex: "#000000", name: "Black" },
   { hex: "#708090", name: "Slate Gray" },
   { hex: "#C0C0C0", name: "Silver" },
@@ -71,144 +429,301 @@ const colors = [
   { hex: "#A0522D", name: "Sienna" },
   { hex: "#8B5F65", name: "Dusty Rose" },
   { hex: "#CCC1DA", name: "Lilac" },
-  { hex: "#FFB6C1", name: "Light Pink" },
+  { hex: "#FFB6C1", name: "Light Pink" }
+
 ];
 
 
-const palette = document.getElementById("colorPalette");
-const colorInfo   = document.getElementById("colorInfo");
-const colorInfoText = document.getElementById("colorInfoText");
+const palette =
+  document.getElementById(
+    "colorPalette"
+  );
 
 
-colors.forEach((c, i) => {
-  const div = document.createElement("div");
-  div.className = "color";
-  div.style.background = c.hex;
-  div.dataset.color = c.hex;
-  div.dataset.name  = c.name;
-  div.title = `${c.name} (${c.hex})`;
+const colorInfo =
+  document.getElementById(
+    "colorInfo"
+  );
 
-  if (i === 0) {
-    div.classList.add("selected");
-    setCurrentColor(c.hex);
-    updateColorInfo(c.hex, c.name);
+
+const colorInfoText =
+  document.getElementById(
+    "colorInfoText"
+  );
+
+
+colors.forEach(
+  (c, i) => {
+
+    const div =
+      document.createElement(
+        "div"
+      );
+
+
+    div.className =
+      "color";
+
+
+    div.style.background =
+      c.hex;
+
+
+    div.dataset.color =
+      c.hex;
+
+
+    div.dataset.name =
+      c.name;
+
+
+    div.title =
+      `${c.name} (${c.hex})`;
+
+
+    if (i === 0) {
+
+      div.classList.add(
+        "selected"
+      );
+
+
+      setCurrentColor(
+        c.hex
+      );
+
+
+      updateColorInfo(
+        c.hex,
+        c.name
+      );
+
+    }
+
+
+    palette.appendChild(
+      div
+    );
+
   }
-
-  palette.appendChild(div);
-});
+);
 
 
-// Không cho màu tô là đen tuyệt đối
+// Prevent the actual fill color
+// from being absolute pure black.
 function setCurrentColor(hex) {
-  const val = hex.startsWith('#') ? hex.slice(1) : hex;
 
-  if (/^0{6}$/i.test(val)) {
-    currentColor = "#111111";
-  } else {
-    currentColor = "#" + val.toUpperCase();
+  const val =
+    hex.startsWith("#")
+      ? hex.slice(1)
+      : hex;
+
+
+  if (
+    /^0{6}$/i.test(val)
+  ) {
+
+    currentColor =
+      "#111111";
+
   }
+
+  else {
+
+    currentColor =
+      "#" +
+      val.toUpperCase();
+
+  }
+
 }
 
 
-// Chọn màu chữ đen / trắng cho dễ đọc trên nền màu được chọn
+// Choose black or white text depending
+// on the selected background color.
 function getContrastTextColor(hex) {
-  if (!hex) return "#111111";
 
-  const v = hex.replace("#", "");
+  if (!hex) {
+    return "#111111";
+  }
 
-  if (v.length !== 6) return "#111111";
 
-  const r = parseInt(v.slice(0, 2), 16);
-  const g = parseInt(v.slice(2, 4), 16);
-  const b = parseInt(v.slice(4, 6), 16);
+  const v =
+    hex.replace(
+      "#",
+      ""
+    );
+
+
+  if (
+    v.length !== 6
+  ) {
+
+    return "#111111";
+
+  }
+
+
+  const r =
+    parseInt(
+      v.slice(0, 2),
+      16
+    );
+
+
+  const g =
+    parseInt(
+      v.slice(2, 4),
+      16
+    );
+
+
+  const b =
+    parseInt(
+      v.slice(4, 6),
+      16
+    );
+
 
   const luminance =
     0.299 * r +
     0.587 * g +
     0.114 * b;
 
+
   return luminance > 160
     ? "#111111"
     : "#FFFFFF";
+
 }
 
 
-// Cập nhật màu hiện tại
-function updateColorInfo(hex, name) {
+// Update currently selected color display
+function updateColorInfo(
+  hex,
+  name
+) {
 
-  if (!colorInfo || !colorInfoText)
+  if (
+    !colorInfo ||
+    !colorInfoText
+  ) {
+
     return;
 
-  if (!hex || !name) {
+  }
+
+
+  if (
+    !hex ||
+    !name
+  ) {
 
     colorInfo.style.background =
       "#f3f4f6";
 
+
     colorInfo.style.color =
       "#111111";
+
 
     colorInfoText.textContent =
       "Chosen color: Not selected";
 
+
     return;
+
   }
+
 
   colorInfo.style.background =
     hex;
 
+
   colorInfo.style.color =
-    getContrastTextColor(hex);
+    getContrastTextColor(
+      hex
+    );
+
 
   colorInfoText.textContent =
     `Chosen color: ${name}`;
+
 }
 
 
-// Click 24 màu có sẵn
-document.querySelectorAll(".color").forEach(el => {
+// Select one of the 24 standard colors
+document
+  .querySelectorAll(".color")
+  .forEach(
+    el => {
 
-  el.addEventListener("click", () => {
+      el.addEventListener(
+        "click",
+        () => {
 
-    document
-      .querySelectorAll(".color")
-      .forEach(c =>
-        c.classList.remove("selected")
+          document
+            .querySelectorAll(
+              ".color"
+            )
+            .forEach(
+              c =>
+                c.classList.remove(
+                  "selected"
+                )
+            );
+
+
+          el.classList.add(
+            "selected"
+          );
+
+
+          const hex =
+            el.dataset.color;
+
+
+          const name =
+            el.dataset.name || "";
+
+
+          setCurrentColor(
+            hex
+          );
+
+
+          updateColorInfo(
+            hex,
+            name
+          );
+
+
+          if (
+            mode === "text" &&
+            currentTextBox
+          ) {
+
+            const content =
+              currentTextBox
+                .querySelector(
+                  ".text-content"
+                );
+
+
+            if (content) {
+
+              content.style.color =
+                currentColor;
+
+            }
+
+          }
+
+        }
       );
 
-    el.classList.add("selected");
-
-    const hex =
-      el.dataset.color;
-
-    const name =
-      el.dataset.name || "";
-
-    setCurrentColor(hex);
-
-    updateColorInfo(
-      hex,
-      name
-    );
-
-    if (
-      mode === "text" &&
-      currentTextBox
-    ) {
-
-      const content =
-        currentTextBox.querySelector(
-          ".text-content"
-        );
-
-      if (content) {
-        content.style.color =
-          currentColor;
-      }
     }
-
-  });
-
-});
+  );
 
 
 // ======================================================
@@ -275,25 +790,30 @@ const customColorBtn =
     "customColorBtn"
   );
 
+
 const customColorPanel =
   document.getElementById(
     "customColorPanel"
   );
+
 
 const customColorGrid =
   document.getElementById(
     "customColorGrid"
   );
 
+
 const customColorInput =
   document.getElementById(
     "customColorInput"
   );
 
+
 const customColorPreview =
   document.getElementById(
     "customColorPreview"
   );
+
 
 const customColorButtonSwatch =
   document.getElementById(
@@ -301,58 +821,92 @@ const customColorButtonSwatch =
   );
 
 
-function updateCustomColorPreview(hex) {
+function updateCustomColorPreview(
+  hex
+) {
 
-  if (customColorPreview) {
+  if (
+    customColorPreview
+  ) {
+
     customColorPreview.style.background =
       hex;
+
   }
 
-  if (customColorButtonSwatch) {
+
+  if (
+    customColorButtonSwatch
+  ) {
+
     customColorButtonSwatch.style.background =
       hex;
+
   }
 
-  if (customColorInput) {
+
+  if (
+    customColorInput
+  ) {
+
     customColorInput.value =
       hex;
+
   }
 
 }
 
 
-function applyExtendedColor(hex) {
+function applyExtendedColor(
+  hex
+) {
 
-  if (!hex)
-    return;
+  if (!hex) return;
+
 
   document
-    .querySelectorAll(".color")
-    .forEach(c =>
-      c.classList.remove("selected")
+    .querySelectorAll(
+      ".color"
+    )
+    .forEach(
+      c =>
+        c.classList.remove(
+          "selected"
+        )
     );
+
 
   document
     .querySelectorAll(
       ".extended-color-swatch"
     )
-    .forEach(c =>
-      c.classList.remove("selected")
+    .forEach(
+      c =>
+        c.classList.remove(
+          "selected"
+        )
     );
 
-  setCurrentColor(hex);
+
+  setCurrentColor(
+    hex
+  );
+
 
   const actualHex =
     currentColor.toUpperCase();
+
 
   updateColorInfo(
     actualHex,
     `Custom color (${actualHex})`
   );
 
+
   updateCustomColorPreview(
     actualHex
   );
+
 
   const matchedSwatch =
     Array
@@ -370,11 +924,17 @@ function applyExtendedColor(hex) {
           hex.toUpperCase()
       );
 
-  if (matchedSwatch) {
+
+  if (
+    matchedSwatch
+  ) {
+
     matchedSwatch.classList.add(
       "selected"
     );
+
   }
+
 
   if (
     mode === "text" &&
@@ -382,26 +942,30 @@ function applyExtendedColor(hex) {
   ) {
 
     const content =
-      currentTextBox.querySelector(
-        ".text-content"
-      );
+      currentTextBox
+        .querySelector(
+          ".text-content"
+        );
+
 
     if (content) {
+
       content.style.color =
         currentColor;
+
     }
+
   }
 
 }
-
-
 function setCustomColorPanel(open) {
 
   if (
     !customColorBtn ||
     !customColorPanel
-  )
+  ) {
     return;
+  }
 
   customColorPanel.hidden =
     !open;
@@ -410,64 +974,66 @@ function setCustomColorPanel(open) {
     "aria-expanded",
     open ? "true" : "false"
   );
-
 }
 
 
-// Tạo các ô màu mở rộng
+// Build extended color swatches
 if (customColorGrid) {
 
-  extendedColors.forEach(hex => {
+  extendedColors.forEach(
+    hex => {
 
-    const btn =
-      document.createElement(
-        "button"
+      const btn =
+        document.createElement(
+          "button"
+        );
+
+      btn.type =
+        "button";
+
+      btn.className =
+        "extended-color-swatch";
+
+      btn.dataset.color =
+        hex;
+
+      btn.style.background =
+        hex;
+
+      btn.title =
+        hex;
+
+      btn.setAttribute(
+        "aria-label",
+        `Choose color ${hex}`
       );
 
-    btn.type =
-      "button";
+      btn.addEventListener(
+        "click",
+        () => {
 
-    btn.className =
-      "extended-color-swatch";
+          applyExtendedColor(
+            hex
+          );
 
-    btn.dataset.color =
-      hex;
+          setCustomColorPanel(
+            false
+          );
 
-    btn.style.background =
-      hex;
+        }
+      );
 
-    btn.title =
-      hex;
+      customColorGrid.appendChild(
+        btn
+      );
 
-    btn.setAttribute(
-      "aria-label",
-      `Choose color ${hex}`
-    );
-
-    btn.addEventListener(
-      "click",
-      () => {
-
-        applyExtendedColor(
-          hex
-        );
-
-        setCustomColorPanel(
-          false
-        );
-
-      }
-    );
-
-    customColorGrid
-      .appendChild(btn);
-
-  });
+    }
+  );
 
 }
 
 
-// Nút Choose Color
+// Choose Color button
 if (
   customColorBtn &&
   customColorPanel
@@ -497,7 +1063,9 @@ if (
   document.addEventListener(
     "click",
     () =>
-      setCustomColorPanel(false)
+      setCustomColorPanel(
+        false
+      )
   );
 
 
@@ -505,8 +1073,14 @@ if (
     "keydown",
     e => {
 
-      if (e.key === "Escape") {
-        setCustomColorPanel(false);
+      if (
+        e.key === "Escape"
+      ) {
+
+        setCustomColorPanel(
+          false
+        );
+
       }
 
     }
@@ -544,36 +1118,40 @@ if (customColorInput) {
 }
 
 
-// Khi quay lại chọn 24 màu mặc định
+// Sync custom color preview when selecting
+// one of the standard colors again.
 document
   .querySelectorAll(".color")
-  .forEach(el => {
+  .forEach(
+    el => {
 
-    el.addEventListener(
-      "click",
-      () => {
+      el.addEventListener(
+        "click",
+        () => {
 
-        updateCustomColorPreview(
-          currentColor
-        );
-
-        document
-          .querySelectorAll(
-            ".extended-color-swatch"
-          )
-          .forEach(c =>
-            c.classList.remove(
-              "selected"
-            )
+          updateCustomColorPreview(
+            currentColor
           );
 
-      }
-    );
+          document
+            .querySelectorAll(
+              ".extended-color-swatch"
+            )
+            .forEach(
+              c =>
+                c.classList.remove(
+                  "selected"
+                )
+            );
 
-  });
+        }
+      );
+
+    }
+  );
 
 
-// Preview mặc định
+// Initial custom color preview
 updateCustomColorPreview(
   currentColor
 );
@@ -584,7 +1162,9 @@ updateCustomColorPreview(
 // ======================================================
 
 document
-  .getElementById("fillModeBtn")
+  .getElementById(
+    "fillModeBtn"
+  )
   .addEventListener(
     "click",
     () => {
@@ -604,6 +1184,7 @@ function updateModeButtons(
   mode =
     newMode;
 
+
   document
     .querySelectorAll(
       ".mode-btn"
@@ -616,7 +1197,9 @@ function updateModeButtons(
     );
 
 
-  if (mode === "fill") {
+  if (
+    mode === "fill"
+  ) {
 
     document
       .getElementById(
@@ -670,19 +1253,28 @@ function updateModeButtons(
 
   }
 
+
+  // NEW:
+  // Update the visible mouse cursor immediately.
+  updateCanvasCursorMode();
+
+  // Keep Brush / Eraser preview size synchronized.
+  updateToolCursorSize();
+
 }
 
 
 document
-  .getElementById("textModeBtn")
+  .getElementById(
+    "textModeBtn"
+  )
   .addEventListener(
     "click",
     () => {
 
-      mode =
-        "text";
-
-      updateModeButtons();
+      updateModeButtons(
+        "text"
+      );
 
       addTextBoxCentered();
 
@@ -691,7 +1283,9 @@ document
 
 
 document
-  .getElementById("brushModeBtn")
+  .getElementById(
+    "brushModeBtn"
+  )
   .addEventListener(
     "click",
     () => {
@@ -705,7 +1299,9 @@ document
 
 
 document
-  .getElementById("eraserModeBtn")
+  .getElementById(
+    "eraserModeBtn"
+  )
   .addEventListener(
     "click",
     () => {
@@ -719,7 +1315,9 @@ document
 
 
 document
-  .getElementById("brushSizeSelect")
+  .getElementById(
+    "brushSizeSelect"
+  )
   .addEventListener(
     "change",
     function () {
@@ -728,6 +1326,10 @@ document
         parseFloat(
           this.value
         );
+
+      // NEW:
+      // Update Brush / Eraser preview size immediately.
+      updateToolCursorSize();
 
     }
   );
@@ -752,11 +1354,17 @@ if (imageSelect) {
       const selectedImage =
         this.value;
 
-      if (!selectedImage)
+
+      if (
+        !selectedImage
+      ) {
         return;
+      }
+
 
       const localImg =
         new Image();
+
 
       localImg.onload =
         () => {
@@ -765,8 +1373,11 @@ if (imageSelect) {
             localImg
           );
 
-          undoStack = [];
-          redoStack = [];
+          undoStack =
+            [];
+
+          redoStack =
+            [];
 
           originalImageName =
             selectedImage
@@ -780,23 +1391,39 @@ if (imageSelect) {
               "kite-label-input"
             );
 
-          if (kiteLabel) {
+          if (
+            kiteLabel
+          ) {
+
             kiteLabel.style.display =
               "block";
+
           }
+
+          // Canvas size may have changed.
+          // Recalculate cursor preview size.
+          updateToolCursorSize();
 
         };
 
+
       localImg.src =
         selectedImage;
+
 
       const up =
         document.getElementById(
           "uploadInput"
         );
 
-      if (up) {
-        up.value = "";
+
+      if (
+        up
+      ) {
+
+        up.value =
+          "";
+
       }
 
     }
@@ -806,7 +1433,9 @@ if (imageSelect) {
 
 
 document
-  .getElementById("uploadInput")
+  .getElementById(
+    "uploadInput"
+  )
   .addEventListener(
     "change",
     function (e) {
@@ -814,17 +1443,24 @@ document
       const file =
         e.target.files[0];
 
-      if (!file)
+
+      if (
+        !file
+      ) {
         return;
+      }
+
 
       const reader =
         new FileReader();
+
 
       reader.onload =
         function (event) {
 
           const upImg =
             new Image();
+
 
           upImg.onload =
             function () {
@@ -833,25 +1469,39 @@ document
                 upImg
               );
 
-              undoStack = [];
-              redoStack = [];
+              undoStack =
+                [];
+
+              redoStack =
+                [];
 
               originalImageName =
                 file.name;
 
-              if (imageSelect) {
+
+              if (
+                imageSelect
+              ) {
+
                 imageSelect.selectedIndex =
                   0;
+
               }
+
 
               updateSelectStyle();
 
+              // Canvas display ratio may have changed.
+              updateToolCursorSize();
+
             };
+
 
           upImg.src =
             event.target.result;
 
         };
+
 
       reader.readAsDataURL(
         file
@@ -862,7 +1512,7 @@ document
 
 
 // ======================================================
-// COORDINATES
+// COORDINATE HELPERS
 // ======================================================
 
 function getCanvasCoords(e) {
@@ -870,13 +1520,16 @@ function getCanvasCoords(e) {
   const rect =
     canvas.getBoundingClientRect();
 
+
   const scaleX =
     canvas.width /
     rect.width;
 
+
   const scaleY =
     canvas.height /
     rect.height;
+
 
   let clientX;
   let clientY;
@@ -964,6 +1617,7 @@ function strokeFromTo(
   const dy =
     y1 - y0;
 
+
   const dist =
     Math.hypot(
       dx,
@@ -971,7 +1625,9 @@ function strokeFromTo(
     );
 
 
-  if (dist === 0) {
+  if (
+    dist === 0
+  ) {
 
     paintCircleOnMain(
       x1,
@@ -1016,13 +1672,16 @@ function strokeFromTo(
     const t =
       i / n;
 
+
     const x =
       x0 +
       dx * t;
 
+
     const y =
       y0 +
       dy * t;
+
 
     paintCircleOnMain(
       x,
@@ -1041,28 +1700,32 @@ function drawAt(e) {
 
   ensureInitialized();
 
+
   const {
     x,
     y
   } =
-    getCanvasCoords(e);
+    getCanvasCoords(
+      e
+    );
 
 
   const isErase =
-    mode === "eraser";
+    mode ===
+    "eraser";
 
 
   const rgba =
     isErase
-      ?
-      [255,255,255,255]
-      :
-      hexToRgba(
-        currentColor
-      );
+      ? [255,255,255,255]
+      : hexToRgba(
+          currentColor
+        );
 
 
-  if (!lastPt) {
+  if (
+    !lastPt
+  ) {
 
     paintCircleOnMain(
       x,
@@ -1071,6 +1734,7 @@ function drawAt(e) {
       rgba,
       isErase
     );
+
 
     lastPt = {
       x,
@@ -1090,6 +1754,7 @@ function drawAt(e) {
       rgba,
       isErase
     );
+
 
     lastPt = {
       x,
@@ -1114,10 +1779,13 @@ canvas.addEventListener(
       isDrawing =
         true;
 
+
       saveState();
+
 
       lastPt =
         null;
+
 
       drawAt(e);
 
@@ -1125,6 +1793,8 @@ canvas.addEventListener(
 
   }
 );
+
+
 canvas.addEventListener(
   "mousemove",
   e => {
@@ -1169,6 +1839,8 @@ canvas.addEventListener(
     lastPt =
       null;
 
+    hideToolCursorPreview();
+
   }
 );
 
@@ -1186,12 +1858,16 @@ canvas.addEventListener(
       isDrawing =
         true;
 
+
       saveState();
+
 
       lastPt =
         null;
 
+
       drawAt(e);
+
 
       e.preventDefault();
 
@@ -1253,23 +1929,31 @@ canvas.addEventListener(
 
     if (
       mode !== "fill"
-    )
+    ) {
       return;
+    }
+
 
     ensureInitialized();
+
 
     const {
       x,
       y
     } =
-      getCanvasCoords(e);
+      getCanvasCoords(
+        e
+      );
+
 
     saveState();
+
 
     const color =
       hexToRgba(
         currentColor
       );
+
 
     if (
       imageProcessingMode ===
@@ -1309,6 +1993,7 @@ function hexToRgba(hex) {
       16
     );
 
+
   return [
 
     (bigint >> 16) & 255,
@@ -1331,16 +2016,24 @@ function isLinePixel(
   h
 ) {
 
-  if (!lineMask)
+  if (
+    !lineMask
+  ) {
     return false;
+  }
+
 
   if (
     x < 0 ||
     y < 0 ||
     x >= w ||
     y >= h
-  )
+  ) {
+
     return false;
+
+  }
+
 
   return (
     lineMask[
@@ -1349,8 +2042,6 @@ function isLinePixel(
   );
 
 }
-
-
 function floodFillSingleLayer(
   x,
   y,
@@ -1363,11 +2054,13 @@ function floodFillSingleLayer(
   const h =
     canvas.height;
 
+
   if (
     w === 0 ||
     h === 0
-  )
+  ) {
     return;
+  }
 
 
   let imageData;
@@ -1409,8 +2102,9 @@ function floodFillSingleLayer(
       w,
       h
     )
-  )
+  ) {
     return;
+  }
 
 
   const idx0 =
@@ -1458,8 +2152,9 @@ function floodFillSingleLayer(
           w,
           h
         )
-      )
+      ) {
         return false;
+      }
 
 
       const r =
@@ -1473,23 +2168,17 @@ function floodFillSingleLayer(
 
 
       return (
-
         Math.abs(
           r - startR
         ) <= tolerance
-
         &&
-
         Math.abs(
           g - startG
         ) <= tolerance
-
         &&
-
         Math.abs(
           b - startB
         ) <= tolerance
-
       );
 
     };
@@ -1511,8 +2200,9 @@ function floodFillSingleLayer(
       cy < 0 ||
       cx >= w ||
       cy >= h
-    )
+    ) {
       continue;
+    }
 
 
     const i =
@@ -1527,8 +2217,9 @@ function floodFillSingleLayer(
 
     if (
       visited[vi]
-    )
+    ) {
       continue;
+    }
 
 
     visited[vi] =
@@ -1541,8 +2232,9 @@ function floodFillSingleLayer(
         cy,
         i
       )
-    )
+    ) {
       continue;
+    }
 
 
     data[i] =
@@ -1559,15 +2251,10 @@ function floodFillSingleLayer(
 
 
     stack.push(
-
       [cx - 1, cy],
-
       [cx + 1, cy],
-
       [cx, cy - 1],
-
       [cx, cy + 1]
-
     );
 
   }
@@ -1648,7 +2335,6 @@ function floodFillWithEdgeGuard(
     d[seed + 2];
 
 
-  // Luminance channel for Sobel edge detection
   const Y =
     new Float32Array(
       w * h
@@ -1682,8 +2368,9 @@ function floodFillWithEdgeGuard(
         cy <= 0 ||
         cx >= w - 1 ||
         cy >= h - 1
-      )
+      ) {
         return 999;
+      }
 
 
       const i =
@@ -1745,8 +2432,9 @@ function floodFillWithEdgeGuard(
       cy < 0 ||
       cx >= w ||
       cy >= h
-    )
+    ) {
       continue;
+    }
 
 
     const pi =
@@ -1755,8 +2443,9 @@ function floodFillWithEdgeGuard(
 
     if (
       visited[pi]
-    )
+    ) {
       continue;
+    }
 
 
     visited[pi] =
@@ -1768,8 +2457,9 @@ function floodFillWithEdgeGuard(
         cx,
         cy
       ) > edgeStop
-    )
+    ) {
       continue;
+    }
 
 
     const i4 =
@@ -1790,8 +2480,9 @@ function floodFillWithEdgeGuard(
       Math.abs(r - sR) > tolerance ||
       Math.abs(g - sG) > tolerance ||
       Math.abs(b - sB) > tolerance
-    )
+    ) {
       continue;
+    }
 
 
     if (
@@ -1837,15 +2528,10 @@ function floodFillWithEdgeGuard(
 
 
     stack.push(
-
       [cx - 1, cy],
-
       [cx + 1, cy],
-
       [cx, cy - 1],
-
       [cx, cy + 1]
-
     );
 
   }
@@ -1861,7 +2547,7 @@ function floodFillWithEdgeGuard(
 
 
 // ======================================================
-// HSV UTILS
+// HSV HELPERS
 // ======================================================
 
 function rgb2hsv(
@@ -2079,7 +2765,6 @@ function hsv2rgb(
 }
 
 
-// Preserve original brightness while applying target hue/saturation
 function recolorPreserveLightness(
   srcRGB,
   targetRGB
@@ -2274,8 +2959,9 @@ function paintCircleOnMain(
         dx * dx +
         dy * dy >
         rr
-      )
+      ) {
         continue;
+      }
 
 
       if (
@@ -2285,8 +2971,9 @@ function paintCircleOnMain(
           w,
           h
         )
-      )
+      ) {
         continue;
+      }
 
 
       const i =
@@ -2364,8 +3051,9 @@ function saveState() {
   if (
     canvas.width === 0 ||
     canvas.height === 0
-  )
+  ) {
     return;
+  }
 
 
   try {
@@ -2398,7 +3086,9 @@ function saveState() {
 
 
 document
-  .getElementById("undoBtn")
+  .getElementById(
+    "undoBtn"
+  )
   .addEventListener(
     "click",
     () => {
@@ -2451,7 +3141,9 @@ document
 
 
 document
-  .getElementById("redoBtn")
+  .getElementById(
+    "redoBtn"
+  )
   .addEventListener(
     "click",
     () => {
@@ -2556,7 +3248,9 @@ function saveCanvasPNG(
     tempCanvas.toBlob(
       blob => {
 
-        if (!blob) {
+        if (
+          !blob
+        ) {
 
           const a =
             document.createElement(
@@ -2577,8 +3271,9 @@ function saveCanvasPNG(
             "noreferrer noopener";
 
 
-          document.body
-            .appendChild(a);
+          document.body.appendChild(
+            a
+          );
 
 
           a.click();
@@ -2617,8 +3312,9 @@ function saveCanvasPNG(
           "noreferrer noopener";
 
 
-        document.body
-          .appendChild(a);
+        document.body.appendChild(
+          a
+        );
 
 
         a.click();
@@ -2658,8 +3354,9 @@ function saveCanvasPNG(
       "noreferrer noopener";
 
 
-    document.body
-      .appendChild(a);
+    document.body.appendChild(
+      a
+    );
 
 
     a.click();
@@ -2670,8 +3367,6 @@ function saveCanvasPNG(
   }
 
 }
-
-
 function showToast(msg) {
 
   try {
@@ -2699,8 +3394,9 @@ function showToast(msg) {
       "z-index:9999";
 
 
-    document.body
-      .appendChild(t);
+    document.body.appendChild(
+      t
+    );
 
 
     setTimeout(
@@ -2738,9 +3434,12 @@ function openInlineViewer(
     "padding:16px;";
 
 
-  wrap.innerHTML =
-    `
-    <div style="max-width:100%;max-height:100%;text-align:center">
+  wrap.innerHTML = `
+    <div style="
+      max-width:100%;
+      max-height:100%;
+      text-align:center
+    ">
 
       <p style="
         color:#fff;
@@ -2773,7 +3472,7 @@ function openInlineViewer(
       </button>
 
     </div>
-    `;
+  `;
 
 
   wrap
@@ -2782,18 +3481,21 @@ function openInlineViewer(
       () => wrap.remove();
 
 
-  document.body
-    .appendChild(wrap);
+  document.body.appendChild(
+    wrap
+  );
 
 }
 
 
 // ======================================================
-// DOWNLOAD
+// DOWNLOAD IMAGE
 // ======================================================
 
 document
-  .getElementById("downloadBtn")
+  .getElementById(
+    "downloadBtn"
+  )
   .addEventListener(
     "click",
     evt => {
@@ -2966,7 +3668,7 @@ document
               canvas.height;
 
 
-            // Draw main image
+            // Draw the main image
             tempCtx.drawImage(
               canvas,
               0,
@@ -2995,8 +3697,9 @@ document
 
                   if (
                     !text.trim()
-                  )
+                  ) {
                     return;
+                  }
 
 
                   const canvasRect =
@@ -3314,8 +4017,9 @@ document
 
 function addTextBoxCentered() {
 
-  if (!canvas)
+  if (!canvas) {
     return;
+  }
 
 
   const rect =
@@ -3466,271 +4170,874 @@ function addTextBoxCentered() {
   );
 
 }
-function makeTextBoxDraggable(box) {
-  let isDragging = false;
-  let hasMoved = false;
-  let offsetX = 0;
-  let offsetY = 0;
+
+
+function makeTextBoxDraggable(
+  box
+) {
+
+  let isDragging =
+    false;
+
+
+  let hasMoved =
+    false;
+
+
+  let offsetX =
+    0;
+
+
+  let offsetY =
+    0;
+
 
   // Desktop
-  box.addEventListener("mousedown", (e) => {
-    if (e.target !== box) return;
-    isDragging = true;
-    hasMoved = false;
-    offsetX = e.offsetX;
-    offsetY = e.offsetY;
-    e.preventDefault();
-  });
+  box.addEventListener(
+    "mousedown",
+    e => {
+
+      if (
+        e.target !== box
+      ) {
+        return;
+      }
+
+
+      isDragging =
+        true;
+
+
+      hasMoved =
+        false;
+
+
+      offsetX =
+        e.offsetX;
+
+
+      offsetY =
+        e.offsetY;
+
+
+      e.preventDefault();
+
+    }
+  );
+
 
   // Mobile
-  box.addEventListener("touchstart", (e) => {
-    if (e.target !== box) return;
-    isDragging = true;
-    hasMoved = false;
+  box.addEventListener(
+    "touchstart",
+    e => {
 
-    const touch = e.touches[0];
-    const rect = box.getBoundingClientRect();
-    offsetX = touch.clientX - rect.left;
-    offsetY = touch.clientY - rect.top;
-    e.preventDefault();
-  }, { passive: false });
+      if (
+        e.target !== box
+      ) {
+        return;
+      }
 
-  // Move
-  function handleMove(clientX, clientY) {
-    const wrapperRect = document.querySelector(".canvas-wrapper").getBoundingClientRect();
-    box.style.left = `${clientX - wrapperRect.left - offsetX}px`;
-    box.style.top = `${clientY - wrapperRect.top - offsetY}px`;
+
+      isDragging =
+        true;
+
+
+      hasMoved =
+        false;
+
+
+      const touch =
+        e.touches[0];
+
+
+      const rect =
+        box.getBoundingClientRect();
+
+
+      offsetX =
+        touch.clientX -
+        rect.left;
+
+
+      offsetY =
+        touch.clientY -
+        rect.top;
+
+
+      e.preventDefault();
+
+    },
+    {
+      passive: false
+    }
+  );
+
+
+  function handleMove(
+    clientX,
+    clientY
+  ) {
+
+    const wrapperRect =
+      document
+        .querySelector(
+          ".canvas-wrapper"
+        )
+        .getBoundingClientRect();
+
+
+    box.style.left =
+      `${
+        clientX -
+        wrapperRect.left -
+        offsetX
+      }px`;
+
+
+    box.style.top =
+      `${
+        clientY -
+        wrapperRect.top -
+        offsetY
+      }px`;
+
   }
 
-  document.addEventListener("mousemove", (e) => {
-    if (!isDragging) return;
-    hasMoved = true;
-    handleMove(e.clientX, e.clientY);
-  });
 
-  document.addEventListener("touchmove", (e) => {
-    if (!isDragging) return;
-    hasMoved = true;
-    const touch = e.touches[0];
-    handleMove(touch.clientX, touch.clientY);
-    e.preventDefault();
-  }, { passive: false });
+  document.addEventListener(
+    "mousemove",
+    e => {
 
-  document.addEventListener("mouseup", () => {
-    if (isDragging && !hasMoved) box.focus();
-    isDragging = false;
-  });
+      if (
+        !isDragging
+      ) {
+        return;
+      }
 
-  document.addEventListener("touchend", () => {
-    if (isDragging && !hasMoved) box.focus();
-    isDragging = false;
-  });
+
+      hasMoved =
+        true;
+
+
+      handleMove(
+        e.clientX,
+        e.clientY
+      );
+
+    }
+  );
+
+
+  document.addEventListener(
+    "touchmove",
+    e => {
+
+      if (
+        !isDragging
+      ) {
+        return;
+      }
+
+
+      hasMoved =
+        true;
+
+
+      const touch =
+        e.touches[0];
+
+
+      handleMove(
+        touch.clientX,
+        touch.clientY
+      );
+
+
+      e.preventDefault();
+
+    },
+    {
+      passive: false
+    }
+  );
+
+
+  document.addEventListener(
+    "mouseup",
+    () => {
+
+      if (
+        isDragging &&
+        !hasMoved
+      ) {
+
+        box.focus();
+
+      }
+
+
+      isDragging =
+        false;
+
+    }
+  );
+
+
+  document.addEventListener(
+    "touchend",
+    () => {
+
+      if (
+        isDragging &&
+        !hasMoved
+      ) {
+
+        box.focus();
+
+      }
+
+
+      isDragging =
+        false;
+
+    }
+  );
+
 }
 
 
-function enableResize(textBox) {
-  const resizer = document.createElement("div");
-  resizer.className = "resizer";
-  textBox.appendChild(resizer);
+// ======================================================
+// TEXT RESIZE
+// ======================================================
 
-  let isResizing = false;
-  let startX, startY;
-  let startWidth, startHeight;
-  let startScaleX, startScaleY;
+function enableResize(
+  textBox
+) {
+
+  const resizer =
+    document.createElement(
+      "div"
+    );
+
+
+  resizer.className =
+    "resizer";
+
+
+  textBox.appendChild(
+    resizer
+  );
+
+
+  let isResizing =
+    false;
+
+
+  let startX;
+  let startY;
+
+
+  let startWidth;
+  let startHeight;
+
+
+  let startScaleX;
+  let startScaleY;
+
+
   let rotation;
 
-  textBox.style.transformOrigin = "center center";
-  textBox.dataset.scaleX = textBox.dataset.scaleX || "1";
-  textBox.dataset.scaleY = textBox.dataset.scaleY || "1";
-  textBox.dataset.rotation = textBox.dataset.rotation || "0";
 
-  const onResizeStart = (e) => {
-    e.preventDefault();
-    isResizing = true;
+  textBox.style.transformOrigin =
+    "center center";
 
-    const clientX = e.clientX || e.touches?.[0]?.clientX;
-    const clientY = e.clientY || e.touches?.[0]?.clientY;
 
-    startX = clientX;
-    startY = clientY;
+  textBox.dataset.scaleX =
+    textBox.dataset.scaleX ||
+    "1";
 
-    const rect = textBox.getBoundingClientRect();
-    startWidth = rect.width;
-    startHeight = rect.height;
 
-    startScaleX = parseFloat(textBox.dataset.scaleX || "1");
-    startScaleY = parseFloat(textBox.dataset.scaleY || "1");
-    rotation = parseFloat(textBox.dataset.rotation || "0");
-  };
+  textBox.dataset.scaleY =
+    textBox.dataset.scaleY ||
+    "1";
 
-  const onResizeMove = (e) => {
-    if (!isResizing) return;
 
-    const clientX = e.clientX || e.touches?.[0]?.clientX;
-    const clientY = e.clientY || e.touches?.[0]?.clientY;
+  textBox.dataset.rotation =
+    textBox.dataset.rotation ||
+    "0";
 
-    const dx = clientX - startX;
-    const dy = clientY - startY;
 
-    const angleRad = rotation * Math.PI / 180;
+  const onResizeStart =
+    e => {
 
-    const deltaW = dx * Math.cos(angleRad) + dy * Math.sin(angleRad);
-    const deltaH = dy * Math.cos(angleRad) - dx * Math.sin(angleRad);
+      e.preventDefault();
 
-    let scaleX = (startWidth + deltaW) / startWidth * startScaleX;
-    let scaleY = (startHeight + deltaH) / startHeight * startScaleY;
 
-    scaleX = Math.max(0.2, Math.min(scaleX, 5));
-    scaleY = Math.max(0.2, Math.min(scaleY, 5));
+      isResizing =
+        true;
 
-    textBox.dataset.scaleX = scaleX.toFixed(3);
-    textBox.dataset.scaleY = scaleY.toFixed(3);
 
-    applyTransform(textBox);
-  };
+      const clientX =
+        e.clientX ||
+        e.touches?.[0]?.clientX;
 
-  const onResizeEnd = () => {
-    isResizing = false;
-  };
 
-  resizer.addEventListener("mousedown", onResizeStart);
-  document.addEventListener("mousemove", onResizeMove);
-  document.addEventListener("mouseup", onResizeEnd);
+      const clientY =
+        e.clientY ||
+        e.touches?.[0]?.clientY;
 
-  resizer.addEventListener("touchstart", onResizeStart, { passive: false });
-  document.addEventListener("touchmove", onResizeMove, { passive: false });
-  document.addEventListener("touchend", onResizeEnd);
+
+      startX =
+        clientX;
+
+
+      startY =
+        clientY;
+
+
+      const rect =
+        textBox.getBoundingClientRect();
+
+
+      startWidth =
+        rect.width;
+
+
+      startHeight =
+        rect.height;
+
+
+      startScaleX =
+        parseFloat(
+          textBox.dataset.scaleX ||
+          "1"
+        );
+
+
+      startScaleY =
+        parseFloat(
+          textBox.dataset.scaleY ||
+          "1"
+        );
+
+
+      rotation =
+        parseFloat(
+          textBox.dataset.rotation ||
+          "0"
+        );
+
+    };
+
+
+  const onResizeMove =
+    e => {
+
+      if (
+        !isResizing
+      ) {
+        return;
+      }
+
+
+      const clientX =
+        e.clientX ||
+        e.touches?.[0]?.clientX;
+
+
+      const clientY =
+        e.clientY ||
+        e.touches?.[0]?.clientY;
+
+
+      const dx =
+        clientX -
+        startX;
+
+
+      const dy =
+        clientY -
+        startY;
+
+
+      const angleRad =
+        rotation *
+        Math.PI /
+        180;
+
+
+      const deltaW =
+        dx *
+        Math.cos(
+          angleRad
+        )
+        +
+        dy *
+        Math.sin(
+          angleRad
+        );
+
+
+      const deltaH =
+        dy *
+        Math.cos(
+          angleRad
+        )
+        -
+        dx *
+        Math.sin(
+          angleRad
+        );
+
+
+      let scaleX =
+        (
+          startWidth +
+          deltaW
+        ) /
+        startWidth *
+        startScaleX;
+
+
+      let scaleY =
+        (
+          startHeight +
+          deltaH
+        ) /
+        startHeight *
+        startScaleY;
+
+
+      scaleX =
+        Math.max(
+          0.2,
+          Math.min(
+            scaleX,
+            5
+          )
+        );
+
+
+      scaleY =
+        Math.max(
+          0.2,
+          Math.min(
+            scaleY,
+            5
+          )
+        );
+
+
+      textBox.dataset.scaleX =
+        scaleX.toFixed(
+          3
+        );
+
+
+      textBox.dataset.scaleY =
+        scaleY.toFixed(
+          3
+        );
+
+
+      applyTransform(
+        textBox
+      );
+
+    };
+
+
+  const onResizeEnd =
+    () => {
+
+      isResizing =
+        false;
+
+    };
+
+
+  resizer.addEventListener(
+    "mousedown",
+    onResizeStart
+  );
+
+
+  document.addEventListener(
+    "mousemove",
+    onResizeMove
+  );
+
+
+  document.addEventListener(
+    "mouseup",
+    onResizeEnd
+  );
+
+
+  resizer.addEventListener(
+    "touchstart",
+    onResizeStart,
+    {
+      passive: false
+    }
+  );
+
+
+  document.addEventListener(
+    "touchmove",
+    onResizeMove,
+    {
+      passive: false
+    }
+  );
+
+
+  document.addEventListener(
+    "touchend",
+    onResizeEnd
+  );
+
 }
 
 
-function applyTransform(box) {
-  const angle = parseFloat(box.dataset.rotation || "0");
-  const scaleX = parseFloat(box.dataset.scaleX || "1");
-  const scaleY = parseFloat(box.dataset.scaleY || "1");
+function applyTransform(
+  box
+) {
+
+  const angle =
+    parseFloat(
+      box.dataset.rotation ||
+      "0"
+    );
+
+
+  const scaleX =
+    parseFloat(
+      box.dataset.scaleX ||
+      "1"
+    );
+
+
+  const scaleY =
+    parseFloat(
+      box.dataset.scaleY ||
+      "1"
+    );
+
 
   box.style.transform =
     `rotate(${angle}deg) scale(${scaleX}, ${scaleY})`;
+
 }
 
 
-function enableRotate(textBox) {
-  const rotateHandle = document.createElement("div");
-  rotateHandle.className = "rotate-handle";
-  textBox.appendChild(rotateHandle);
+// ======================================================
+// TEXT ROTATE
+// ======================================================
 
-  let isRotating = false;
-  let centerX, centerY, startAngle;
+function enableRotate(
+  textBox
+) {
 
-  const getCenter = () => {
-    const rect = textBox.getBoundingClientRect();
+  const rotateHandle =
+    document.createElement(
+      "div"
+    );
 
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
+
+  rotateHandle.className =
+    "rotate-handle";
+
+
+  textBox.appendChild(
+    rotateHandle
+  );
+
+
+  let isRotating =
+    false;
+
+
+  let centerX;
+  let centerY;
+  let startAngle;
+
+
+  const getCenter =
+    () => {
+
+      const rect =
+        textBox.getBoundingClientRect();
+
+
+      return {
+
+        x:
+          rect.left +
+          rect.width / 2,
+
+        y:
+          rect.top +
+          rect.height / 2
+
+      };
+
     };
-  };
 
-  const getAngle = (cx, cy, x, y) => {
-    return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
-  };
 
-  const startRotate = (clientX, clientY) => {
-    isRotating = true;
+  const getAngle =
+    (
+      cx,
+      cy,
+      x,
+      y
+    ) => {
 
-    const center = getCenter();
+      return (
+        Math.atan2(
+          y - cy,
+          x - cx
+        ) *
+        (
+          180 /
+          Math.PI
+        )
+      );
 
-    centerX = center.x;
-    centerY = center.y;
+    };
 
-    startAngle =
-      getAngle(centerX, centerY, clientX, clientY) -
-      parseFloat(textBox.dataset.rotation || "0");
-  };
 
-  const rotate = (clientX, clientY) => {
-    if (!isRotating) return;
+  const startRotate =
+    (
+      clientX,
+      clientY
+    ) => {
 
-    const angle =
-      getAngle(centerX, centerY, clientX, clientY) -
-      startAngle;
+      isRotating =
+        true;
 
-    textBox.dataset.rotation =
-      angle.toFixed(2);
 
-    applyTransform(textBox);
-  };
+      const center =
+        getCenter();
 
-  const stopRotate = () => {
-    isRotating = false;
-  };
 
-  rotateHandle.addEventListener("mousedown", (e) => {
-    e.stopPropagation();
-    startRotate(e.clientX, e.clientY);
-  });
+      centerX =
+        center.x;
 
-  document.addEventListener("mousemove", (e) => {
-    if (isRotating) {
-      rotate(e.clientX, e.clientY);
-    }
-  });
 
-  document.addEventListener("mouseup", stopRotate);
+      centerY =
+        center.y;
 
-  rotateHandle.addEventListener("touchstart", (e) => {
-    if (e.touches.length === 1) {
-      const touch = e.touches[0];
+
+      startAngle =
+        getAngle(
+          centerX,
+          centerY,
+          clientX,
+          clientY
+        )
+        -
+        parseFloat(
+          textBox.dataset.rotation ||
+          "0"
+        );
+
+    };
+
+
+  const rotate =
+    (
+      clientX,
+      clientY
+    ) => {
+
+      if (
+        !isRotating
+      ) {
+        return;
+      }
+
+
+      const angle =
+        getAngle(
+          centerX,
+          centerY,
+          clientX,
+          clientY
+        )
+        -
+        startAngle;
+
+
+      textBox.dataset.rotation =
+        angle.toFixed(
+          2
+        );
+
+
+      applyTransform(
+        textBox
+      );
+
+    };
+
+
+  const stopRotate =
+    () => {
+
+      isRotating =
+        false;
+
+    };
+
+
+  rotateHandle.addEventListener(
+    "mousedown",
+    e => {
+
+      e.stopPropagation();
+
 
       startRotate(
-        touch.clientX,
-        touch.clientY
+        e.clientX,
+        e.clientY
       );
 
-      e.preventDefault();
     }
-  }, { passive: false });
+  );
 
-  document.addEventListener("touchmove", (e) => {
-    if (
-      isRotating &&
-      e.touches.length === 1
-    ) {
-      const touch = e.touches[0];
 
-      rotate(
-        touch.clientX,
-        touch.clientY
-      );
+  document.addEventListener(
+    "mousemove",
+    e => {
 
-      e.preventDefault();
+      if (
+        isRotating
+      ) {
+
+        rotate(
+          e.clientX,
+          e.clientY
+        );
+
+      }
+
     }
-  }, { passive: false });
+  );
+
+
+  document.addEventListener(
+    "mouseup",
+    stopRotate
+  );
+
+
+  rotateHandle.addEventListener(
+    "touchstart",
+    e => {
+
+      if (
+        e.touches.length === 1
+      ) {
+
+        const touch =
+          e.touches[0];
+
+
+        startRotate(
+          touch.clientX,
+          touch.clientY
+        );
+
+
+        e.preventDefault();
+
+      }
+
+    },
+    {
+      passive: false
+    }
+  );
+
+
+  document.addEventListener(
+    "touchmove",
+    e => {
+
+      if (
+        isRotating &&
+        e.touches.length === 1
+      ) {
+
+        const touch =
+          e.touches[0];
+
+
+        rotate(
+          touch.clientX,
+          touch.clientY
+        );
+
+
+        e.preventDefault();
+
+      }
+
+    },
+    {
+      passive: false
+    }
+  );
+
 
   document.addEventListener(
     "touchend",
     stopRotate
   );
+
 }
 
 
-// Select current text box
-function handleTextBoxSelection(e) {
-  const box =
-    e.target.closest(".text-box");
+// ======================================================
+// TEXT SELECTION / BOLD / DELETE
+// ======================================================
 
-  if (box) {
-    currentTextBox = box;
+function handleTextBoxSelection(
+  e
+) {
+
+  const box =
+    e.target.closest(
+      ".text-box"
+    );
+
+
+  if (
+    box
+  ) {
+
+    currentTextBox =
+      box;
+
 
     const content =
       currentTextBox.querySelector(
         ".text-content"
       );
 
-    if (content) {
+
+    if (
+      content
+    ) {
+
       content.style.color =
         currentColor;
+
     }
+
   }
+
 }
 
 
@@ -3739,34 +5046,44 @@ document.addEventListener(
   handleTextBoxSelection
 );
 
+
 document.addEventListener(
   "touchstart",
   handleTextBoxSelection,
-  { passive: true }
+  {
+    passive: true
+  }
 );
 
 
 document
-  .getElementById("boldBtn")
+  .getElementById(
+    "boldBtn"
+  )
   .addEventListener(
     "click",
     () => {
 
-      if (currentTextBox) {
+      if (
+        currentTextBox
+      ) {
 
         const content =
           currentTextBox.querySelector(
             ".text-content"
           );
 
+
         const isBold =
           content.style.fontWeight ===
           "bold";
+
 
         content.style.fontWeight =
           isBold
             ? "normal"
             : "bold";
+
       }
 
     }
@@ -3774,14 +5091,19 @@ document
 
 
 document
-  .getElementById("deleteTextBtn")
+  .getElementById(
+    "deleteTextBtn"
+  )
   .addEventListener(
     "click",
     () => {
 
-      if (currentTextBox) {
+      if (
+        currentTextBox
+      ) {
 
         currentTextBox.remove();
+
 
         currentTextBox =
           null;
@@ -3803,21 +5125,29 @@ function updateSelectStyle() {
       "imageSelect"
     );
 
-  if (!el)
+
+  if (
+    !el
+  ) {
     return;
+  }
 
 
   const isPlaceholder =
     el.selectedIndex === 0;
 
 
-  if (isPlaceholder) {
+  if (
+    isPlaceholder
+  ) {
 
     el.style.color =
       "#1565c0";
 
+
     el.style.fontWeight =
       "700";
+
 
     el.style.fontStyle =
       "italic";
@@ -3829,8 +5159,10 @@ function updateSelectStyle() {
     el.style.color =
       "#111";
 
+
     el.style.fontWeight =
       "400";
+
 
     el.style.fontStyle =
       "normal";
@@ -3838,7 +5170,9 @@ function updateSelectStyle() {
   }
 
 
-  if (!isPlaceholder) {
+  if (
+    !isPlaceholder
+  ) {
 
     el.classList.add(
       "selected-kite"
@@ -3868,8 +5202,9 @@ function enhanceImageSelect() {
   if (
     !select ||
     select.dataset.enhanced
-  )
+  ) {
     return;
+  }
 
 
   select.dataset.enhanced =
@@ -3902,7 +5237,6 @@ function enhanceImageSelect() {
   );
 
 
-  // Display button
   const trigger =
     document.createElement(
       "button"
@@ -3949,7 +5283,6 @@ function enhanceImageSelect() {
   );
 
 
-  // Popup panel
   const panel =
     document.createElement(
       "div"
@@ -3981,22 +5314,29 @@ function enhanceImageSelect() {
     () => {
 
       const isPlaceholder =
-        select.selectedIndex === 0;
+        select.selectedIndex ===
+        0;
 
 
-      if (isPlaceholder) {
+      if (
+        isPlaceholder
+      ) {
 
         trigger.style.color =
           "#fff";
 
+
         trigger.style.fontWeight =
           "700";
+
 
         trigger.style.fontStyle =
           "italic";
 
+
         trigger.style.background =
           "linear-gradient(135deg,#00c6ff,#0072ff)";
+
 
         trigger.style.borderColor =
           "transparent";
@@ -4008,14 +5348,18 @@ function enhanceImageSelect() {
         trigger.style.color =
           "#111";
 
+
         trigger.style.fontWeight =
           "400";
+
 
         trigger.style.fontStyle =
           "normal";
 
+
         trigger.style.background =
           "linear-gradient(135deg,#3a7bd5,#00d2ff)";
+
 
         trigger.style.borderColor =
           "#1976d2";
@@ -4032,9 +5376,14 @@ function enhanceImageSelect() {
         "";
 
 
-      [...select.options]
+      [
+        ...select.options
+      ]
         .forEach(
-          (opt, idx) => {
+          (
+            opt,
+            idx
+          ) => {
 
             const isPlaceholder =
               opt.disabled &&
@@ -4043,8 +5392,9 @@ function enhanceImageSelect() {
 
             if (
               isPlaceholder
-            )
+            ) {
               return;
+            }
 
 
             const item =
@@ -4102,7 +5452,9 @@ function enhanceImageSelect() {
                   opt.textContent;
 
 
-                [...panel.children]
+                [
+                  ...panel.children
+                ]
                   .forEach(
                     c =>
                       c.removeAttribute(
@@ -4285,6 +5637,7 @@ function enhanceImageSelect() {
 
         e.preventDefault();
 
+
         opts[
           Math.min(
             i + 1,
@@ -4300,6 +5653,7 @@ function enhanceImageSelect() {
       ) {
 
         e.preventDefault();
+
 
         opts[
           Math.max(
@@ -4317,7 +5671,9 @@ function enhanceImageSelect() {
 
         e.preventDefault();
 
+
         close();
+
 
         trigger.focus();
 
@@ -4338,7 +5694,9 @@ window.addEventListener(
 );
 
 
-if (imageSelect) {
+if (
+  imageSelect
+) {
 
   imageSelect.addEventListener(
     "change",
@@ -4364,7 +5722,7 @@ if (imageSelect) {
 
 
 // ======================================================
-// INITIALIZATION & MENU
+// INITIALIZATION
 // ======================================================
 
 window.addEventListener(
@@ -4372,6 +5730,21 @@ window.addEventListener(
   () => {
 
     ensureInitialized();
+
+
+    // NEW:
+    // Create the Brush / Eraser cursor preview.
+    createToolCursorPreview();
+
+
+    // NEW:
+    // Apply the initial Fill crosshair cursor.
+    updateCanvasCursorMode();
+
+
+    // NEW:
+    // Prepare initial preview size.
+    updateToolCursorSize();
 
 
     const params =
@@ -4386,7 +5759,9 @@ window.addEventListener(
       );
 
 
-    if (imageUrl) {
+    if (
+      imageUrl
+    ) {
 
       const imgFromUrl =
         new Image();
@@ -4416,6 +5791,9 @@ window.addEventListener(
             imageUrl
               .split("/")
               .pop();
+
+
+          updateToolCursorSize();
 
         };
 
@@ -4458,7 +5836,9 @@ window.addEventListener(
 
           toggle.setAttribute(
             "aria-expanded",
-            String(!expanded)
+            String(
+              !expanded
+            )
           );
 
 
@@ -4519,7 +5899,7 @@ window.addEventListener(
 
 
 // ======================================================
-// IMAGE CLASSIFICATION HELPERS
+// IMAGE CLASSIFICATION
 // ======================================================
 
 function snapshotSmall(
@@ -4685,7 +6065,8 @@ function classifyImageTypeQuick(
           ? 0
           : (
               max - min
-            ) / max;
+            ) /
+            max;
 
 
       satSum +=
@@ -4781,7 +6162,8 @@ function classifyImageTypeQuick(
           ? 0
           : (
               mx - mn
-            ) / mx;
+            ) /
+            mx;
 
     }
 
@@ -4876,11 +6258,13 @@ function classifyImageTypeQuick(
 
     const chromaticEdgeRatio =
       edgeCnt
-        ? (
-            chromEdgeCnt /
-            edgeCnt
-          )
-        : 0;
+        ?
+        (
+          chromEdgeCnt /
+          edgeCnt
+        )
+        :
+        0;
 
 
     const isLineart =
@@ -5127,6 +6511,12 @@ function loadImageToMainCanvas(
 
   }
 
+
+  // NEW:
+  // Recalculate the on-screen Brush/Eraser preview
+  // after the canvas receives a new image size.
+  updateToolCursorSize();
+
 }
 
 
@@ -5158,7 +6548,9 @@ function normalizeLineartBW(
 
   catch (err) {
 
-    console.error(err);
+    console.error(
+      err
+    );
 
 
     alert(
@@ -5271,8 +6663,9 @@ function normalizeLineartBW(
       if (
         hardBlack[p] ||
         hardWhite[p]
-      )
+      ) {
         continue;
+      }
 
 
       for (
@@ -5295,8 +6688,9 @@ function normalizeLineartBW(
           ny < 0 ||
           nx >= w ||
           ny >= h
-        )
+        ) {
           continue;
+        }
 
 
         if (
@@ -5355,8 +6749,9 @@ function normalizeLineartBW(
 
         if (
           src[p]
-        )
+        ) {
           continue;
+        }
 
 
         let touch =
@@ -5390,8 +6785,9 @@ function normalizeLineartBW(
               ny < 0 ||
               nx >= w ||
               ny >= h
-            )
+            ) {
               continue;
+            }
 
 
             if (
