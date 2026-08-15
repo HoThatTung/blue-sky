@@ -1,7 +1,7 @@
-/* === TOÀN CỤC === */
+/* === GLOBAL === */
 .box, .box * { font-family: "Inter", sans-serif; }
 
-/* === VÙNG CHÍNH === */
+/* === MAIN AREA === */
 .box {
   background: #ffffff;
   border-radius: 12px;
@@ -11,7 +11,7 @@
   overflow-x: hidden;
 }
 
-/* === TIÊU ĐỀ === */
+/* === TITLE === */
 .box h1 {
   text-align: center;
   font-size: 28px;
@@ -31,7 +31,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* === CHỌN ẢNH & UPLOAD === */
+/* === IMAGE SELECT & UPLOAD === */
 .controls-row {
   margin: 35px 0 20px;
   display: flex;
@@ -68,7 +68,7 @@
   box-shadow: 0 6px 14px rgba(0,0,0,.25);
 }
 
-/* Mặc định cho select khi HIỂN THỊ (đóng) */
+/* Default select style when closed */
 select {
   padding: 7px 12px;
   border-radius: 8px;
@@ -87,14 +87,14 @@ select:hover {
   border-color: #1565c0;
 }
 
-/* Khi MỞ danh sách, style cho các OPTION trong list */
+/* Options displayed inside the opened list */
 #imageSelect option {
   color: #111;
   font-weight: 400;
   font-style: normal;
 }
 
-/* Placeholder “Blue Sky Kite” trong list */
+/* "Blue Sky Kite" placeholder inside the list */
 #imageSelect option[disabled][hidden] {
   color: #D32F2F;
   font-weight: 700;
@@ -102,7 +102,7 @@ select:hover {
 }
 
 
-/* === CÔNG CỤ VẼ === */
+/* === DRAWING TOOLS === */
 .tool-row {
   display: flex;
   align-items: center;
@@ -146,7 +146,7 @@ select:hover {
 }
 
 
-/* === BẢNG MÀU === */
+/* === COLOR PALETTE === */
 .palette {
   display: grid;
   grid-template-columns: repeat(8, 32px);
@@ -178,7 +178,7 @@ select:hover {
   transform: scale(1.2);
 }
 
-/* Ô màu trắng – background caro */
+/* White color – checkerboard background */
 .color[data-color="#FFFFFF"] {
   background:
     linear-gradient(
@@ -291,7 +291,7 @@ canvas {
 }
 
 
-/* === GHI CHÚ === */
+/* === NOTE === */
 .note {
   font-size: 14px;
   color: #555;
@@ -303,7 +303,7 @@ canvas {
 }
 
 
-/* === ẨN LABEL VÙNG CHỌN === */
+/* === HIDE SELECT AREA LABEL === */
 .select-area label {
   display: none;
 }
@@ -345,7 +345,7 @@ canvas {
 }
 
 .text-content:empty:before {
-  content: "Nhập chữ...";
+  content: "Enter text...";
   color: #aaa;
   pointer-events: none;
   display: flex;
@@ -414,7 +414,7 @@ canvas {
 }
 
 
-/* === RESPONSIVE riêng cho trang màu === */
+/* === COLOR PAGE RESPONSIVE === */
 @media (max-width: 1024px) {
 
   .canvas-container {
@@ -466,7 +466,7 @@ canvas {
 }
 
 
-/* Tiêu đề */
+/* Title */
 .hero-title {
   font-size: 36px;
   font-weight: 800;
@@ -489,7 +489,7 @@ canvas {
 }
 
 
-/* Dòng phụ */
+/* Subtitle */
 .hero-sub {
   font-size: 16px;
   font-weight: 500;
@@ -652,7 +652,7 @@ canvas {
 }
 
 
-/* Placeholder “Blue Sky Kite” */
+/* "Blue Sky Kite" placeholder */
 .fs-option[data-placeholder="true"] {
   font-weight: 700;
   font-style: italic;
@@ -675,7 +675,7 @@ canvas {
 }
 
 
-/* === Thiết bị cảm ứng === */
+/* === Touch devices === */
 
 @media (hover: none) and (pointer: coarse) {
 
@@ -745,7 +745,7 @@ canvas {
 
 
 /* ========================================= */
-/* MÀU ĐANG ĐƯỢC CHỌN */
+/* CURRENTLY SELECTED COLOR */
 /* ========================================= */
 
 .color-info {
@@ -776,7 +776,7 @@ canvas {
 
 
 /* ========================================= */
-/* CHỌN MÀU MỞ RỘNG */
+/* EXTENDED COLOR PICKER */
 /* ========================================= */
 
 .color-selection-row {
@@ -796,7 +796,7 @@ canvas {
 }
 
 
-/* Chosen Color bên trái */
+/* Chosen Color on the left */
 
 .color-selection-row .color-info {
   margin: 0;
@@ -809,7 +809,7 @@ canvas {
 
 
 /* ========================================= */
-/* NÚT CHỌN MÀU */
+/* CHOOSE COLOR BUTTON */
 /* ========================================= */
 
 .custom-color-picker {
@@ -877,7 +877,7 @@ canvas {
 }
 
 
-/* Ô màu nhỏ trên nút */
+/* Small color swatch on button */
 
 .custom-color-button-swatch,
 .custom-color-preview {
@@ -900,7 +900,7 @@ canvas {
 
 
 /* ========================================= */
-/* POPUP BẢNG MÀU */
+/* COLOR PICKER POPUP */
 /* ========================================= */
 
 .color-picker-panel {
@@ -946,7 +946,7 @@ canvas {
 
 
 /* ========================================= */
-/* GRID MÀU KIỂU WORD */
+/* WORD-STYLE COLOR GRID */
 /* ========================================= */
 
 .color-picker-grid {
@@ -1006,7 +1006,7 @@ canvas {
 
 
 /* ========================================= */
-/* MÀU KHÁC... */
+/* MORE COLORS... */
 /* ========================================= */
 
 .more-color-label {
@@ -1050,12 +1050,12 @@ canvas {
 
 
 /*
-Input type=color vẫn tồn tại
-nhưng được ẩn đi.
+The input type=color still exists
+but is visually hidden.
 
-Khi người dùng click
-"Màu khác..." thì browser
-sẽ mở color picker native.
+When the user clicks
+"More Colors..." the browser
+opens the native color picker.
 */
 
 .custom-color-input {
