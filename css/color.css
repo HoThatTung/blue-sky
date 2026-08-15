@@ -94,7 +94,7 @@ select:hover {
   font-style: normal;
 }
 
-/* "Blue Sky Kite" placeholder inside the list */
+/* "Blue Sky Kite" placeholder */
 #imageSelect option[disabled][hidden] {
   color: #D32F2F;
   font-weight: 700;
@@ -236,6 +236,121 @@ canvas {
   width: 100%;
   height: auto;
   display: block;
+}
+
+
+/* ========================================= */
+/* DESKTOP TOOL CURSOR */
+/* ========================================= */
+
+/*
+Fill:
+- Use a small native crosshair for accurate clicking.
+
+Brush:
+- Hide the normal mouse cursor.
+- Show a circle matching the actual brush size.
+
+Eraser:
+- Same as Brush, but with a dashed outline.
+
+Only enabled for devices with a fine pointer,
+such as desktop/laptop mouse devices.
+*/
+@media (hover: hover) and (pointer: fine) {
+
+  canvas.cursor-fill {
+    cursor: crosshair;
+  }
+
+  canvas.cursor-brush,
+  canvas.cursor-eraser {
+    cursor: none;
+  }
+
+  canvas.cursor-text {
+    cursor: text;
+  }
+
+
+  /* Brush / Eraser preview circle */
+  .tool-cursor-preview {
+    position: absolute;
+    display: none;
+
+    transform:
+      translate(-50%, -50%);
+
+    border:
+      1.5px solid
+      rgba(17,17,17,.9);
+
+    border-radius: 50%;
+
+    box-sizing:
+      border-box;
+
+    pointer-events:
+      none;
+
+    z-index:
+      50;
+
+    /*
+    Very light transparent background,
+    so the image below remains visible.
+    */
+    background:
+      rgba(255,255,255,.08);
+
+    /*
+    White outer line keeps the circle
+    visible over dark areas.
+    */
+    box-shadow:
+      0 0 0 1px
+      rgba(255,255,255,.75);
+  }
+
+
+  /* Eraser uses a dashed outline */
+  .tool-cursor-preview[data-mode="eraser"] {
+    border-style:
+      dashed;
+  }
+
+
+  /* Precise center point */
+  .tool-cursor-center {
+    position:
+      absolute;
+
+    left:
+      50%;
+
+    top:
+      50%;
+
+    width:
+      3px;
+
+    height:
+      3px;
+
+    border-radius:
+      50%;
+
+    background:
+      #111;
+
+    transform:
+      translate(-50%, -50%);
+
+    box-shadow:
+      0 0 0 1px
+      rgba(255,255,255,.9);
+  }
+
 }
 
 
@@ -516,7 +631,6 @@ canvas {
 
 
 /* === Fancy Select for #imageSelect === */
-
 .fancy-select {
   position: relative;
   display: inline-block;
@@ -582,8 +696,10 @@ canvas {
   padding: 8px;
 
   border-radius: 14px;
+
   border:
-    1px solid rgba(25,118,210,.15);
+    1px solid
+    rgba(25,118,210,.15);
 
   background:
     rgba(255,255,255,.86);
@@ -593,7 +709,8 @@ canvas {
     saturate(1.2);
 
   box-shadow:
-    0 16px 40px rgba(2,12,27,.18);
+    0 16px 40px
+    rgba(2,12,27,.18);
 
   display: none;
 }
@@ -676,7 +793,6 @@ canvas {
 
 
 /* === Touch devices === */
-
 @media (hover: none) and (pointer: coarse) {
 
   .fancy-select .fs-trigger {
@@ -718,7 +834,6 @@ canvas {
 
 
 /* === Desktop === */
-
 @media (hover: hover) and (pointer: fine) {
 
   .fancy-select .fs-trigger {
@@ -797,7 +912,6 @@ canvas {
 
 
 /* Chosen Color on the left */
-
 .color-selection-row .color-info {
   margin: 0;
 
@@ -816,7 +930,6 @@ canvas {
   position: relative;
   flex: 0 0 auto;
 }
-
 
 .custom-color-btn {
   display: inline-flex;
@@ -855,7 +968,6 @@ canvas {
   white-space: nowrap;
 }
 
-
 .custom-color-btn:hover {
   background: #f2f8ff;
 
@@ -867,7 +979,6 @@ canvas {
     rgba(25,118,210,.18);
 }
 
-
 .custom-color-btn[aria-expanded="true"] {
   background: #eaf4ff;
 
@@ -878,7 +989,6 @@ canvas {
 
 
 /* Small color swatch on button */
-
 .custom-color-button-swatch,
 .custom-color-preview {
   width: 18px;
@@ -889,7 +999,8 @@ canvas {
   background: #1976D2;
 
   border:
-    1px solid rgba(0,0,0,.2);
+    1px solid
+    rgba(0,0,0,.2);
 
   box-shadow:
     inset 0 0 0 1px
@@ -928,11 +1039,9 @@ canvas {
     rgba(0,0,0,.2);
 }
 
-
 .color-picker-panel[hidden] {
   display: none !important;
 }
-
 
 .color-picker-title {
   margin: 0 0 9px;
@@ -960,7 +1069,6 @@ canvas {
   justify-content: center;
 }
 
-
 .extended-color-swatch {
   width: 26px;
   height: 26px;
@@ -981,10 +1089,8 @@ canvas {
     box-shadow .12s ease;
 }
 
-
 .extended-color-swatch:hover,
 .extended-color-swatch:focus-visible {
-
   transform:
     scale(1.12);
 
@@ -995,13 +1101,10 @@ canvas {
     0 0 0 4px #1976d2;
 }
 
-
 .extended-color-swatch.selected {
-
   box-shadow:
     0 0 0 2px #fff,
     0 0 0 4px #1976d2;
-
 }
 
 
@@ -1039,13 +1142,10 @@ canvas {
   cursor: pointer;
 }
 
-
 .more-color-label:hover {
-
   background: #f0f7ff;
 
   border-color: #90caf9;
-
 }
 
 
@@ -1086,7 +1186,6 @@ opens the native color picker.
 
 
   .color-selection-row .color-info {
-
     max-width:
       calc(100% - 112px);
 
@@ -1098,36 +1197,29 @@ opens the native color picker.
 
 
   #colorInfoText {
-
     overflow: hidden;
 
     text-overflow:
       ellipsis;
-
   }
 
 
   .custom-color-btn {
-
     padding:
       6px 9px;
 
     font-size: 13px;
-
   }
 
 
   .custom-color-button-swatch {
-
     width: 16px;
 
     height: 16px;
-
   }
 
 
   .color-picker-panel {
-
     width:
       min(
         286px,
@@ -1135,12 +1227,10 @@ opens the native color picker.
       );
 
     right: 0;
-
   }
 
 
   .color-picker-grid {
-
     grid-template-columns:
       repeat(
         8,
@@ -1148,18 +1238,15 @@ opens the native color picker.
       );
 
     gap: 6px;
-
   }
 
 
   .extended-color-swatch {
-
     width: 100%;
 
     aspect-ratio: 1 / 1;
 
     height: auto;
-
   }
 
 }
