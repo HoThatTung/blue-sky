@@ -9,23 +9,23 @@ if (canvas && canvas.style) {
 }
 
 // ---------- Config cho chuẩn hoá & bảo vệ nét ----------
-const T_HIGH = 165;
-const T_LOW  = 220;
-const DILATE_RADIUS = 0;
+const T_HIGH = 165;      // pixel tối hơn => chắc chắn là "đen"
+const T_LOW  = 220;      // pixel sáng hơn => chắc chắn là "trắng"
+const DILATE_RADIUS = 0; // nở nét 0..2 (1 thường là ổn)
 
 // ✅ cấu hình mịn nét (anti-alias)
-const AA_SCALE = 2;
+const AA_SCALE = 2;      // 2 hoặc 3 (2 thường là đủ mịn)
 
 // ---------- State ----------
 // === Recolor mode (tự động, không thêm UI) ===
-let imageProcessingMode = "lineart";
-let fillTolerance = 70;
-let edgeStop = 22;
-const PRESERVE_LIGHTNESS = true;
+let imageProcessingMode = "lineart"; // "lineart" | "recolor"
+let fillTolerance = 70;              // 10..80 (dung sai giống màu)
+let edgeStop = 22;                   // 10..40 (độ nhạy biên Sobel)
+const PRESERVE_LIGHTNESS = true;     // giữ sáng/tối khi đổi màu
 
 let currentColor = "#000000";
 let isDrawing = false;
-let mode = "fill";
+let mode = "fill"; // fill | brush | eraser | text
 let currentTextBox = null;
 let brushSize = 7.5;
 
@@ -34,125 +34,98 @@ let redoStack = [];
 
 let originalImageName = "";
 
+// ✅ mặt nạ nét (1 = pixel thuộc đường nét; 0 = nền/vùng tô)
 let lineMask = null;
-let lastPt = null;
-let originalImageData = null;
 
+// ✅ lưu điểm trước đó để nội suy nét brush
+let lastPt = null;
+
+let originalImageData = null;  // bản gốc (đã scale) để hiển thị & xuất
 
 const colors = [
   // Hàng 1
-  { hex: "#CD0000", name: "Đỏ đậm" },
-  { hex: "#FF4500", name: "Cam lửa" },
-  { hex: "#D2691E", name: "Cam đất" },
-  { hex: "#FFA500", name: "Cam cà rốt" },
-  { hex: "#FFD700", name: "Vàng nghệ" },
-  { hex: "#FFFF00", name: "Vàng tươi" },
-  { hex: "#FF3366", name: "Đỏ hồng" },
-  { hex: "#FF00FF", name: "Hồng" },
+  { hex: "#CD0000", name: "Dark Red" },
+  { hex: "#FF4500", name: "Orange Red" },
+  { hex: "#D2691E", name: "Chocolate" },
+  { hex: "#FFA500", name: "Orange" },
+  { hex: "#FFD700", name: "Gold" },
+  { hex: "#FFFF00", name: "Yellow" },
+  { hex: "#FF3366", name: "Rose Red" },
+  { hex: "#FF00FF", name: "Magenta" },
 
   // Hàng 2
-  { hex: "#008000", name: "Xanh lá đậm" },
-  { hex: "#00FF00", name: "Xanh lá neon" },
-  { hex: "#CCFFCC", name: "Xanh minơ" },
-  { hex: "#0000FF", name: "Xanh dương" },
-  { hex: "#0099FF", name: "Xanh ngọc" },
-  { hex: "#00FFFF", name: "Xanh galaxy" },
-  { hex: "#6600CC", name: "Xanh tím" },
-  { hex: "#800080", name: "Tím" },
+  { hex: "#008000", name: "Dark Green" },
+  { hex: "#00FF00", name: "Lime" },
+  { hex: "#CCFFCC", name: "Mint Green" },
+  { hex: "#0000FF", name: "Blue" },
+  { hex: "#0099FF", name: "Sky Blue" },
+  { hex: "#00FFFF", name: "Cyan" },
+  { hex: "#6600CC", name: "Blue Violet" },
+  { hex: "#800080", name: "Purple" },
 
   // Hàng 3
-  { hex: "#000000", name: "Đen" },
-  { hex: "#708090", name: "Xám xanh" },
-  { hex: "#C0C0C0", name: "Xám bạc" },
-  { hex: "#FFFFFF", name: "Trắng" },
-  { hex: "#A0522D", name: "Nâu đất" },
-  { hex: "#8B5F65", name: "Hồng nâu" },
-  { hex: "#CCC1DA", name: "Tím calilac" },
-  { hex: "#FFB6C1", name: "Hồng nhạt" },
+  { hex: "#000000", name: "Black" },
+  { hex: "#708090", name: "Slate Gray" },
+  { hex: "#C0C0C0", name: "Silver" },
+  { hex: "#FFFFFF", name: "White" },
+  { hex: "#A0522D", name: "Sienna" },
+  { hex: "#8B5F65", name: "Dusty Rose" },
+  { hex: "#CCC1DA", name: "Lilac" },
+  { hex: "#FFB6C1", name: "Light Pink" },
 ];
 
 
 const palette = document.getElementById("colorPalette");
-const colorInfo = document.getElementById("colorInfo");
+const colorInfo   = document.getElementById("colorInfo");
 const colorInfoText = document.getElementById("colorInfoText");
 
 
 colors.forEach((c, i) => {
-
   const div = document.createElement("div");
-
   div.className = "color";
-
   div.style.background = c.hex;
-
   div.dataset.color = c.hex;
-  div.dataset.name = c.name;
-
+  div.dataset.name  = c.name;
   div.title = `${c.name} (${c.hex})`;
 
   if (i === 0) {
-
     div.classList.add("selected");
-
     setCurrentColor(c.hex);
-
-    updateColorInfo(
-      c.hex,
-      c.name
-    );
+    updateColorInfo(c.hex, c.name);
   }
 
   palette.appendChild(div);
 });
 
 
+// Không cho màu tô là đen tuyệt đối
 function setCurrentColor(hex) {
-
-  const val =
-    hex.startsWith("#")
-      ? hex.slice(1)
-      : hex;
+  const val = hex.startsWith('#') ? hex.slice(1) : hex;
 
   if (/^0{6}$/i.test(val)) {
-
     currentColor = "#111111";
-
   } else {
-
-    currentColor =
-      "#" + val.toUpperCase();
-
+    currentColor = "#" + val.toUpperCase();
   }
 }
 
 
+// Chọn màu chữ đen / trắng cho dễ đọc trên nền màu được chọn
 function getContrastTextColor(hex) {
+  if (!hex) return "#111111";
 
-  if (!hex)
-    return "#111111";
+  const v = hex.replace("#", "");
 
-  const v =
-    hex.replace("#", "");
+  if (v.length !== 6) return "#111111";
 
-  if (v.length !== 6)
-    return "#111111";
-
-
-  const r =
-    parseInt(v.slice(0,2),16);
-
-  const g =
-    parseInt(v.slice(2,4),16);
-
-  const b =
-    parseInt(v.slice(4,6),16);
-
+  const r = parseInt(v.slice(0, 2), 16);
+  const g = parseInt(v.slice(2, 4), 16);
+  const b = parseInt(v.slice(4, 6), 16);
 
   const luminance =
-    0.299*r +
-    0.587*g +
-    0.114*b;
-
+    0.299 * r +
+    0.587 * g +
+    0.114 * b;
 
   return luminance > 160
     ? "#111111"
@@ -160,22 +133,13 @@ function getContrastTextColor(hex) {
 }
 
 
-function updateColorInfo(
-  hex,
-  name
-) {
+// Cập nhật màu hiện tại
+function updateColorInfo(hex, name) {
 
-  if (
-    !colorInfo ||
-    !colorInfoText
-  )
+  if (!colorInfo || !colorInfoText)
     return;
 
-
-  if (
-    !hex ||
-    !name
-  ) {
+  if (!hex || !name) {
 
     colorInfo.style.background =
       "#f3f4f6";
@@ -184,91 +148,76 @@ function updateColorInfo(
       "#111111";
 
     colorInfoText.textContent =
-      "Chosen color (Vietnamese): Chưa chọn";
+      "Chosen color: Not selected";
 
     return;
   }
 
-
   colorInfo.style.background =
     hex;
-
 
   colorInfo.style.color =
     getContrastTextColor(hex);
 
-
   colorInfoText.textContent =
-    `Chosen color (Vietnamese): ${name}`;
-
+    `Chosen color: ${name}`;
 }
 
 
-document
-.querySelectorAll(".color")
-.forEach(el => {
+// Click 24 màu có sẵn
+document.querySelectorAll(".color").forEach(el => {
 
-  el.addEventListener(
-    "click",
-    () => {
+  el.addEventListener("click", () => {
 
-      document
+    document
       .querySelectorAll(".color")
       .forEach(c =>
         c.classList.remove("selected")
       );
 
+    el.classList.add("selected");
 
-      el.classList.add(
-        "selected"
-      );
+    const hex =
+      el.dataset.color;
 
+    const name =
+      el.dataset.name || "";
 
-      const hex =
-        el.dataset.color;
+    setCurrentColor(hex);
 
+    updateColorInfo(
+      hex,
+      name
+    );
 
-      const name =
-        el.dataset.name || "";
+    if (
+      mode === "text" &&
+      currentTextBox
+    ) {
 
+      const content =
+        currentTextBox.querySelector(
+          ".text-content"
+        );
 
-      setCurrentColor(hex);
-
-      updateColorInfo(
-        hex,
-        name
-      );
-
-
-      if (
-        mode === "text" &&
-        currentTextBox
-      ) {
-
-        const content =
-          currentTextBox.querySelector(
-            ".text-content"
-          );
-
-        if (content)
-          content.style.color =
-            currentColor;
-
+      if (content) {
+        content.style.color =
+          currentColor;
       }
-
     }
-  );
+
+  });
 
 });
 
 
-// ==================================================
-// BẢNG CHỌN MÀU MỞ RỘNG – KIỂU WORD
-// ==================================================
+// ======================================================
+// EXTENDED COLOR PALETTE — WORD STYLE
+// ======================================================
 
 const extendedColors = [
 
-  // Hàng 1
+  // Row 1: grayscale / neutral
   "#FFFFFF",
   "#E7E6E6",
   "#D0CECE",
@@ -278,7 +227,7 @@ const extendedColors = [
   "#3F3F3F",
   "#000000",
 
-  // Hàng 2
+  // Row 2: red / orange
   "#F4CCCC",
   "#EA9999",
   "#E06666",
@@ -288,7 +237,7 @@ const extendedColors = [
   "#F6B26B",
   "#E69138",
 
-  // Hàng 3
+  // Row 3: yellow / green
   "#FFF2CC",
   "#FFE599",
   "#FFD966",
@@ -298,7 +247,7 @@ const extendedColors = [
   "#93C47D",
   "#6AA84F",
 
-  // Hàng 4
+  // Row 4: teal / blue
   "#D0E0E3",
   "#A2C4C9",
   "#76A5AF",
@@ -308,7 +257,7 @@ const extendedColors = [
   "#6FA8DC",
   "#3D85C6",
 
-  // Hàng 5
+  // Row 5: purple / pink
   "#D9D2E9",
   "#B4A7D6",
   "#8E7CC3",
@@ -326,30 +275,25 @@ const customColorBtn =
     "customColorBtn"
   );
 
-
 const customColorPanel =
   document.getElementById(
     "customColorPanel"
   );
-
 
 const customColorGrid =
   document.getElementById(
     "customColorGrid"
   );
 
-
 const customColorInput =
   document.getElementById(
     "customColorInput"
   );
 
-
 const customColorPreview =
   document.getElementById(
     "customColorPreview"
   );
-
 
 const customColorButtonSwatch =
   document.getElementById(
@@ -357,25 +301,24 @@ const customColorButtonSwatch =
   );
 
 
-
 function updateCustomColorPreview(hex) {
 
-  if (customColorPreview)
+  if (customColorPreview) {
     customColorPreview.style.background =
       hex;
+  }
 
-
-  if (customColorButtonSwatch)
+  if (customColorButtonSwatch) {
     customColorButtonSwatch.style.background =
       hex;
+  }
 
-
-  if (customColorInput)
+  if (customColorInput) {
     customColorInput.value =
       hex;
+  }
 
 }
-
 
 
 function applyExtendedColor(hex) {
@@ -383,71 +326,56 @@ function applyExtendedColor(hex) {
   if (!hex)
     return;
 
-
-  // bỏ selected của bảng màu tròn
   document
-  .querySelectorAll(".color")
-  .forEach(c =>
-    c.classList.remove("selected")
-  );
+    .querySelectorAll(".color")
+    .forEach(c =>
+      c.classList.remove("selected")
+    );
 
-
-  // bỏ selected của bảng mở rộng
   document
-  .querySelectorAll(
-    ".extended-color-swatch"
-  )
-  .forEach(c =>
-    c.classList.remove("selected")
-  );
+    .querySelectorAll(
+      ".extended-color-swatch"
+    )
+    .forEach(c =>
+      c.classList.remove("selected")
+    );
 
-
-  // đặt màu đang sử dụng
   setCurrentColor(hex);
-
 
   const actualHex =
     currentColor.toUpperCase();
 
-
-  // cập nhật Chosen Color
   updateColorInfo(
     actualHex,
-    `Màu tùy chọn (${actualHex})`
+    `Custom color (${actualHex})`
   );
 
-
-  // cập nhật ô preview
   updateCustomColorPreview(
     actualHex
   );
 
-
-  // tìm màu đang chọn trong bảng
   const matchedSwatch =
     Array
-    .from(
-      document.querySelectorAll(
-        ".extended-color-swatch"
+      .from(
+        document.querySelectorAll(
+          ".extended-color-swatch"
+        )
       )
-    )
-    .find(
-      el =>
-        (
-          el.dataset.color || ""
-        ).toUpperCase()
-        ===
-        hex.toUpperCase()
+      .find(
+        el =>
+          (
+            el.dataset.color || ""
+          ).toUpperCase()
+          ===
+          hex.toUpperCase()
+      );
+
+  if (matchedSwatch) {
+    matchedSwatch.classList.add(
+      "selected"
     );
+  }
 
-
-  if (matchedSwatch)
-    matchedSwatch
-      .classList
-      .add("selected");
-
-
-  // nếu đang chỉnh text
   if (
     mode === "text" &&
     currentTextBox
@@ -458,14 +386,13 @@ function applyExtendedColor(hex) {
         ".text-content"
       );
 
-    if (content)
+    if (content) {
       content.style.color =
         currentColor;
-
+    }
   }
 
 }
-
 
 
 function setCustomColorPanel(open) {
@@ -476,10 +403,8 @@ function setCustomColorPanel(open) {
   )
     return;
 
-
   customColorPanel.hidden =
     !open;
-
 
   customColorBtn.setAttribute(
     "aria-expanded",
@@ -489,72 +414,60 @@ function setCustomColorPanel(open) {
 }
 
 
-
-// TẠO CÁC Ô MÀU
+// Tạo các ô màu mở rộng
 if (customColorGrid) {
 
-  extendedColors.forEach(
-    hex => {
+  extendedColors.forEach(hex => {
 
-      const btn =
-        document.createElement(
-          "button"
+    const btn =
+      document.createElement(
+        "button"
+      );
+
+    btn.type =
+      "button";
+
+    btn.className =
+      "extended-color-swatch";
+
+    btn.dataset.color =
+      hex;
+
+    btn.style.background =
+      hex;
+
+    btn.title =
+      hex;
+
+    btn.setAttribute(
+      "aria-label",
+      `Choose color ${hex}`
+    );
+
+    btn.addEventListener(
+      "click",
+      () => {
+
+        applyExtendedColor(
+          hex
         );
 
+        setCustomColorPanel(
+          false
+        );
 
-      btn.type =
-        "button";
+      }
+    );
 
+    customColorGrid
+      .appendChild(btn);
 
-      btn.className =
-        "extended-color-swatch";
-
-
-      btn.dataset.color =
-        hex;
-
-
-      btn.style.background =
-        hex;
-
-
-      btn.title =
-        hex;
-
-
-      btn.setAttribute(
-        "aria-label",
-        `Chọn màu ${hex}`
-      );
-
-
-      btn.addEventListener(
-        "click",
-        () => {
-
-          applyExtendedColor(
-            hex
-          );
-
-          setCustomColorPanel(
-            false
-          );
-
-        }
-      );
-
-
-      customColorGrid
-        .appendChild(btn);
-
-    }
-  );
+  });
 
 }
 
 
-
-// NÚT CHỌN MÀU
+// Nút Choose Color
 if (
   customColorBtn &&
   customColorPanel
@@ -576,7 +489,8 @@ if (
 
   customColorPanel.addEventListener(
     "click",
-    e => e.stopPropagation()
+    e =>
+      e.stopPropagation()
   );
 
 
@@ -591,8 +505,9 @@ if (
     "keydown",
     e => {
 
-      if (e.key === "Escape")
+      if (e.key === "Escape") {
         setCustomColorPanel(false);
+      }
 
     }
   );
@@ -600,8 +515,7 @@ if (
 }
 
 
-
-// COLOR PICKER HỆ THỐNG
+// Native color picker
 if (customColorInput) {
 
   customColorInput.addEventListener(
@@ -630,59 +544,57 @@ if (customColorInput) {
 }
 
 
-
-// Khi quay lại chọn màu tròn
+// Khi quay lại chọn 24 màu mặc định
 document
-.querySelectorAll(".color")
-.forEach(el => {
+  .querySelectorAll(".color")
+  .forEach(el => {
 
-  el.addEventListener(
-    "click",
-    () => {
+    el.addEventListener(
+      "click",
+      () => {
 
-      updateCustomColorPreview(
-        currentColor
-      );
+        updateCustomColorPreview(
+          currentColor
+        );
+
+        document
+          .querySelectorAll(
+            ".extended-color-swatch"
+          )
+          .forEach(c =>
+            c.classList.remove(
+              "selected"
+            )
+          );
+
+      }
+    );
+
+  });
 
 
-      document
-      .querySelectorAll(
-        ".extended-color-swatch"
-      )
-      .forEach(c =>
-        c.classList.remove(
-          "selected"
-        )
-      );
-
-    }
-  );
-
-});
-
-
-// preview mặc định
+// Preview mặc định
 updateCustomColorPreview(
   currentColor
 );
 
 
-// ==================================================
-// MODE BUTTON
-// ==================================================
+// ======================================================
+// MODE BUTTONS
+// ======================================================
 
 document
-.getElementById("fillModeBtn")
-.addEventListener(
-  "click",
-  () => {
+  .getElementById("fillModeBtn")
+  .addEventListener(
+    "click",
+    () => {
 
-    updateModeButtons(
-      "fill"
-    );
+      updateModeButtons(
+        "fill"
+      );
 
-  }
-);
+    }
+  );
 
 
 function updateModeButtons(
@@ -692,28 +604,27 @@ function updateModeButtons(
   mode =
     newMode;
 
-
   document
-  .querySelectorAll(
-    ".mode-btn"
-  )
-  .forEach(
-    btn =>
-      btn.classList.remove(
-        "active"
-      )
-  );
+    .querySelectorAll(
+      ".mode-btn"
+    )
+    .forEach(
+      btn =>
+        btn.classList.remove(
+          "active"
+        )
+    );
 
 
   if (mode === "fill") {
 
     document
-    .getElementById(
-      "fillModeBtn"
-    )
-    .classList.add(
-      "active"
-    );
+      .getElementById(
+        "fillModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
 
   }
 
@@ -722,12 +633,12 @@ function updateModeButtons(
   ) {
 
     document
-    .getElementById(
-      "brushModeBtn"
-    )
-    .classList.add(
-      "active"
-    );
+      .getElementById(
+        "brushModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
 
   }
 
@@ -736,12 +647,12 @@ function updateModeButtons(
   ) {
 
     document
-    .getElementById(
-      "eraserModeBtn"
-    )
-    .classList.add(
-      "active"
-    );
+      .getElementById(
+        "eraserModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
 
   }
 
@@ -750,12 +661,12 @@ function updateModeButtons(
   ) {
 
     document
-    .getElementById(
-      "textModeBtn"
-    )
-    .classList.add(
-      "active"
-    );
+      .getElementById(
+        "textModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
 
   }
 
@@ -763,67 +674,68 @@ function updateModeButtons(
 
 
 document
-.getElementById("textModeBtn")
-.addEventListener(
-  "click",
-  () => {
+  .getElementById("textModeBtn")
+  .addEventListener(
+    "click",
+    () => {
 
-    mode = "text";
+      mode =
+        "text";
 
-    updateModeButtons();
+      updateModeButtons();
 
-    addTextBoxCentered();
+      addTextBoxCentered();
 
-  }
-);
-
-
-document
-.getElementById("brushModeBtn")
-.addEventListener(
-  "click",
-  () => {
-
-    updateModeButtons(
-      "brush"
-    );
-
-  }
-);
+    }
+  );
 
 
 document
-.getElementById("eraserModeBtn")
-.addEventListener(
-  "click",
-  () => {
+  .getElementById("brushModeBtn")
+  .addEventListener(
+    "click",
+    () => {
 
-    updateModeButtons(
-      "eraser"
-    );
-
-  }
-);
-
-
-document
-.getElementById("brushSizeSelect")
-.addEventListener(
-  "change",
-  function () {
-
-    brushSize =
-      parseFloat(
-        this.value
+      updateModeButtons(
+        "brush"
       );
 
-  }
-);
+    }
+  );
 
 
-// ==================================================
+document
+  .getElementById("eraserModeBtn")
+  .addEventListener(
+    "click",
+    () => {
+
+      updateModeButtons(
+        "eraser"
+      );
+
+    }
+  );
+
+
+document
+  .getElementById("brushSizeSelect")
+  .addEventListener(
+    "change",
+    function () {
+
+      brushSize =
+        parseFloat(
+          this.value
+        );
+
+    }
+  );
+
+
+// ======================================================
 // IMAGE SELECT / UPLOAD
-// ==================================================
+// ======================================================
 
 const imageSelect =
   document.getElementById(
@@ -840,14 +752,11 @@ if (imageSelect) {
       const selectedImage =
         this.value;
 
-
       if (!selectedImage)
         return;
 
-
       const localImg =
         new Image();
-
 
       localImg.onload =
         () => {
@@ -856,45 +765,39 @@ if (imageSelect) {
             localImg
           );
 
-
           undoStack = [];
           redoStack = [];
 
-
           originalImageName =
             selectedImage
-            .split("/")
-            .pop();
-
+              .split("/")
+              .pop();
 
           updateSelectStyle();
-
 
           const kiteLabel =
             document.getElementById(
               "kite-label-input"
             );
 
-
-          if (kiteLabel)
+          if (kiteLabel) {
             kiteLabel.style.display =
               "block";
+          }
 
         };
 
-
       localImg.src =
         selectedImage;
-
 
       const up =
         document.getElementById(
           "uploadInput"
         );
 
-
-      if (up)
+      if (up) {
         up.value = "";
+      }
 
     }
   );
@@ -902,91 +805,78 @@ if (imageSelect) {
 }
 
 
-
 document
-.getElementById("uploadInput")
-.addEventListener(
-  "change",
-  function (e) {
+  .getElementById("uploadInput")
+  .addEventListener(
+    "change",
+    function (e) {
 
-    const file =
-      e.target.files[0];
+      const file =
+        e.target.files[0];
 
+      if (!file)
+        return;
 
-    if (!file)
-      return;
+      const reader =
+        new FileReader();
 
+      reader.onload =
+        function (event) {
 
-    const reader =
-      new FileReader();
+          const upImg =
+            new Image();
 
+          upImg.onload =
+            function () {
 
-    reader.onload =
-      function (event) {
+              loadImageToMainCanvas(
+                upImg
+              );
 
-        const upImg =
-          new Image();
+              undoStack = [];
+              redoStack = [];
 
+              originalImageName =
+                file.name;
 
-        upImg.onload =
-          function () {
+              if (imageSelect) {
+                imageSelect.selectedIndex =
+                  0;
+              }
 
-            loadImageToMainCanvas(
-              upImg
-            );
+              updateSelectStyle();
 
+            };
 
-            undoStack = [];
-            redoStack = [];
+          upImg.src =
+            event.target.result;
 
+        };
 
-            originalImageName =
-              file.name;
+      reader.readAsDataURL(
+        file
+      );
 
-
-            if (imageSelect)
-              imageSelect.selectedIndex =
-                0;
-
-
-            updateSelectStyle();
-
-          };
-
-
-        upImg.src =
-          event.target.result;
-
-      };
-
-
-    reader.readAsDataURL(
-      file
-    );
-
-  }
-);
+    }
+  );
 
 
-// ==================================================
+// ======================================================
 // COORDINATES
-// ==================================================
+// ======================================================
 
 function getCanvasCoords(e) {
 
   const rect =
     canvas.getBoundingClientRect();
 
-
   const scaleX =
     canvas.width /
     rect.width;
 
-
   const scaleY =
     canvas.height /
     rect.height;
-
 
   let clientX;
   let clientY;
@@ -1044,9 +934,9 @@ function getCanvasCoords(e) {
 }
 
 
-// ==================================================
+// ======================================================
 // BRUSH / ERASER
-// ==================================================
+// ======================================================
 
 function isMobile() {
 
@@ -1073,7 +963,6 @@ function strokeFromTo(
 
   const dy =
     y1 - y0;
-
 
   const dist =
     Math.hypot(
@@ -1127,16 +1016,13 @@ function strokeFromTo(
     const t =
       i / n;
 
-
     const x =
       x0 +
       dx * t;
 
-
     const y =
       y0 +
       dy * t;
-
 
     paintCircleOnMain(
       x,
@@ -1154,7 +1040,6 @@ function strokeFromTo(
 function drawAt(e) {
 
   ensureInitialized();
-
 
   const {
     x,
@@ -1187,7 +1072,6 @@ function drawAt(e) {
       isErase
     );
 
-
     lastPt = {
       x,
       y
@@ -1207,7 +1091,6 @@ function drawAt(e) {
       isErase
     );
 
-
     lastPt = {
       x,
       y
@@ -1218,8 +1101,7 @@ function drawAt(e) {
 }
 
 
-// DESKTOP
-
+// Desktop drawing
 canvas.addEventListener(
   "mousedown",
   e => {
@@ -1232,496 +1114,14 @@ canvas.addEventListener(
       isDrawing =
         true;
 
-
       saveState();
-
 
       lastPt =
         null;
 
-
       drawAt(e);
 
     }
 
   }
 );
-
-
-canvas.addEventListener(
-  "mousemove",
-  e => {
-
-    if (
-      isDrawing &&
-      (
-        mode === "brush" ||
-        mode === "eraser"
-      )
-    ) {
-
-      drawAt(e);
-
-    }
-
-  }
-);
-
-
-canvas.addEventListener(
-  "mouseup",
-  () => {
-
-    isDrawing =
-      false;
-
-    lastPt =
-      null;
-
-  }
-);
-
-
-canvas.addEventListener(
-  "mouseleave",
-  () => {
-
-    isDrawing =
-      false;
-
-    lastPt =
-      null;
-
-  }
-);
-
-
-// MOBILE
-
-canvas.addEventListener(
-  "touchstart",
-  e => {
-
-    if (
-      mode === "brush" ||
-      mode === "eraser"
-    ) {
-
-      isDrawing =
-        true;
-
-
-      saveState();
-
-
-      lastPt =
-        null;
-
-
-      drawAt(e);
-
-
-      e.preventDefault();
-
-    }
-
-  },
-  {
-    passive:false
-  }
-);
-
-
-canvas.addEventListener(
-  "touchmove",
-  e => {
-
-    if (
-      isDrawing &&
-      (
-        mode === "brush" ||
-        mode === "eraser"
-      )
-    ) {
-
-      drawAt(e);
-
-      e.preventDefault();
-
-    }
-
-  },
-  {
-    passive:false
-  }
-);
-
-
-canvas.addEventListener(
-  "touchend",
-  () => {
-
-    isDrawing =
-      false;
-
-    lastPt =
-      null;
-
-  }
-);
-
-
-// ==================================================
-// FILL
-// ==================================================
-
-canvas.addEventListener(
-  "click",
-  e => {
-
-    if (
-      mode !== "fill"
-    )
-      return;
-
-
-    ensureInitialized();
-
-
-    const {
-      x,
-      y
-    } =
-      getCanvasCoords(e);
-
-
-    saveState();
-
-
-    const color =
-      hexToRgba(
-        currentColor
-      );
-
-
-    if (
-      imageProcessingMode ===
-      "lineart"
-    ) {
-
-      floodFillSingleLayer(
-        x,
-        y,
-        color
-      );
-
-    }
-
-    else {
-
-      floodFillWithEdgeGuard(
-        x,
-        y,
-        color,
-        fillTolerance,
-        edgeStop,
-        PRESERVE_LIGHTNESS
-      );
-
-    }
-
-  }
-);
-
-
-function hexToRgba(hex) {
-
-  const bigint =
-    parseInt(
-      hex.slice(1),
-      16
-    );
-
-
-  return [
-
-    (bigint >> 16) & 255,
-
-    (bigint >> 8) & 255,
-
-    bigint & 255,
-
-    255
-
-  ];
-
-}
-
-
-function isLinePixel(
-  x,
-  y,
-  w,
-  h
-) {
-
-  if (!lineMask)
-    return false;
-
-
-  if (
-    x < 0 ||
-    y < 0 ||
-    x >= w ||
-    y >= h
-  )
-    return false;
-
-
-  return (
-    lineMask[
-      y*w+x
-    ] === 1
-  );
-
-}
-
-
-function floodFillSingleLayer(
-  x,
-  y,
-  fillColor
-) {
-
-  const w =
-    canvas.width;
-
-
-  const h =
-    canvas.height;
-
-
-  if (
-    w === 0 ||
-    h === 0
-  )
-    return;
-
-
-  let imageData;
-
-
-  try {
-
-    imageData =
-      ctx.getImageData(
-        0,
-        0,
-        w,
-        h
-      );
-
-  }
-
-  catch(err) {
-
-    console.error(err);
-
-    alert(
-      "Không thể tô màu do ảnh bị chặn đọc pixel (CORS). Hãy dùng ảnh cùng domain hoặc bật CORS/crossOrigin='anonymous'."
-    );
-
-    return;
-
-  }
-
-
-  const data =
-    imageData.data;
-
-
-  if (
-    isLinePixel(
-      x,
-      y,
-      w,
-      h
-    )
-  )
-    return;
-
-
-  const idx0 =
-    (
-      y*w+x
-    )*4;
-
-
-  const startR =
-    data[idx0];
-
-
-  const startG =
-    data[idx0+1];
-
-
-  const startB =
-    data[idx0+2];
-
-
-  const tolerance =
-    fillTolerance;
-
-
-  const visited =
-    new Uint8Array(
-      w*h
-    );
-
-
-  const stack = [
-    [x,y]
-  ];
-
-
-  const match =
-    (
-      cx,
-      cy,
-      i
-    ) => {
-
-      if (
-        isLinePixel(
-          cx,
-          cy,
-          w,
-          h
-        )
-      )
-        return false;
-
-
-      const r =
-        data[i];
-
-
-      const g =
-        data[i+1];
-
-
-      const b =
-        data[i+2];
-
-
-      return (
-
-        Math.abs(
-          r-startR
-        ) <= tolerance
-
-        &&
-
-        Math.abs(
-          g-startG
-        ) <= tolerance
-
-        &&
-
-        Math.abs(
-          b-startB
-        ) <= tolerance
-
-      );
-
-    };
-
-
-  while (
-    stack.length
-  ) {
-
-    const [
-      cx,
-      cy
-    ] =
-      stack.pop();
-
-
-    if (
-      cx < 0 ||
-      cy < 0 ||
-      cx >= w ||
-      cy >= h
-    )
-      continue;
-
-
-    const i =
-      (
-        cy*w+cx
-      )*4;
-
-
-    const vi =
-      cy*w+cx;
-
-
-    if (
-      visited[vi]
-    )
-      continue;
-
-
-    visited[vi] =
-      1;
-
-
-    if (
-      !match(
-        cx,
-        cy,
-        i
-      )
-    )
-      continue;
-
-
-    data[i] =
-      fillColor[0];
-
-
-    data[i+1] =
-      fillColor[1];
-
-
-    data[i+2] =
-      fillColor[2];
-
-
-    data[i+3] =
-      255;
-
-
-    stack.push(
-
-      [cx-1,cy],
-
-      [cx+1,cy],
-
-      [cx,cy-1],
-
-      [cx,cy+1]
-
-    );
-
-  }
-
-
-  ctx.putImageData(
-    imageData,
-    0,
-    0
-  );
-
-}
