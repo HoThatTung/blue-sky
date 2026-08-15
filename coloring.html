@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
-  <title>Tô màu – Blue Sky</title>
+  <title>Coloring – Blue Sky</title>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="css/color.css" />
   <link rel="icon" href="favicon.ico" type="image/x-icon" />
 
-  <!-- Prefetch trang Sản phẩm -->
+  <!-- Prefetch Products page -->
   <link rel="prefetch" href="shop.html" as="document">
   <link rel="prefetch" href="css/shop.css" as="style">
   <link rel="prefetch" href="js/shop.js" as="script">
@@ -34,25 +34,27 @@
 
 <header class="header">
   <div class="header-inner">
+
     <button class="menu-toggle"
-            aria-label="Mở menu điều hướng"
+            aria-label="Open navigation menu"
             aria-controls="site-nav"
             aria-expanded="false">&#9776;</button>
 
     <img src="images/html/logo.png"
-         alt="Logo Blue Sky"
+         alt="Blue Sky Logo"
          class="logo" />
 
     <nav class="nav" id="site-nav">
-      <a href="index.html">Trang chủ</a>
-      <a href="about.html">Giới thiệu</a>
-      <a href="shop.html">Sản phẩm</a>
+      <a href="index.html">Home</a>
+      <a href="about.html">About</a>
+      <a href="shop.html">Products</a>
       <a href="coloring.html"
          class="active"
-         aria-current="page">Tô màu</a>
-      <a href="events.html">Sự kiện</a>
-      <a href="contact.html">Liên hệ</a>
+         aria-current="page">Coloring</a>
+      <a href="events.html">Events</a>
+      <a href="contact.html">Contact</a>
     </nav>
+
   </div>
 </header>
 
@@ -62,11 +64,15 @@
          aria-label="Color the Kite">
 
   <div class="hero-inner">
-    <h1 class="hero-title">COLOR THE KITE</h1>
+
+    <h1 class="hero-title">
+      COLOR THE KITE
+    </h1>
 
     <p class="hero-sub">
-      Tô màu cánh diều theo phong cách của bạn
+      Color your kite in your own style
     </p>
+
   </div>
 
 </section>
@@ -76,13 +82,14 @@
 
 <section class="container box" id="workspace">
 
-  <!-- CHỌN ẢNH -->
+  <!-- SELECT IMAGE -->
+
   <div class="controls-row">
 
     <div class="select-area">
 
       <label class="sr-only" for="imageSelect">
-        Chọn mẫu
+        Select a kite
       </label>
 
       <select id="imageSelect">
@@ -96,39 +103,39 @@
         </option>
 
         <option value="images/color/color/pilotlung.jpg">
-          Pilot (lưng)
+          Pilot (Back)
         </option>
 
         <option value="images/color/color/cavang.jpg">
-          Cá vàng
+          Goldfish
         </option>
 
         <option value="images/color/color/cathulu.jpg">
-          Cá thù lù 8m
+          Batfish 8m
         </option>
 
         <option value="images/color/color/cathulu14.jpg">
-          Cá thù lù 14m
+          Batfish 14m
         </option>
 
         <option value="images/color/color/cabuom.jpg">
-          Cá buồm
+          Sailfish
         </option>
 
         <option value="images/color/color/canemo.jpg">
-          Cá Nemo
+          Nemo Fish
         </option>
 
         <option value="images/color/color/bohung.jpg">
-          Bọ hung
+          Beetle
         </option>
 
         <option value="images/color/color/haicau.jpg">
-          Hải cẩu
+          Seal
         </option>
 
         <option value="images/color/color/caheo.jpg">
-          Cá heo
+          Dolphin
         </option>
 
       </select>
@@ -140,7 +147,7 @@
 
       <label for="uploadInput"
              class="upload-label"
-             title="Tải ảnh của bạn">
+             title="Upload your image">
         ⬆️ Upload
       </label>
 
@@ -154,7 +161,8 @@
   </div>
 
 
-  <!-- CÔNG CỤ -->
+  <!-- DRAWING TOOLS -->
+
   <div class="tool-row">
 
     <button id="fillModeBtn"
@@ -198,7 +206,8 @@
   </div>
 
 
-  <!-- TEXT -->
+  <!-- TEXT TOOLS -->
+
   <div class="tool-row text-tools-row">
 
     <button id="textModeBtn"
@@ -210,45 +219,46 @@
 
     <button id="boldBtn"
             type="button"
-            title="In đậm">
+            title="Bold">
       🔠 Bold text
     </button>
 
     <button id="deleteTextBtn"
             type="button"
-            title="Xoá khung chữ hiện tại">
+            title="Delete the current text box">
       🗑️ Delete Text
     </button>
 
   </div>
 
 
-  <!-- BẢNG MÀU CÓ SẴN -->
+  <!-- PRESET COLOR PALETTE -->
+
   <div id="colorPalette"
        class="palette"
-       aria-label="Bảng màu">
+       aria-label="Color palette">
   </div>
 
 
   <!-- ============================= -->
-  <!-- CHOSEN COLOR + CHỌN MÀU MỚI -->
+  <!-- CHOSEN COLOR + COLOR PICKER -->
   <!-- ============================= -->
 
   <div class="color-selection-row">
 
-    <!-- MÀU ĐANG CHỌN -->
+    <!-- CURRENT COLOR -->
 
     <div id="colorInfo"
          class="color-info">
 
       <span id="colorInfoText">
-        Chosen color (Vietnamese): Chưa chọn
+        Chosen color: Not selected
       </span>
 
     </div>
 
 
-    <!-- CHỌN MÀU -->
+    <!-- CHOOSE COLOR -->
 
     <div class="custom-color-picker">
 
@@ -265,40 +275,40 @@
         </span>
 
         <span>
-          Chọn màu
+          Choose Color
         </span>
 
       </button>
 
 
-      <!-- POPUP BẢNG MÀU -->
+      <!-- COLOR PICKER POPUP -->
 
       <div id="customColorPanel"
            class="color-picker-panel"
            role="dialog"
-           aria-label="Bảng chọn màu mở rộng"
+           aria-label="Extended color palette"
            hidden>
 
         <div class="color-picker-title">
-          Chọn màu
+          Choose Color
         </div>
 
 
-        <!-- GRID MÀU KIỂU WORD -->
+        <!-- WORD-STYLE COLOR GRID -->
 
         <div id="customColorGrid"
              class="color-picker-grid"
-             aria-label="Các màu mở rộng">
+             aria-label="Extended colors">
         </div>
 
 
-        <!-- COLOR PICKER HỆ THỐNG -->
+        <!-- SYSTEM COLOR PICKER -->
 
         <label class="more-color-label"
                for="customColorInput">
 
           <span>
-            🌈 Màu khác...
+            🌈 More Colors...
           </span>
 
           <span id="customColorPreview"
@@ -313,7 +323,7 @@
                class="custom-color-input"
                type="color"
                value="#1976D2"
-               aria-label="Chọn màu tùy chỉnh">
+               aria-label="Choose a custom color">
 
       </div>
 
@@ -329,7 +339,7 @@
     <div class="canvas-wrapper">
 
       <canvas id="canvas"
-              aria-label="Khu vực tô màu">
+              aria-label="Coloring area">
       </canvas>
 
     </div>
@@ -345,13 +355,13 @@
 
       <button id="undoBtn"
               type="button"
-              title="Hoàn tác">
+              title="Undo">
         ↩️ Undo
       </button>
 
       <button id="redoBtn"
               type="button"
-              title="Làm lại">
+              title="Redo">
         ↪️ Redo
       </button>
 
@@ -362,7 +372,7 @@
 
       <button id="downloadBtn"
               type="button"
-              title="Tải ảnh đã tô">
+              title="Download your colored image">
         💾 Save Image
       </button>
 
@@ -398,8 +408,8 @@
 
 <a href="tel:+84903082089"
    class="social-icon phone"
-   data-tooltip="Gọi ngay cho chúng tôi"
-   aria-label="Điện thoại">
+   data-tooltip="Call us"
+   aria-label="Phone">
 
 <svg xmlns="http://www.w3.org/2000/svg"
      width="30"
@@ -421,7 +431,7 @@
 
 <a href="https://zalo.me/0903082089"
    class="social-icon zalo"
-   data-tooltip="Chat với chúng tôi qua Zalo"
+   data-tooltip="Chat with us on Zalo"
    target="_blank"
    rel="noopener"
    aria-label="Zalo">
@@ -444,7 +454,7 @@
 
 <a href="https://www.facebook.com/profile.php?id=100010250733315"
    class="social-icon facebook"
-   data-tooltip="Đến với trang Facebook của chúng tôi"
+   data-tooltip="Visit our Facebook page"
    target="_blank"
    rel="noopener"
    aria-label="Facebook">
@@ -468,7 +478,7 @@
 
 <a href="https://www.instagram.com/"
    class="social-icon instagram"
-   data-tooltip="Theo dõi chúng tôi trên Instagram"
+   data-tooltip="Follow us on Instagram"
    target="_blank"
    rel="noopener"
    aria-label="Instagram">
@@ -535,7 +545,7 @@ return "TikTok";
 
 if (/Android/i.test(ua) &&
     /\bwv\b/i.test(ua))
-return "App Android";
+return "Android App";
 
 return null;
 
@@ -742,7 +752,7 @@ const h2 =
 document.createElement("h2");
 
 h2.textContent =
-`⚠️ Đang mở từ ${appName}`;
+`⚠️ Opened inside ${appName}`;
 
 h2.style.cssText =
 "margin:0 0 8px;font-size:20px;";
@@ -752,10 +762,10 @@ const p1 =
 document.createElement("p");
 
 p1.innerHTML =
-`Trình duyệt bên trong ứng dụng <b>${appName}</b>
-có thể <b>không hỗ trợ</b>
-chức năng <b>Lưu ảnh</b>
-của trang Tô màu.`;
+`The browser inside <b>${appName}</b>
+may <b>not support</b>
+the <b>Save Image</b>
+function on the Coloring page.`;
 
 p1.style.cssText =
 "margin:0 0 12px;font-size:14px;color:#333;";
@@ -780,34 +790,34 @@ if (isAndroid()) {
 tip.innerHTML = `
 
 <div style="font-weight:600;margin-bottom:6px;">
-Cách 1 (đề xuất): Mở bằng trình duyệt ngoài
+Option 1 (Recommended): Open in an external browser
 </div>
 
 <ol style="margin:0 0 6px 18px;padding:0;">
 
 <li>
-Nhấn <b>Mở bằng Chrome</b>
-hoặc
-<b>Mở bằng Samsung Internet</b>
-bên dưới.
+Tap <b>Open in Chrome</b>
+or
+<b>Open in Samsung Internet</b>
+below.
 </li>
 
 </ol>
 
 
 <div style="font-weight:600;margin:10px 0 6px;">
-Cách 2: Sao chép link và mở thủ công
+Option 2: Copy the link and open it manually
 </div>
 
 <ol style="margin:0 0 0 18px;padding:0;">
 
 <li>
-Nhấn <b>Sao chép liên kết</b>.
+Tap <b>Copy Link</b>.
 </li>
 
 <li>
-Mở Chrome/Samsung Internet
-và dán liên kết để truy cập lại.
+Open Chrome/Samsung Internet
+and paste the link to access the page again.
 </li>
 
 </ol>
@@ -821,31 +831,29 @@ else if (isIOS()) {
 tip.innerHTML = `
 
 <div style="font-weight:600;margin-bottom:6px;">
-Cách mở bằng Safari/Chrome trên iPhone/iPad
+How to open in Safari/Chrome on iPhone/iPad
 </div>
 
 <ol style="margin:0 0 0 18px;padding:0;">
 
 <li>
-Chạm vào biểu tượng
+Tap the
 <b>⋯</b>
-(hoặc <b>•••</b>)
-ở góc.
+(or <b>•••</b>)
+icon in the corner.
 </li>
 
 <li>
-Chọn
+Select
 <b>Open in Safari</b>
-/
-<b>Mở trong Safari</b>
-(hoặc
+(or
 <b>Open in Browser</b>).
 </li>
 
 <li>
-Nếu không thấy,
-hãy <b>Sao chép liên kết</b>
-rồi dán vào Safari/Chrome.
+If you do not see this option,
+<b>Copy Link</b>
+and paste it into Safari/Chrome.
 </li>
 
 </ol>
@@ -857,7 +865,7 @@ rồi dán vào Safari/Chrome.
 else {
 
 tip.textContent =
-"Hãy mở trang bằng trình duyệt hệ thống để sử dụng đầy đủ tính năng Lưu ảnh.";
+"Please open this page in your system browser to use the Save Image function properly.";
 
 }
 
@@ -875,21 +883,21 @@ btnRow.style.cssText =
 
 const stayBtn =
 buildButton(
-"Ở lại trang",
+"Stay on Page",
 "stayBtn"
 );
 
 
 const copyBtn =
 buildButton(
-"Sao chép liên kết",
+"Copy Link",
 "copyBtn"
 );
 
 
 const chromeBtn =
 buildButton(
-"Mở bằng Chrome",
+"Open in Chrome",
 "openChromeBtn",
 true
 );
@@ -897,7 +905,7 @@ true
 
 const samsungBtn =
 buildButton(
-"Mở bằng Samsung Internet",
+"Open in Samsung Internet",
 "openSamsungBtn",
 true
 );
@@ -963,14 +971,14 @@ location.href
 );
 
 showToast(
-"Đã sao chép liên kết!"
+"Link copied!"
 );
 
 }
 catch {
 
 showToast(
-"Không thể sao chép, vui lòng sao chép thủ công."
+"Unable to copy the link. Please copy it manually."
 );
 
 }
