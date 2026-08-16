@@ -997,8 +997,7 @@ if (customColorGrid) {
     hex => {
 
       const btn =
-        document.createElement(
-          "button"
+        document.createElement(          "button"
         );
 
 
@@ -1077,6 +1076,8 @@ if (customColorGrid) {
   );
 
 }
+
+
 // ======================================================
 // CUSTOM COLOR BUTTON / PANEL EVENTS
 // ======================================================
@@ -1996,9 +1997,7 @@ function floodFillSingleLayer(
         cy * w +
         cx
       ) * 4;
-
-
-    const vi =
+	      const vi =
       cy * w +
       cx;
 
@@ -2080,6 +2079,8 @@ function floodFillSingleLayer(
   );
 
 }
+
+
 // ======================================================
 // RECOLOR WITH EDGE GUARD
 // ======================================================
@@ -2995,9 +2996,7 @@ document
           undoStack.push(
             current
           );
-
-
-          const next =
+		            const next =
             redoStack.pop();
 
 
@@ -3382,7 +3381,8 @@ document
         }
 
       }
-	        const logo =
+
+      const logo =
         new Image();
 
 
@@ -3994,8 +3994,7 @@ function addTextBoxCentered() {
       ) {
 
         e.preventDefault();
-
-      }
+		      }
 
     }
   );
@@ -4087,7 +4086,8 @@ function makeTextBoxDraggable(
 
       const touch =
         e.touches[0];
-		      const rect =
+
+      const rect =
         box.getBoundingClientRect();
 
 
@@ -4793,7 +4793,9 @@ function enableRotate(
           touch.clientX,
           touch.clientY
         );
-		        e.preventDefault();
+
+
+        e.preventDefault();
 
       }
 
@@ -4996,8 +4998,7 @@ function updateSelectStyle() {
 
     el.style.fontStyle =
       "italic";
-
-  }
+	    }
 
   else {
 
@@ -5495,7 +5496,9 @@ function enhanceImageSelect() {
         ]?.click();
 
       }
-	        if (
+
+
+      if (
         e.key === "ArrowUp"
       ) {
 
@@ -5994,11 +5997,11 @@ function classifyImageTypeQuick(
 
 
       const mn =
-        Math.min(
-          r,
-          g,
-          b
-        );
+  Math.min(
+    r,
+    g,
+    b
+  );
 
 
       S[p] =
@@ -6188,7 +6191,8 @@ function ensureInitialized() {
 
     canvas.width =
       w;
-	      canvas.height =
+
+    canvas.height =
       h;
 
 
@@ -6216,8 +6220,22 @@ function loadImageToMainCanvas(
   image
 ) {
 
+  /*
+  FIX LOAD IMAGE:
+  The old code used isMobile(), but color.js
+  does not define that function.
+
+  Detect the device directly here so the image
+  can continue loading normally.
+  */
+  const isMobileDevice =
+    window.matchMedia(
+      "(max-width: 768px), (hover: none) and (pointer: coarse)"
+    ).matches;
+
+
   const MAX_EDGE =
-    isMobile()
+    isMobileDevice
       ? 1600
       : 3000;
 
@@ -6851,3 +6869,4 @@ function renderLineartAAFromMask(
     false;
 
 }
+		
