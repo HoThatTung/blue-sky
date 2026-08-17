@@ -93,25 +93,18 @@ function createToolCursorPreview() {
   wrapper.appendChild(
     toolCursorPreview
   );
+
 }
 
 
 /*
-Check whether the current device has
+Check whether the current device uses
 a desktop-style fine pointer such as a mouse.
-
-IMPORTANT:
-Use "any-pointer: fine" instead of
-"(hover: hover) and (pointer: fine)".
-
-This allows laptops / hybrid devices with both
-touch screen and mouse to still use the desktop
-brush / eraser cursor whenever a mouse is available.
 */
 function hasFinePointer() {
 
   return window.matchMedia(
-    "(any-pointer: fine)"
+    "(hover: hover) and (pointer: fine)"
   ).matches;
 
 }
@@ -637,6 +630,7 @@ function updateColorInfo(
     colorInfoText.textContent =
       "Chosen color: Not selected";
 
+
     return;
 
   }
@@ -964,29 +958,22 @@ function applyExtendedColor(
   }
 
 }
-
-
 function setCustomColorPanel(open) {
 
   if (
     !customColorBtn ||
     !customColorPanel
   ) {
-
     return;
-
   }
-
 
   customColorPanel.hidden =
     !open;
-
 
   customColorBtn.setAttribute(
     "aria-expanded",
     open ? "true" : "false"
   );
-
 }
 
 
@@ -997,47 +984,29 @@ if (customColorGrid) {
     hex => {
 
       const btn =
-        document.createElement(          "button"
+        document.createElement(
+          "button"
         );
-
 
       btn.type =
         "button";
 
-
       btn.className =
         "extended-color-swatch";
-
 
       btn.dataset.color =
         hex;
 
-
       btn.style.background =
         hex;
 
-
       btn.title =
         hex;
-
 
       btn.setAttribute(
         "aria-label",
         `Choose color ${hex}`
       );
-
-
-      if (
-        hex.toUpperCase() ===
-        currentColor.toUpperCase()
-      ) {
-
-        btn.classList.add(
-          "selected"
-        );
-
-      }
-
 
       btn.addEventListener(
         "click",
@@ -1047,26 +1016,12 @@ if (customColorGrid) {
             hex
           );
 
-
-          document
-            .querySelectorAll(
-              ".extended-color-swatch"
-            )
-            .forEach(
-              swatch =>
-                swatch.classList.remove(
-                  "selected"
-                )
-            );
-
-
-          btn.classList.add(
-            "selected"
+          setCustomColorPanel(
+            false
           );
 
         }
       );
-
 
       customColorGrid.appendChild(
         btn
@@ -1078,10 +1033,7 @@ if (customColorGrid) {
 }
 
 
-// ======================================================
-// CUSTOM COLOR BUTTON / PANEL EVENTS
-// ======================================================
-
+// Choose Color button
 if (
   customColorBtn &&
   customColorPanel
@@ -1093,26 +1045,43 @@ if (
 
       e.stopPropagation();
 
-      const isOpen =
-        !customColorPanel.hidden;
-
       setCustomColorPanel(
-        !isOpen
+        customColorPanel.hidden
       );
 
     }
   );
 
-}
-
-
-if (customColorPanel) {
 
   customColorPanel.addEventListener(
     "click",
+    e =>
+      e.stopPropagation()
+  );
+
+
+  document.addEventListener(
+    "click",
+    () =>
+      setCustomColorPanel(
+        false
+      )
+  );
+
+
+  document.addEventListener(
+    "keydown",
     e => {
 
-      e.stopPropagation();
+      if (
+        e.key === "Escape"
+      ) {
+
+        setCustomColorPanel(
+          false
+        );
+
+      }
 
     }
   );
@@ -1120,17 +1089,15 @@ if (customColorPanel) {
 }
 
 
+// Native color picker
 if (customColorInput) {
 
   customColorInput.addEventListener(
     "input",
-    function () {
+    e => {
 
-      const hex =
-        this.value;
-
-      updateCustomColorPreview(
-        hex
+      applyExtendedColor(
+        e.target.value
       );
 
     }
@@ -1139,13 +1106,10 @@ if (customColorInput) {
 
   customColorInput.addEventListener(
     "change",
-    function () {
+    () => {
 
-      const hex =
-        this.value;
-
-      applyExtendedColor(
-        hex
+      setCustomColorPanel(
+        false
       );
 
     }
@@ -1154,74 +1118,67 @@ if (customColorInput) {
 }
 
 
-// Close custom color panel
-// when clicking outside
-document.addEventListener(
-  "click",
-  e => {
+// Sync custom color preview when selecting
+// one of the standard colors again.
+document
+  .querySelectorAll(".color")
+  .forEach(
+    el => {
 
-    if (
-      !customColorPanel ||
-      customColorPanel.hidden
-    ) {
+      el.addEventListener(
+        "click",
+        () => {
 
-      return;
+          updateCustomColorPreview(
+            currentColor
+          );
 
-    }
+          document
+            .querySelectorAll(
+              ".extended-color-swatch"
+            )
+            .forEach(
+              c =>
+                c.classList.remove(
+                  "selected"
+                )
+            );
 
-
-    const picker =
-      customColorBtn
-        ? customColorBtn.closest(
-            ".custom-color-picker"
-          )
-        : null;
-
-
-    if (
-      picker &&
-      !picker.contains(
-        e.target
-      )
-    ) {
-
-      setCustomColorPanel(
-        false
+        }
       );
 
     }
-
-  }
-);
+  );
 
 
-// ESC closes the custom color panel
-document.addEventListener(
-  "keydown",
-  e => {
-
-    if (
-      e.key === "Escape" &&
-      customColorPanel &&
-      !customColorPanel.hidden
-    ) {
-
-      setCustomColorPanel(
-        false
-      );
-
-    }
-
-  }
+// Initial custom color preview
+updateCustomColorPreview(
+  currentColor
 );
 
 
 // ======================================================
-// DRAWING MODE
+// MODE BUTTONS
 // ======================================================
+
+document
+  .getElementById(
+    "fillModeBtn"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      updateModeButtons(
+        "fill"
+      );
+
+    }
+  );
+
 
 function updateModeButtons(
-  newMode
+  newMode = null
 ) {
 
   mode =
@@ -1233,138 +1190,85 @@ function updateModeButtons(
       ".mode-btn"
     )
     .forEach(
-      btn => {
-
+      btn =>
         btn.classList.remove(
           "active"
-        );
-
-      }
-    );
-
-
-  const fillBtn =
-    document.getElementById(
-      "fillModeBtn"
-    );
-
-
-  const brushBtn =
-    document.getElementById(
-      "brushModeBtn"
-    );
-
-
-  const eraserBtn =
-    document.getElementById(
-      "eraserModeBtn"
-    );
-
-
-  const textBtn =
-    document.getElementById(
-      "textModeBtn"
+        )
     );
 
 
   if (
-    mode === "fill" &&
-    fillBtn
+    mode === "fill"
   ) {
 
-    fillBtn.classList.add(
-      "active"
-    );
+    document
+      .getElementById(
+        "fillModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
 
   }
-
 
   else if (
-    mode === "brush" &&
-    brushBtn
+    mode === "brush"
   ) {
 
-    brushBtn.classList.add(
-      "active"
-    );
+    document
+      .getElementById(
+        "brushModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
 
   }
-
 
   else if (
-    mode === "eraser" &&
-    eraserBtn
+    mode === "eraser"
   ) {
 
-    eraserBtn.classList.add(
-      "active"
-    );
+    document
+      .getElementById(
+        "eraserModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
 
   }
-
 
   else if (
-    mode === "text" &&
-    textBtn
+    mode === "text"
   ) {
 
-    textBtn.classList.add(
-      "active"
-    );
+    document
+      .getElementById(
+        "textModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
 
   }
 
 
-  /*
-  Update the desktop mouse cursor whenever
-  the active drawing tool changes.
-  */
+  // NEW:
+  // Update the visible mouse cursor immediately.
   updateCanvasCursorMode();
 
-
-  /*
-  Keep Brush / Eraser preview size synchronized.
-  */
+  // Keep Brush / Eraser preview size synchronized.
   updateToolCursorSize();
 
 }
 
 
-// ======================================================
-// MODE BUTTON EVENTS
-// ======================================================
-
-const fillModeBtn =
-  document.getElementById(
-    "fillModeBtn"
-  );
-
-
-if (fillModeBtn) {
-
-  fillModeBtn.addEventListener(
-    "click",
-    () => {
-
-      updateModeButtons(
-        "fill"
-      );
-
-    }
-  );
-
-}
-
-
-const textModeBtn =
-  document.getElementById(
+document
+  .getElementById(
     "textModeBtn"
-  );
-
-
-if (textModeBtn) {
-
-  textModeBtn.addEventListener(
+  )
+  .addEventListener(
     "click",
     () => {
 
@@ -1372,24 +1276,17 @@ if (textModeBtn) {
         "text"
       );
 
-
       addTextBoxCentered();
 
     }
   );
 
-}
 
-
-const brushModeBtn =
-  document.getElementById(
+document
+  .getElementById(
     "brushModeBtn"
-  );
-
-
-if (brushModeBtn) {
-
-  brushModeBtn.addEventListener(
+  )
+  .addEventListener(
     "click",
     () => {
 
@@ -1400,18 +1297,12 @@ if (brushModeBtn) {
     }
   );
 
-}
 
-
-const eraserModeBtn =
-  document.getElementById(
+document
+  .getElementById(
     "eraserModeBtn"
-  );
-
-
-if (eraserModeBtn) {
-
-  eraserModeBtn.addEventListener(
+  )
+  .addEventListener(
     "click",
     () => {
 
@@ -1422,22 +1313,12 @@ if (eraserModeBtn) {
     }
   );
 
-}
 
-
-// ======================================================
-// BRUSH SIZE
-// ======================================================
-
-const brushSizeSelect =
-  document.getElementById(
+document
+  .getElementById(
     "brushSizeSelect"
-  );
-
-
-if (brushSizeSelect) {
-
-  brushSizeSelect.addEventListener(
+  )
+  .addEventListener(
     "change",
     function () {
 
@@ -1446,17 +1327,12 @@ if (brushSizeSelect) {
           this.value
         );
 
-
-      /*
-      Update Brush / Eraser preview
-      immediately when size changes.
-      */
+      // NEW:
+      // Update Brush / Eraser preview size immediately.
       updateToolCursorSize();
 
     }
   );
-
-}
 
 
 // ======================================================
@@ -1482,9 +1358,7 @@ if (imageSelect) {
       if (
         !selectedImage
       ) {
-
         return;
-
       }
 
 
@@ -1499,29 +1373,23 @@ if (imageSelect) {
             localImg
           );
 
-
           undoStack =
             [];
 
-
           redoStack =
             [];
-
 
           originalImageName =
             selectedImage
               .split("/")
               .pop();
 
-
           updateSelectStyle();
-
 
           const kiteLabel =
             document.getElementById(
               "kite-label-input"
             );
-
 
           if (
             kiteLabel
@@ -1532,11 +1400,8 @@ if (imageSelect) {
 
           }
 
-
-          /*
-          Canvas size may have changed.
-          Recalculate cursor preview size.
-          */
+          // Canvas size may have changed.
+          // Recalculate cursor preview size.
           updateToolCursorSize();
 
         };
@@ -1567,19 +1432,11 @@ if (imageSelect) {
 }
 
 
-// ======================================================
-// UPLOAD IMAGE
-// ======================================================
-
-const uploadInput =
-  document.getElementById(
+document
+  .getElementById(
     "uploadInput"
-  );
-
-
-if (uploadInput) {
-
-  uploadInput.addEventListener(
+  )
+  .addEventListener(
     "change",
     function (e) {
 
@@ -1590,9 +1447,7 @@ if (uploadInput) {
       if (
         !file
       ) {
-
         return;
-
       }
 
 
@@ -1614,14 +1469,11 @@ if (uploadInput) {
                 upImg
               );
 
-
               undoStack =
                 [];
 
-
               redoStack =
                 [];
-
 
               originalImageName =
                 file.name;
@@ -1639,11 +1491,7 @@ if (uploadInput) {
 
               updateSelectStyle();
 
-
-              /*
-              Canvas display ratio may have changed.
-              Recalculate Brush / Eraser cursor.
-              */
+              // Canvas display ratio may have changed.
               updateToolCursorSize();
 
             };
@@ -1661,8 +1509,6 @@ if (uploadInput) {
 
     }
   );
-
-}
 
 
 // ======================================================
@@ -1685,34 +1531,459 @@ function getCanvasCoords(e) {
     rect.height;
 
 
+  let clientX;
+  let clientY;
+
+
+  if (
+    e.touches &&
+    e.touches[0]
+  ) {
+
+    clientX =
+      e.touches[0].clientX;
+
+    clientY =
+      e.touches[0].clientY;
+
+  }
+
+  else {
+
+    clientX =
+      e.clientX;
+
+    clientY =
+      e.clientY;
+
+  }
+
+
+  const x =
+    Math.floor(
+      (
+        clientX -
+        rect.left
+      ) *
+      scaleX
+    );
+
+
+  const y =
+    Math.floor(
+      (
+        clientY -
+        rect.top
+      ) *
+      scaleY
+    );
+
+
   return {
-
-    x:
-      Math.floor(
-        (
-          e.clientX -
-          rect.left
-        ) *
-        scaleX
-      ),
-
-    y:
-      Math.floor(
-        (
-          e.clientY -
-          rect.top
-        ) *
-        scaleY
-      )
-
+    x,
+    y
   };
 
 }
 
 
 // ======================================================
-// HEX COLOR → RGBA
+// BRUSH / ERASER
 // ======================================================
+
+function isMobile() {
+
+  return /Android|webOS|iPhone|iPad|iPod|Windows Phone|BlackBerry/i
+    .test(
+      navigator.userAgent
+    );
+
+}
+
+
+function strokeFromTo(
+  x0,
+  y0,
+  x1,
+  y1,
+  radius,
+  rgba,
+  isErase = false
+) {
+
+  const dx =
+    x1 - x0;
+
+  const dy =
+    y1 - y0;
+
+
+  const dist =
+    Math.hypot(
+      dx,
+      dy
+    );
+
+
+  if (
+    dist === 0
+  ) {
+
+    paintCircleOnMain(
+      x1,
+      y1,
+      radius,
+      rgba,
+      isErase
+    );
+
+    return;
+
+  }
+
+
+  const STEP_FACTOR =
+    isMobile()
+      ? 0.6
+      : 0.5;
+
+
+  const step =
+    Math.max(
+      1,
+      radius *
+      STEP_FACTOR
+    );
+
+
+  const n =
+    Math.ceil(
+      dist /
+      step
+    );
+
+
+  for (
+    let i = 1;
+    i <= n;
+    i++
+  ) {
+
+    const t =
+      i / n;
+
+
+    const x =
+      x0 +
+      dx * t;
+
+
+    const y =
+      y0 +
+      dy * t;
+
+
+    paintCircleOnMain(
+      x,
+      y,
+      radius,
+      rgba,
+      isErase
+    );
+
+  }
+
+}
+
+
+function drawAt(e) {
+
+  ensureInitialized();
+
+
+  const {
+    x,
+    y
+  } =
+    getCanvasCoords(
+      e
+    );
+
+
+  const isErase =
+    mode ===
+    "eraser";
+
+
+  const rgba =
+    isErase
+      ? [255,255,255,255]
+      : hexToRgba(
+          currentColor
+        );
+
+
+  if (
+    !lastPt
+  ) {
+
+    paintCircleOnMain(
+      x,
+      y,
+      brushSize,
+      rgba,
+      isErase
+    );
+
+
+    lastPt = {
+      x,
+      y
+    };
+
+  }
+
+  else {
+
+    strokeFromTo(
+      lastPt.x,
+      lastPt.y,
+      x,
+      y,
+      brushSize,
+      rgba,
+      isErase
+    );
+
+
+    lastPt = {
+      x,
+      y
+    };
+
+  }
+
+}
+
+
+// Desktop drawing
+canvas.addEventListener(
+  "mousedown",
+  e => {
+
+    if (
+      mode === "brush" ||
+      mode === "eraser"
+    ) {
+
+      isDrawing =
+        true;
+
+
+      saveState();
+
+
+      lastPt =
+        null;
+
+
+      drawAt(e);
+
+    }
+
+  }
+);
+
+
+canvas.addEventListener(
+  "mousemove",
+  e => {
+
+    if (
+      isDrawing &&
+      (
+        mode === "brush" ||
+        mode === "eraser"
+      )
+    ) {
+
+      drawAt(e);
+
+    }
+
+  }
+);
+
+
+canvas.addEventListener(
+  "mouseup",
+  () => {
+
+    isDrawing =
+      false;
+
+    lastPt =
+      null;
+
+  }
+);
+
+
+canvas.addEventListener(
+  "mouseleave",
+  () => {
+
+    isDrawing =
+      false;
+
+    lastPt =
+      null;
+
+    hideToolCursorPreview();
+
+  }
+);
+
+
+// Mobile drawing
+canvas.addEventListener(
+  "touchstart",
+  e => {
+
+    if (
+      mode === "brush" ||
+      mode === "eraser"
+    ) {
+
+      isDrawing =
+        true;
+
+
+      saveState();
+
+
+      lastPt =
+        null;
+
+
+      drawAt(e);
+
+
+      e.preventDefault();
+
+    }
+
+  },
+  {
+    passive: false
+  }
+);
+
+
+canvas.addEventListener(
+  "touchmove",
+  e => {
+
+    if (
+      isDrawing &&
+      (
+        mode === "brush" ||
+        mode === "eraser"
+      )
+    ) {
+
+      drawAt(e);
+
+      e.preventDefault();
+
+    }
+
+  },
+  {
+    passive: false
+  }
+);
+
+
+canvas.addEventListener(
+  "touchend",
+  () => {
+
+    isDrawing =
+      false;
+
+    lastPt =
+      null;
+
+  }
+);
+
+
+// ======================================================
+// FILL
+// ======================================================
+
+canvas.addEventListener(
+  "click",
+  e => {
+
+    if (
+      mode !== "fill"
+    ) {
+      return;
+    }
+
+
+    ensureInitialized();
+
+
+    const {
+      x,
+      y
+    } =
+      getCanvasCoords(
+        e
+      );
+
+
+    saveState();
+
+
+    const color =
+      hexToRgba(
+        currentColor
+      );
+
+
+    if (
+      imageProcessingMode ===
+      "lineart"
+    ) {
+
+      floodFillSingleLayer(
+        x,
+        y,
+        color
+      );
+
+    }
+
+    else {
+
+      floodFillWithEdgeGuard(
+        x,
+        y,
+        color,
+        fillTolerance,
+        edgeStop,
+        PRESERVE_LIGHTNESS
+      );
+
+    }
+
+  }
+);
+
 
 function hexToRgba(hex) {
 
@@ -1725,13 +1996,9 @@ function hexToRgba(hex) {
 
   return [
 
-    (
-      bigint >> 16
-    ) & 255,
+    (bigint >> 16) & 255,
 
-    (
-      bigint >> 8
-    ) & 255,
+    (bigint >> 8) & 255,
 
     bigint & 255,
 
@@ -1741,10 +2008,6 @@ function hexToRgba(hex) {
 
 }
 
-
-// ======================================================
-// LINE MASK CHECK
-// ======================================================
 
 function isLinePixel(
   x,
@@ -1756,9 +2019,7 @@ function isLinePixel(
   if (
     !lineMask
   ) {
-
     return false;
-
   }
 
 
@@ -1781,12 +2042,1090 @@ function isLinePixel(
   );
 
 }
+function setCustomColorPanel(open) {
+
+  if (
+    !customColorBtn ||
+    !customColorPanel
+  ) {
+    return;
+  }
+
+  customColorPanel.hidden =
+    !open;
+
+  customColorBtn.setAttribute(
+    "aria-expanded",
+    open ? "true" : "false"
+  );
+}
+
+
+// Build extended color swatches
+if (customColorGrid) {
+
+  extendedColors.forEach(
+    hex => {
+
+      const btn =
+        document.createElement(
+          "button"
+        );
+
+      btn.type =
+        "button";
+
+      btn.className =
+        "extended-color-swatch";
+
+      btn.dataset.color =
+        hex;
+
+      btn.style.background =
+        hex;
+
+      btn.title =
+        hex;
+
+      btn.setAttribute(
+        "aria-label",
+        `Choose color ${hex}`
+      );
+
+      btn.addEventListener(
+        "click",
+        () => {
+
+          applyExtendedColor(
+            hex
+          );
+
+          setCustomColorPanel(
+            false
+          );
+
+        }
+      );
+
+      customColorGrid.appendChild(
+        btn
+      );
+
+    }
+  );
+
+}
+
+
+// Choose Color button
+if (
+  customColorBtn &&
+  customColorPanel
+) {
+
+  customColorBtn.addEventListener(
+    "click",
+    e => {
+
+      e.stopPropagation();
+
+      setCustomColorPanel(
+        customColorPanel.hidden
+      );
+
+    }
+  );
+
+
+  customColorPanel.addEventListener(
+    "click",
+    e =>
+      e.stopPropagation()
+  );
+
+
+  document.addEventListener(
+    "click",
+    () =>
+      setCustomColorPanel(
+        false
+      )
+  );
+
+
+  document.addEventListener(
+    "keydown",
+    e => {
+
+      if (
+        e.key === "Escape"
+      ) {
+
+        setCustomColorPanel(
+          false
+        );
+
+      }
+
+    }
+  );
+
+}
+
+
+// Native color picker
+if (customColorInput) {
+
+  customColorInput.addEventListener(
+    "input",
+    e => {
+
+      applyExtendedColor(
+        e.target.value
+      );
+
+    }
+  );
+
+
+  customColorInput.addEventListener(
+    "change",
+    () => {
+
+      setCustomColorPanel(
+        false
+      );
+
+    }
+  );
+
+}
+
+
+// Sync custom color preview when selecting
+// one of the standard colors again.
+document
+  .querySelectorAll(".color")
+  .forEach(
+    el => {
+
+      el.addEventListener(
+        "click",
+        () => {
+
+          updateCustomColorPreview(
+            currentColor
+          );
+
+          document
+            .querySelectorAll(
+              ".extended-color-swatch"
+            )
+            .forEach(
+              c =>
+                c.classList.remove(
+                  "selected"
+                )
+            );
+
+        }
+      );
+
+    }
+  );
+
+
+// Initial custom color preview
+updateCustomColorPreview(
+  currentColor
+);
 
 
 // ======================================================
-// FLOOD FILL — LINE ART
+// MODE BUTTONS
 // ======================================================
 
+document
+  .getElementById(
+    "fillModeBtn"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      updateModeButtons(
+        "fill"
+      );
+
+    }
+  );
+
+
+function updateModeButtons(
+  newMode = null
+) {
+
+  mode =
+    newMode;
+
+
+  document
+    .querySelectorAll(
+      ".mode-btn"
+    )
+    .forEach(
+      btn =>
+        btn.classList.remove(
+          "active"
+        )
+    );
+
+
+  if (
+    mode === "fill"
+  ) {
+
+    document
+      .getElementById(
+        "fillModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
+
+  }
+
+  else if (
+    mode === "brush"
+  ) {
+
+    document
+      .getElementById(
+        "brushModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
+
+  }
+
+  else if (
+    mode === "eraser"
+  ) {
+
+    document
+      .getElementById(
+        "eraserModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
+
+  }
+
+  else if (
+    mode === "text"
+  ) {
+
+    document
+      .getElementById(
+        "textModeBtn"
+      )
+      .classList.add(
+        "active"
+      );
+
+  }
+
+
+  // NEW:
+  // Update the visible mouse cursor immediately.
+  updateCanvasCursorMode();
+
+  // Keep Brush / Eraser preview size synchronized.
+  updateToolCursorSize();
+
+}
+
+
+document
+  .getElementById(
+    "textModeBtn"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      updateModeButtons(
+        "text"
+      );
+
+      addTextBoxCentered();
+
+    }
+  );
+
+
+document
+  .getElementById(
+    "brushModeBtn"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      updateModeButtons(
+        "brush"
+      );
+
+    }
+  );
+
+
+document
+  .getElementById(
+    "eraserModeBtn"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      updateModeButtons(
+        "eraser"
+      );
+
+    }
+  );
+
+
+document
+  .getElementById(
+    "brushSizeSelect"
+  )
+  .addEventListener(
+    "change",
+    function () {
+
+      brushSize =
+        parseFloat(
+          this.value
+        );
+
+      // NEW:
+      // Update Brush / Eraser preview size immediately.
+      updateToolCursorSize();
+
+    }
+  );
+
+
+// ======================================================
+// IMAGE SELECT / UPLOAD
+// ======================================================
+
+const imageSelect =
+  document.getElementById(
+    "imageSelect"
+  );
+
+
+if (imageSelect) {
+
+  imageSelect.addEventListener(
+    "change",
+    function () {
+
+      const selectedImage =
+        this.value;
+
+
+      if (
+        !selectedImage
+      ) {
+        return;
+      }
+
+
+      const localImg =
+        new Image();
+
+
+      localImg.onload =
+        () => {
+
+          loadImageToMainCanvas(
+            localImg
+          );
+
+          undoStack =
+            [];
+
+          redoStack =
+            [];
+
+          originalImageName =
+            selectedImage
+              .split("/")
+              .pop();
+
+          updateSelectStyle();
+
+          const kiteLabel =
+            document.getElementById(
+              "kite-label-input"
+            );
+
+          if (
+            kiteLabel
+          ) {
+
+            kiteLabel.style.display =
+              "block";
+
+          }
+
+          // Canvas size may have changed.
+          // Recalculate cursor preview size.
+          updateToolCursorSize();
+
+        };
+
+
+      localImg.src =
+        selectedImage;
+
+
+      const up =
+        document.getElementById(
+          "uploadInput"
+        );
+
+
+      if (
+        up
+      ) {
+
+        up.value =
+          "";
+
+      }
+
+    }
+  );
+
+}
+
+
+document
+  .getElementById(
+    "uploadInput"
+  )
+  .addEventListener(
+    "change",
+    function (e) {
+
+      const file =
+        e.target.files[0];
+
+
+      if (
+        !file
+      ) {
+        return;
+      }
+
+
+      const reader =
+        new FileReader();
+
+
+      reader.onload =
+        function (event) {
+
+          const upImg =
+            new Image();
+
+
+          upImg.onload =
+            function () {
+
+              loadImageToMainCanvas(
+                upImg
+              );
+
+              undoStack =
+                [];
+
+              redoStack =
+                [];
+
+              originalImageName =
+                file.name;
+
+
+              if (
+                imageSelect
+              ) {
+
+                imageSelect.selectedIndex =
+                  0;
+
+              }
+
+
+              updateSelectStyle();
+
+              // Canvas display ratio may have changed.
+              updateToolCursorSize();
+
+            };
+
+
+          upImg.src =
+            event.target.result;
+
+        };
+
+
+      reader.readAsDataURL(
+        file
+      );
+
+    }
+  );
+
+
+// ======================================================
+// COORDINATE HELPERS
+// ======================================================
+
+function getCanvasCoords(e) {
+
+  const rect =
+    canvas.getBoundingClientRect();
+
+
+  const scaleX =
+    canvas.width /
+    rect.width;
+
+
+  const scaleY =
+    canvas.height /
+    rect.height;
+
+
+  let clientX;
+  let clientY;
+
+
+  if (
+    e.touches &&
+    e.touches[0]
+  ) {
+
+    clientX =
+      e.touches[0].clientX;
+
+    clientY =
+      e.touches[0].clientY;
+
+  }
+
+  else {
+
+    clientX =
+      e.clientX;
+
+    clientY =
+      e.clientY;
+
+  }
+
+
+  const x =
+    Math.floor(
+      (
+        clientX -
+        rect.left
+      ) *
+      scaleX
+    );
+
+
+  const y =
+    Math.floor(
+      (
+        clientY -
+        rect.top
+      ) *
+      scaleY
+    );
+
+
+  return {
+    x,
+    y
+  };
+
+}
+
+
+// ======================================================
+// BRUSH / ERASER
+// ======================================================
+
+function isMobile() {
+
+  return /Android|webOS|iPhone|iPad|iPod|Windows Phone|BlackBerry/i
+    .test(
+      navigator.userAgent
+    );
+
+}
+
+
+function strokeFromTo(
+  x0,
+  y0,
+  x1,
+  y1,
+  radius,
+  rgba,
+  isErase = false
+) {
+
+  const dx =
+    x1 - x0;
+
+  const dy =
+    y1 - y0;
+
+
+  const dist =
+    Math.hypot(
+      dx,
+      dy
+    );
+
+
+  if (
+    dist === 0
+  ) {
+
+    paintCircleOnMain(
+      x1,
+      y1,
+      radius,
+      rgba,
+      isErase
+    );
+
+    return;
+
+  }
+
+
+  const STEP_FACTOR =
+    isMobile()
+      ? 0.6
+      : 0.5;
+
+
+  const step =
+    Math.max(
+      1,
+      radius *
+      STEP_FACTOR
+    );
+
+
+  const n =
+    Math.ceil(
+      dist /
+      step
+    );
+
+
+  for (
+    let i = 1;
+    i <= n;
+    i++
+  ) {
+
+    const t =
+      i / n;
+
+
+    const x =
+      x0 +
+      dx * t;
+
+
+    const y =
+      y0 +
+      dy * t;
+
+
+    paintCircleOnMain(
+      x,
+      y,
+      radius,
+      rgba,
+      isErase
+    );
+
+  }
+
+}
+
+
+function drawAt(e) {
+
+  ensureInitialized();
+
+
+  const {
+    x,
+    y
+  } =
+    getCanvasCoords(
+      e
+    );
+
+
+  const isErase =
+    mode ===
+    "eraser";
+
+
+  const rgba =
+    isErase
+      ? [255,255,255,255]
+      : hexToRgba(
+          currentColor
+        );
+
+
+  if (
+    !lastPt
+  ) {
+
+    paintCircleOnMain(
+      x,
+      y,
+      brushSize,
+      rgba,
+      isErase
+    );
+
+
+    lastPt = {
+      x,
+      y
+    };
+
+  }
+
+  else {
+
+    strokeFromTo(
+      lastPt.x,
+      lastPt.y,
+      x,
+      y,
+      brushSize,
+      rgba,
+      isErase
+    );
+
+
+    lastPt = {
+      x,
+      y
+    };
+
+  }
+
+}
+
+
+// Desktop drawing
+canvas.addEventListener(
+  "mousedown",
+  e => {
+
+    if (
+      mode === "brush" ||
+      mode === "eraser"
+    ) {
+
+      isDrawing =
+        true;
+
+
+      saveState();
+
+
+      lastPt =
+        null;
+
+
+      drawAt(e);
+
+    }
+
+  }
+);
+
+
+canvas.addEventListener(
+  "mousemove",
+  e => {
+
+    if (
+      isDrawing &&
+      (
+        mode === "brush" ||
+        mode === "eraser"
+      )
+    ) {
+
+      drawAt(e);
+
+    }
+
+  }
+);
+
+
+canvas.addEventListener(
+  "mouseup",
+  () => {
+
+    isDrawing =
+      false;
+
+    lastPt =
+      null;
+
+  }
+);
+
+
+canvas.addEventListener(
+  "mouseleave",
+  () => {
+
+    isDrawing =
+      false;
+
+    lastPt =
+      null;
+
+    hideToolCursorPreview();
+
+  }
+);
+
+
+// Mobile drawing
+canvas.addEventListener(
+  "touchstart",
+  e => {
+
+    if (
+      mode === "brush" ||
+      mode === "eraser"
+    ) {
+
+      isDrawing =
+        true;
+
+
+      saveState();
+
+
+      lastPt =
+        null;
+
+
+      drawAt(e);
+
+
+      e.preventDefault();
+
+    }
+
+  },
+  {
+    passive: false
+  }
+);
+
+
+canvas.addEventListener(
+  "touchmove",
+  e => {
+
+    if (
+      isDrawing &&
+      (
+        mode === "brush" ||
+        mode === "eraser"
+      )
+    ) {
+
+      drawAt(e);
+
+      e.preventDefault();
+
+    }
+
+  },
+  {
+    passive: false
+  }
+);
+
+
+canvas.addEventListener(
+  "touchend",
+  () => {
+
+    isDrawing =
+      false;
+
+    lastPt =
+      null;
+
+  }
+);
+
+
+// ======================================================
+// FILL
+// ======================================================
+
+canvas.addEventListener(
+  "click",
+  e => {
+
+    if (
+      mode !== "fill"
+    ) {
+      return;
+    }
+
+
+    ensureInitialized();
+
+
+    const {
+      x,
+      y
+    } =
+      getCanvasCoords(
+        e
+      );
+
+
+    saveState();
+
+
+    const color =
+      hexToRgba(
+        currentColor
+      );
+
+
+    if (
+      imageProcessingMode ===
+      "lineart"
+    ) {
+
+      floodFillSingleLayer(
+        x,
+        y,
+        color
+      );
+
+    }
+
+    else {
+
+      floodFillWithEdgeGuard(
+        x,
+        y,
+        color,
+        fillTolerance,
+        edgeStop,
+        PRESERVE_LIGHTNESS
+      );
+
+    }
+
+  }
+);
+
+
+function hexToRgba(hex) {
+
+  const bigint =
+    parseInt(
+      hex.slice(1),
+      16
+    );
+
+
+  return [
+
+    (bigint >> 16) & 255,
+
+    (bigint >> 8) & 255,
+
+    bigint & 255,
+
+    255
+
+  ];
+
+}
+
+
+function isLinePixel(
+  x,
+  y,
+  w,
+  h
+) {
+
+  if (
+    !lineMask
+  ) {
+    return false;
+  }
+
+
+  if (
+    x < 0 ||
+    y < 0 ||
+    x >= w ||
+    y >= h
+  ) {
+
+    return false;
+
+  }
+
+
+  return (
+    lineMask[
+      y * w + x
+    ] === 1
+  );
+
+}
 function floodFillSingleLayer(
   x,
   y,
@@ -1796,7 +3135,6 @@ function floodFillSingleLayer(
   const w =
     canvas.width;
 
-
   const h =
     canvas.height;
 
@@ -1805,9 +3143,7 @@ function floodFillSingleLayer(
     w === 0 ||
     h === 0
   ) {
-
     return;
-
   }
 
 
@@ -1828,15 +3164,11 @@ function floodFillSingleLayer(
 
   catch (err) {
 
-    console.error(
-      err
-    );
-
+    console.error(err);
 
     alert(
-      "Unable to fill color because pixel data cannot be read. Please use an image from the same domain or upload the image directly."
+      "Unable to apply color because the image pixels cannot be read (CORS). Please use an image from the same domain or enable CORS/crossOrigin='anonymous'."
     );
-
 
     return;
 
@@ -1847,10 +3179,6 @@ function floodFillSingleLayer(
     imageData.data;
 
 
-  /*
-  Do not fill when clicking
-  directly on a protected line.
-  */
   if (
     isLinePixel(
       x,
@@ -1859,33 +3187,24 @@ function floodFillSingleLayer(
       h
     )
   ) {
-
     return;
-
   }
 
 
   const idx0 =
     (
-      y * w +
-      x
+      y * w + x
     ) * 4;
 
 
   const startR =
     data[idx0];
 
-
   const startG =
-    data[
-      idx0 + 1
-    ];
-
+    data[idx0 + 1];
 
   const startB =
-    data[
-      idx0 + 2
-    ];
+    data[idx0 + 2];
 
 
   const tolerance =
@@ -1898,13 +3217,9 @@ function floodFillSingleLayer(
     );
 
 
-  const stack =
-    [
-      [
-        x,
-        y
-      ]
-    ];
+  const stack = [
+    [x, y]
+  ];
 
 
   const match =
@@ -1914,9 +3229,6 @@ function floodFillSingleLayer(
       i
     ) => {
 
-      /*
-      Protect the line mask.
-      */
       if (
         isLinePixel(
           cx,
@@ -1925,45 +3237,32 @@ function floodFillSingleLayer(
           h
         )
       ) {
-
         return false;
-
       }
 
 
       const r =
         data[i];
 
-
       const g =
-        data[
-          i + 1
-        ];
-
+        data[i + 1];
 
       const b =
-        data[
-          i + 2
-        ];
+        data[i + 2];
 
 
       return (
-
         Math.abs(
-          r -
-          startR
-        ) <= tolerance &&
-
-        Math.abs(
-          g -
-          startG
-        ) <= tolerance &&
-
-        Math.abs(
-          b -
-          startB
+          r - startR
         ) <= tolerance
-
+        &&
+        Math.abs(
+          g - startG
+        ) <= tolerance
+        &&
+        Math.abs(
+          b - startB
+        ) <= tolerance
       );
 
     };
@@ -1986,28 +3285,24 @@ function floodFillSingleLayer(
       cx >= w ||
       cy >= h
     ) {
-
       continue;
-
     }
 
 
     const i =
       (
-        cy * w +
-        cx
+        cy * w + cx
       ) * 4;
-	      const vi =
-      cy * w +
-      cx;
+
+
+    const vi =
+      cy * w + cx;
 
 
     if (
       visited[vi]
     ) {
-
       continue;
-
     }
 
 
@@ -2022,51 +3317,28 @@ function floodFillSingleLayer(
         i
       )
     ) {
-
       continue;
-
     }
 
 
     data[i] =
       fillColor[0];
 
-
-    data[
-      i + 1
-    ] =
+    data[i + 1] =
       fillColor[1];
 
-
-    data[
-      i + 2
-    ] =
+    data[i + 2] =
       fillColor[2];
 
-
-    data[
-      i + 3
-    ] =
+    data[i + 3] =
       255;
 
 
     stack.push(
-      [
-        cx - 1,
-        cy
-      ],
-      [
-        cx + 1,
-        cy
-      ],
-      [
-        cx,
-        cy - 1
-      ],
-      [
-        cx,
-        cy + 1
-      ]
+      [cx - 1, cy],
+      [cx + 1, cy],
+      [cx, cy - 1],
+      [cx, cy + 1]
     );
 
   }
@@ -2181,9 +3453,7 @@ function floodFillWithEdgeGuard(
         cx >= w - 1 ||
         cy >= h - 1
       ) {
-
         return 999;
-
       }
 
 
@@ -2247,9 +3517,7 @@ function floodFillWithEdgeGuard(
       cx >= w ||
       cy >= h
     ) {
-
       continue;
-
     }
 
 
@@ -2260,9 +3528,7 @@ function floodFillWithEdgeGuard(
     if (
       visited[pi]
     ) {
-
       continue;
-
     }
 
 
@@ -2276,9 +3542,7 @@ function floodFillWithEdgeGuard(
         cy
       ) > edgeStop
     ) {
-
       continue;
-
     }
 
 
@@ -2301,9 +3565,7 @@ function floodFillWithEdgeGuard(
       Math.abs(g - sG) > tolerance ||
       Math.abs(b - sB) > tolerance
     ) {
-
       continue;
-
     }
 
 
@@ -2670,8 +3932,6 @@ function recolorPreserveLightness(
 // ======================================================
 // BRUSH / ERASER PIXEL PAINTING
 // ======================================================
-// BRUSH / ERASER PIXEL PAINTING
-// ======================================================
 
 function paintCircleOnMain(
   x,
@@ -2784,9 +4044,7 @@ function paintCircleOnMain(
         dy * dy >
         rr
       ) {
-
         continue;
-
       }
 
 
@@ -2798,9 +4056,7 @@ function paintCircleOnMain(
           h
         )
       ) {
-
         continue;
-
       }
 
 
@@ -2880,9 +4136,7 @@ function saveState() {
     canvas.width === 0 ||
     canvas.height === 0
   ) {
-
     return;
-
   }
 
 
@@ -2996,7 +4250,9 @@ document
           undoStack.push(
             current
           );
-		            const next =
+
+
+          const next =
             redoStack.pop();
 
 
@@ -3195,8 +4451,6 @@ function saveCanvasPNG(
   }
 
 }
-
-
 function showToast(msg) {
 
   try {
@@ -3382,6 +4636,7 @@ document
 
       }
 
+
       const logo =
         new Image();
 
@@ -3527,9 +4782,7 @@ document
                   if (
                     !text.trim()
                   ) {
-
                     return;
-
                   }
 
 
@@ -3994,17 +5247,14 @@ function addTextBoxCentered() {
       ) {
 
         e.preventDefault();
-		      }
+
+      }
 
     }
   );
 
 }
 
-
-// ======================================================
-// TEXT BOX DRAG
-// ======================================================
 
 function makeTextBoxDraggable(
   box
@@ -4034,9 +5284,7 @@ function makeTextBoxDraggable(
       if (
         e.target !== box
       ) {
-
         return;
-
       }
 
 
@@ -4070,9 +5318,7 @@ function makeTextBoxDraggable(
       if (
         e.target !== box
       ) {
-
         return;
-
       }
 
 
@@ -4086,6 +5332,7 @@ function makeTextBoxDraggable(
 
       const touch =
         e.touches[0];
+
 
       const rect =
         box.getBoundingClientRect();
@@ -4148,9 +5395,7 @@ function makeTextBoxDraggable(
       if (
         !isDragging
       ) {
-
         return;
-
       }
 
 
@@ -4174,9 +5419,7 @@ function makeTextBoxDraggable(
       if (
         !isDragging
       ) {
-
         return;
-
       }
 
 
@@ -4377,9 +5620,7 @@ function enableResize(
       if (
         !isResizing
       ) {
-
         return;
-
       }
 
 
@@ -4697,9 +5938,7 @@ function enableRotate(
       if (
         !isRotating
       ) {
-
         return;
-
       }
 
 
@@ -4974,9 +6213,7 @@ function updateSelectStyle() {
   if (
     !el
   ) {
-
     return;
-
   }
 
 
@@ -4998,7 +6235,8 @@ function updateSelectStyle() {
 
     el.style.fontStyle =
       "italic";
-	    }
+
+  }
 
   else {
 
@@ -5049,9 +6287,7 @@ function enhanceImageSelect() {
     !select ||
     select.dataset.enhanced
   ) {
-
     return;
-
   }
 
 
@@ -5241,9 +6477,7 @@ function enhanceImageSelect() {
             if (
               isPlaceholder
             ) {
-
               return;
-
             }
 
 
@@ -5582,14 +6816,17 @@ window.addEventListener(
     ensureInitialized();
 
 
+    // NEW:
     // Create the Brush / Eraser cursor preview.
     createToolCursorPreview();
 
 
-    // Apply the initial Fill cursor.
+    // NEW:
+    // Apply the initial Fill crosshair cursor.
     updateCanvasCursorMode();
 
 
+    // NEW:
     // Prepare initial preview size.
     updateToolCursorSize();
 
@@ -5997,11 +7234,11 @@ function classifyImageTypeQuick(
 
 
       const mn =
-  Math.min(
-    r,
-    g,
-    b
-  );
+        Math.min(
+          r,
+          g,
+          b
+        );
 
 
       S[p] =
@@ -6192,6 +7429,7 @@ function ensureInitialized() {
     canvas.width =
       w;
 
+
     canvas.height =
       h;
 
@@ -6220,22 +7458,8 @@ function loadImageToMainCanvas(
   image
 ) {
 
-  /*
-  FIX LOAD IMAGE:
-  The old code used isMobile(), but color.js
-  does not define that function.
-
-  Detect the device directly here so the image
-  can continue loading normally.
-  */
-  const isMobileDevice =
-    window.matchMedia(
-      "(max-width: 768px), (hover: none) and (pointer: coarse)"
-    ).matches;
-
-
   const MAX_EDGE =
-    isMobileDevice
+    isMobile()
       ? 1600
       : 3000;
 
@@ -6372,6 +7596,7 @@ function loadImageToMainCanvas(
   }
 
 
+  // NEW:
   // Recalculate the on-screen Brush/Eraser preview
   // after the canvas receives a new image size.
   updateToolCursorSize();
@@ -6523,9 +7748,7 @@ function normalizeLineartBW(
         hardBlack[p] ||
         hardWhite[p]
       ) {
-
         continue;
-
       }
 
 
@@ -6550,9 +7773,7 @@ function normalizeLineartBW(
           nx >= w ||
           ny >= h
         ) {
-
           continue;
-
         }
 
 
@@ -6613,9 +7834,7 @@ function normalizeLineartBW(
         if (
           src[p]
         ) {
-
           continue;
-
         }
 
 
@@ -6651,9 +7870,7 @@ function normalizeLineartBW(
               nx >= w ||
               ny >= h
             ) {
-
               continue;
-
             }
 
 
@@ -6869,4 +8086,3 @@ function renderLineartAAFromMask(
     false;
 
 }
-		
